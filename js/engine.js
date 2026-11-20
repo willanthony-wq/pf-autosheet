@@ -91,31 +91,46 @@
 
   // ---------- Bonus formulas ----------
   // A bonus value is a number or a small formula such as "max(3, level)" or "ranks >= 10 ? 6 : 3".
-  const FORMULA_IDS = new Set(['level', 'bab', 'str', 'dex', 'con', 'int', 'wis', 'cha', 'ranks', 'max', 'min', 'floor', 'ceil', 'abs']);
+  // Variables: level, bab, str..cha (modifiers), ranks (in the targeted skill), class1..class3 (levels in each
+  // class slot) and any class name as a word, e.g. rogue, cleric, machine_smith (your levels in it; 0 if none).
+  const BASE_VARS = new Set(['level', 'bab', 'str', 'dex', 'con', 'int', 'wis', 'cha', 'ranks']);
+  const MATH_FNS = new Set(['max', 'min', 'floor', 'ceil', 'abs']);
+  function classSlug(name) { return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''); }
+  const CLASS_SLUGS = new Set(D.classes.map(c => classSlug(c.name)).concat(['class1', 'class2', 'class3']));
   const formulaCache = new Map();
+  // Returns { fn, unknown } or null. `unknown` lists words that must be one of this character's class names.
   function compileFormula(src) {
-    const key = String(src);
+    const key = String(src).toLowerCase();
     if (formulaCache.has(key)) return formulaCache.get(key);
-    let f = null;
-    const ok = /^[\d\s+\-*/().,<>=?:!&|a-z_]*$/i.test(key) && (key.match(/[a-z_]+/gi) || []).every(id => FORMULA_IDS.has(id.toLowerCase()));
-    if (ok) {
+    let out = null;
+    if (/^[\d\s+\-*/().,<>=?:!&|a-z_]*$/.test(key)) {
+      const unknown = [];
+      const body = key.replace(/[a-z_][a-z0-9_]*/g, id => {
+        if (BASE_VARS.has(id) || MATH_FNS.has(id)) return id;
+        if (!CLASS_SLUGS.has(id)) unknown.push(id);
+        return 'L("' + id + '")';
+      });
       try {
-        f = new Function('V', 'const {level=0,bab=0,str=0,dex=0,con=0,int=0,wis=0,cha=0,ranks=0}=V; const {max,min,floor,ceil,abs}=Math; return (' + key.toLowerCase() + ');');
-      } catch (e) { f = null; }
+        const fn = new Function('V', 'const {level=0,bab=0,str=0,dex=0,con=0,int=0,wis=0,cha=0,ranks=0}=V; const {max,min,floor,ceil,abs}=Math;' +
+          ' const C=V.C||{}; const L=k=>Object.prototype.hasOwnProperty.call(C,k)?C[k]:0; return (' + body + ');');
+        out = { fn, unknown };
+      } catch (e) { out = null; }
     }
-    formulaCache.set(key, f);
-    return f;
+    formulaCache.set(key, out);
+    return out;
   }
   function evalBonus(value, V) {
     if (value === '' || value === null || value === undefined) return null;
     if (typeof value === 'number') return Number.isFinite(value) ? value : null;
     const t = String(value).trim();
     if (/^[-+]?\d+(\.\d+)?$/.test(t)) return parseFloat(t);
-    const f = compileFormula(t);
-    if (!f) return null;
-    try { const r = Number(f(V || {})); return Number.isFinite(r) ? Math.floor(r) : null; } catch (e) { return null; }
+    const c = compileFormula(t);
+    if (!c) return null;
+    const C = (V && V.C) || {};
+    if (c.unknown.some(id => !Object.prototype.hasOwnProperty.call(C, id))) return null;
+    try { const r = Number(c.fn(V || {})); return Number.isFinite(r) ? Math.floor(r) : null; } catch (e) { return null; }
   }
-  function isValidBonus(value) { return value === '' || value === null || value === undefined || evalBonus(value, {}) !== null; }
+  function isValidBonus(value, V) { return value === '' || value === null || value === undefined || evalBonus(value, V || {}) !== null; }
 
   function pushBonuses(rows, list, src, nameFn, defType, V, fixedType) {
     for (const b of list) {
@@ -141,9 +156,20 @@
     }
   }
   function abilityVars(d, level, bab) {
-    const V = { level, bab };
+    const V = { level, bab, C: classVars(d) };
     for (const a of ABILITIES) V[a] = d.mods ? d.mods[a] : 0;
     return V;
+  }
+  // class1..class3 = level in each class slot; each class name = total levels in that class
+  function classVars(d) {
+    const C = { class1: 0, class2: 0, class3: 0 };
+    (d.classes || []).forEach((c, i) => {
+      const lv = c.data ? c.level : 0;
+      if (i < 3) C['class' + (i + 1)] = lv;
+      const slug = classSlug(c.name);
+      if (slug) C[slug] = (C[slug] || 0) + lv;
+    });
+    return C;
   }
 
   // ---------- Effect rows ----------
@@ -700,5 +726,5 @@
     return out;
   }
 
-  window.PF_ENGINE = { compute, evalBonus, isValidBonus, getClass, attackOptions, evalExpr, stack, typeTotal, sign, n, isNum, firstNumber, classByName };
+  window.PF_ENGINE = { compute, evalBonus, isValidBonus, classSlug, getClass, attackOptions, evalExpr, stack, typeTotal, sign, n, isNum, firstNumber, classByName };
 })();

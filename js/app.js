@@ -141,7 +141,11 @@
       if (!s) return;
       tr.classList.toggle('untrained', !!s.untrained);
     });
-    $$('.bonus-value').forEach(el => el.classList.toggle('bad', !E.isValidBonus(el.value)));
+    $$('.bonus-value').forEach(el => {
+      el.classList.toggle('bad', !E.isValidBonus(el.value, App.d.formulaVars));
+      const out = el.parentElement && el.parentElement.querySelector('.bonus-result');
+      if (out) out.textContent = bonusResult(el);
+    });
     $$('[data-roll-disabled]').forEach(b => { b.disabled = dget(b.dataset.rollDisabled) === null; });
     document.title = (App.ch && App.ch.info.name ? App.ch.info.name + ' · ' : '') + 'PF Autosheet';
   }
@@ -290,6 +294,44 @@
     return `<div class="grid two">${identity}${classes}${abilities}${hp}${saves}${defenses}</div>`;
   }
 
+  // Formula help: shown from the ? next to every bonus value.
+  function formulaHelp() {
+    const C = (App.d.formulaVars && App.d.formulaVars.C) || {};
+    const mine = App.ch.classes.map((c, i) => c.name && c.level ? `<code>class${i + 1}</code> or <code>${esc(E.classSlug(c.name))}</code> = ${esc(C[E.classSlug(c.name)] || 0)} (${esc(c.name)})` : '').filter(Boolean);
+    return `<span class="help-tip" tabindex="0" role="button" aria-label="Formula help">?<span class="help-pop" role="tooltip">
+      <strong>Value: a number or a formula</strong><br>
+      <strong>Variables</strong><br>
+      <code>level</code> your total character level<br>
+      <code>bab</code> base attack bonus<br>
+      <code>str dex con int wis cha</code> ability modifiers<br>
+      <code>ranks</code> ranks in the skill this bonus targets<br>
+      <code>class1 class2 class3</code> levels in your 1st, 2nd, 3rd class<br>
+      a class name, e.g. <code>rogue</code>, <code>cleric</code>, <code>monk_unchained</code>: your levels in it (spaces and brackets become _)<br>
+      ${mine.length ? `<em>Yours:</em> ${mine.join('; ')}<br>` : ''}
+      <strong>Functions</strong><br>
+      <code>floor(x)</code> round down · <code>ceil(x)</code> round up<br>
+      <code>max(a, b)</code> the larger · <code>min(a, b)</code> the smaller<br>
+      <code>a >= b ? x : y</code> x if a is at least b, otherwise y<br>
+      <strong>Examples</strong><br>
+      Toughness: <code>max(3, level)</code><br>
+      Trapfinding: <code>max(1, floor(rogue/2))</code><br>
+      Skill Focus: <code>ranks >= 10 ? 6 : 3</code><br>
+      +1 per 4 levels: <code>floor(level/4) + 1</code></span></span>`;
+  }
+  // What a bonus value works out to right now (shown as "= 3" next to formulas).
+  function bonusResult(el) {
+    const v = String(el.value || '').trim();
+    if (!v || /^[-+]?\d+(\.\d+)?$/.test(v)) return '';
+    const V = Object.assign({}, App.d.formulaVars || {});
+    if (el.dataset.target === 'skill' && el.dataset.skill) {
+      const key = el.dataset.skill.replace(/:$/, '').toLowerCase();
+      const s = App.d.skills.concat(App.d.specialty).find(x => x.name.replace(/:$/, '').toLowerCase() === key);
+      V.ranks = s ? s.ranks : 0;
+    }
+    const r = E.evalBonus(v, V);
+    return r === null ? '' : '= ' + (r >= 0 ? '+' : '') + r;
+  }
+
   // ----- Shared bonus editor (race, traits, feats, class features)
   function skillNameList() { return App.d.skills.map(s => s.name).concat(M.SPECIALTY_SKILLS); }
   function bonusEditor(listPath, list, o = {}) {
@@ -300,14 +342,15 @@
       if (b.target === 'skill') detail = sel(`${p}/skill`, skillNames, { blank: '— skill —', aria: 'Skill' });
       else if (b.target === 'weapon' || b.target === 'weaponDmg') detail = inp(`${p}/weapon`, { ph: 'Weapon name contains…', list: 'weapon-names', aria: 'Weapon' });
       else detail = inp(`${p}/text`, { ph: b.target === 'note' ? 'When it applies' : 'Notes (optional)', aria: 'Notes' });
-      const bad = E.isValidBonus(b.value) ? '' : ' bad';
+      const bad = E.isValidBonus(b.value, App.d.formulaVars) ? '' : ' bad';
       return `<div class="bonus-row${o.label ? ' with-label' : ''}${b.active === false ? ' inactive' : ''}">
         <input type="checkbox" data-bind="${p}/active" data-type="bool" data-rerender aria-label="Bonus on"${b.active === false ? '' : ' checked'}>
         ${o.label ? inp(`${p}/label`, { ph: 'Name', aria: 'Bonus name' }) : ''}
         ${o.fixedType ? `<span class="sub">${esc(o.fixedType)}</span>` : sel(`${p}/type`, M.BONUS_TYPES, { blank: false, aria: 'Bonus type' })}
         ${sel(`${p}/target`, M.BONUS_TARGETS, { blank: false, rerender: true, aria: 'Applies to' })}
         ${detail}
-        ${b.target === 'note' ? '<span></span>' : inp(`${p}/value`, { ph: '2 or max(3, level)', aria: 'Value', cls: 'bonus-value' + bad, title: 'A number, or a formula using level, bab, str, dex, con, int, wis, cha, ranks, max(), min(), floor()' })}
+        ${b.target === 'note' ? '<span></span>' : `<span class="val-cell">${inp(`${p}/value`, { ph: '2 or a formula', aria: 'Value', cls: 'bonus-value' + bad, title: 'A number, or a formula. Click the ? for help.' })
+          .replace('<input ', `<input data-target="${esc(b.target)}" data-skill="${esc(b.skill || '')}" `)}<span class="bonus-result"></span>${formulaHelp()}</span>`}
         ${removeBtn(listPath, i, 'bonus')}</div>`;
     }).join('');
     return rows ? `<div class="bonus-list">${rows}</div>` : '';
@@ -781,7 +824,7 @@
       { tools: `<button class="btn small" data-action="add" data-list="resources">+ Resource</button>` });
     const slots = card('Magic Items Worn', featureList('slots'),
       { tools: `<button class="btn small" data-action="add" data-list="slots">+ Slot</button>` });
-    const help = `<p class="small muted span-2" style="margin:0">Give a feat, trait, class feature or worn item a <strong>bonus</strong> and it changes your numbers: pick what it applies to and a value. Values can be formulas such as <span class="kbd">max(3, level)</span> (Toughness), <span class="kbd">floor(level/2)</span> or <span class="kbd">ranks >= 10 ? 6 : 3</span> (Skill Focus). <strong>Add standard bonuses</strong> fills them in for common feats, traits and magic items (belts, headbands, cloaks, rings, amulets…).</p>`;
+    const help = `<p class="small muted span-2" style="margin:0">Give a feat, trait, class feature or worn item a <strong>bonus</strong> and it changes your numbers: pick what it applies to and a value. Values can be formulas such as <span class="kbd">max(3, level)</span> (Toughness), <span class="kbd">max(1, floor(rogue/2))</span> (Trapfinding: half your rogue levels, at least 1) or <span class="kbd">ranks >= 10 ? 6 : 3</span> (Skill Focus). Click the <strong>?</strong> next to any value for the full list of variables, and the result appears beside it. <strong>Add standard bonuses</strong> fills them in for common feats, traits and magic items (belts, headbands, cloaks, rings, amulets…).</p>`;
     return `<div class="grid two">${help}${feats}${slots}${traits}${cf}${res}</div>`;
   }
 

@@ -231,8 +231,8 @@ select.class-select { min-width: 190px; }
 
 /* ---------- Bonus editors ---------- */
 .bonus-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
-.bonus-row { display: grid; grid-template-columns: 18px minmax(110px, 1fr) minmax(120px, 1fr) minmax(120px, 1.3fr) 110px 28px; gap: 4px; align-items: center; }
-.bonus-row.with-label { grid-template-columns: 18px minmax(100px, 1fr) 56px minmax(120px, 1fr) minmax(120px, 1.3fr) 110px 28px; }
+.bonus-row { display: grid; grid-template-columns: 18px minmax(110px, 1fr) minmax(120px, 1fr) minmax(120px, 1.3fr) minmax(150px, 1.1fr) 28px; gap: 4px; align-items: center; }
+.bonus-row.with-label { grid-template-columns: 18px minmax(100px, 1fr) 56px minmax(120px, 1fr) minmax(120px, 1.3fr) minmax(150px, 1.1fr) 28px; }
 .bonus-row.inactive > *:not(input[type=checkbox]):not(.icon-btn) { opacity: .5; }
 @container (max-width: 700px) { .bonus-row, .bonus-row.with-label { grid-template-columns: 18px 1fr 1fr 28px; } }
 input.bad { outline: 2px solid var(--bad); }
@@ -279,3 +279,17 @@ label.choice input { margin-top: 3px; accent-color: var(--accent); }
 .play-res:first-child { border-top: 0; }
 .notes-list { margin: 0; padding-left: 18px; }
 .play-stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+/* ---------- Formula value cell and help ---------- */
+.val-cell { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.val-cell input { flex: 1 1 60px; min-width: 50px; }
+.bonus-result { font-size: 12px; color: var(--good); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bonus-result:empty { display: none; }
+.help-tip { position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%;
+  border: 1px solid var(--line-strong); color: var(--muted); font-size: 11px; font-weight: 700; cursor: help; background: var(--panel); }
+.help-tip:hover, .help-tip:focus { color: var(--accent); border-color: var(--accent); outline: none; }
+.help-pop { display: none; position: absolute; right: 0; top: 24px; z-index: 40; width: min(340px, 80vw); padding: 10px 12px; border-radius: 8px;
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line-strong); box-shadow: 0 8px 24px rgba(0,0,0,.25);
+  font-size: 12px; font-weight: 400; line-height: 1.5; text-align: left; cursor: auto; white-space: normal; }
+.help-pop code { font-family: ui-monospace, monospace; background: var(--calc); padding: 0 4px; border-radius: 3px; }
+.help-tip:hover .help-pop, .help-tip:focus .help-pop, .help-tip:focus-within .help-pop { display: block; }
