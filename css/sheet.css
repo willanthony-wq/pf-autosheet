@@ -303,3 +303,10 @@ label.choice input { margin-top: 3px; accent-color: var(--accent); }
 @container (max-width: 760px) { .comp-play { grid-template-columns: minmax(0, 1fr); } }
 .comp-card { border-left: 4px solid var(--gold); }
 .evo-row { grid-template-columns: 1fr 70px 28px; align-items: center; }
+
+.feature-head.comp-buffs { grid-template-columns: 18px 1fr 28px; }
+.feature-head.comp-feats { grid-template-columns: 1fr 28px; }
+.feature-head.comp-gear { grid-template-columns: 90px 1fr 28px; }
+.feature-head.comp-evolutions { grid-template-columns: 1fr 64px 28px; }
+.feature-head.comp-feats > input, .feature-head.comp-buffs > input[type=text], .feature-head.comp-evolutions > input:first-child { font-weight: 600; }
+.inactive-item .bonus-list, .inactive-item .feature-head > input[type=text] { opacity: .55; }

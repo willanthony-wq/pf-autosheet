@@ -50,6 +50,9 @@
     ['improved sunder', () => note('+2 to sunder attempts and +2 CMD against sunder')],
     ['improved feint', () => note('Feint as a move action')],
     ['endurance', () => note('+4 on checks and saves listed under Endurance (forced march, holding breath, etc.)')],
+    ['improved natural armor', () => [{ target: 'nat', value: 1, type: U }]],
+    ['improved natural attack', () => note('Increase one natural attack\'s damage dice by one step (edit its dice)')],
+    ['multiattack', () => note('Tick Multiattack on the Companion tab (secondary attacks -2 instead of -5)')],
     ['power attack', () => note('Use the Power Attack toggle on the Play or Combat tab')],
     ['combat expertise', () => note('Use the Combat Expertise toggle on the Play or Combat tab')],
     ['deadly aim', () => note('Use the Deadly Aim toggle on the Play or Combat tab')],
@@ -93,6 +96,23 @@
     ['headband of ninjitsu', () => note('+2 competence bonus on Stealth; ki pool benefits')],
   ];
 
+  // Eidolon evolutions (APG). Values are per selection; edit for repeated picks.
+  const EVOLUTIONS = [
+    ['improved natural armor', () => [{ target: 'nat', value: 2, type: U }]],
+    ['ability increase', () => [{ target: 'str', value: 2, type: U, text: 'Pick the ability this applies to' }]],
+    ['skilled', n => [{ target: 'skill', skill: matchSkill(paren(n)) || '', value: 8, type: 'Racial', text: 'Pick the skill' }]],
+    ['resistance', n => note(`Resistance 5 to ${paren(n) || 'one energy type'} (increases by 5 per extra pick)`)],
+    ['improved damage', n => note(`Increase ${paren(n) || 'one natural attack'}'s damage dice by one step`)],
+    ['bite', () => note('Add a Bite attack on the Companion tab (1d6 for Medium, primary)')],
+    ['claws', () => note('Add Claws (2 attacks, 1d4 for Medium, primary)')],
+    ['slam', () => note('Add a Slam attack (1d8 for Medium, primary)')],
+    ['pounce', () => note('Full attack after a charge')],
+    ['reach', n => note(`+5 ft. reach with ${paren(n) || 'one attack'}`)],
+    ['flight', () => note('Fly speed equal to base speed (average maneuverability)')],
+    ['scent', () => note('Scent')],
+    ['tail slap', () => note('Add a Tail Slap attack (secondary, 1d6 for Medium)')],
+  ];
+
   let skillNames = [];
   function matchSkill(text) {
     const t = String(text || '').toLowerCase();
@@ -109,7 +129,7 @@
   // Returns an array of bonuses for a feat/trait name, or null if unknown.
   function suggest(kind, name, skills) {
     skillNames = skills || [];
-    const fn = lookup(kind === 'trait' ? TRAITS : kind === 'item' ? ITEMS : FEATS, name);
+    const fn = lookup(kind === 'trait' ? TRAITS : kind === 'item' ? ITEMS : kind === 'evolution' ? EVOLUTIONS : FEATS, name);
     if (!fn) return null;
     return fn(name).map(b => Object.assign({ label: '', skill: '', weapon: '', text: '', active: true }, b));
   }

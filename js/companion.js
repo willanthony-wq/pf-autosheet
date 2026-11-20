@@ -35,6 +35,23 @@
 
   const KINDS = ['Animal Companion', 'Eidolon', 'Familiar', 'Other'];
 
+  // Common buffs for companions (bonuses are editable after adding).
+  const B = (target, value, type, extra) => Object.assign({ label: '', target, value, type, skill: '', weapon: '', text: '', active: true }, extra || {});
+  const BUFF_PRESETS = {
+    'Bless': [B('atk', 1, 'Morale'), B('note', '', 'Morale', { text: '+1 morale on saves against fear' })],
+    'Haste': [B('ac', 1, 'Dodge (stacks)'), B('atk', 1, 'Untyped (stacks)'), B('ref', 1, 'Dodge (stacks)'), B('note', '', 'Untyped (stacks)', { text: 'One extra attack at full bonus on a full attack; +30 ft. speed' })],
+    'Heroism': [B('atk', 2, 'Morale'), B('saves', 2, 'Morale'), B('skills', 2, 'Morale')],
+    'Mage Armor': [B('ac', 4, 'Armor')],
+    'Barkskin': [B('nat', 'max(2, min(5, 2 + floor((druid - 3) / 3)))', 'Enhancement', { text: '+2, +1 per 3 caster levels above 3rd (max +5); edit if the caster is not your druid' })],
+    "Bull's Strength": [B('str', 4, 'Enhancement')],
+    "Cat's Grace": [B('dex', 4, 'Enhancement')],
+    "Bear's Endurance": [B('con', 4, 'Enhancement')],
+    'Shield of Faith': [B('ac', 2, 'Deflection')],
+    'Rage (spell)': [B('str', 2, 'Morale'), B('con', 2, 'Morale'), B('will', 1, 'Morale'), B('ac', -2, 'Untyped (stacks)')],
+    'Protection from Evil': [B('note', '', 'Deflection', { text: '+2 deflection to AC and +2 resistance on saves against evil creatures' })],
+    'Animal Growth / Enlarge': [B('str', 2, 'Size'), B('dex', -2, 'Size'), B('note', '', 'Size', { text: 'Also change Size one step larger while active' })],
+  };
+
   function blankCompanion(kind) {
     const k = KINDS.includes(kind) ? kind : 'Animal Companion';
     return {
@@ -50,7 +67,7 @@
       saveMisc: { fort: 0, ref: 0, will: 0 }, initMisc: 0, atkMisc: 0,
       baseForm: 'Biped', evolutions: [],   // Eidolon only
       multiattack: false, powerAttack: false, speed: '', senses: '', dr: '',
-      resources: [],
+      resources: [], buffs: [], gear: [], conditions: [],
       attacks: [], skills: [], feats: [], tricks: '', special: '', notes: '',
     };
   }
@@ -59,6 +76,7 @@
     for (const k of Object.keys(b)) if (c[k] === undefined || c[k] === null) c[k] = b[k];
     for (const a of ABIL) if (!c.abilities[a]) c.abilities[a] = b.abilities[a];
     if (!c.id) c.id = M.uid();
+    for (const k of ['feats', 'gear', 'evolutions', 'buffs']) (c[k] || []).forEach(x => { if (!Array.isArray(x.bonuses)) x.bonuses = []; });
     return c;
   }
 
@@ -111,62 +129,97 @@
     }
     out.hd = hd; out.bab = bab; out.baseSaves = base; out.natBonus = natBonus; out.physBonus = physBonus; out.tricks = tricks;
 
-    // Abilities
-    out.abilities = {};
-    out.mods = {};
-    for (const a of ABIL) {
+    // ---- Bonuses: buffs, feats, gear, evolutions and conditions, with the same stacking rules as the character
+    const E = window.PF_ENGINE;
+    const baseScore = a => {
       const ab = c.abilities[a] || { base: 10, adj: 0 };
-      // "-" (or blank) = no score, e.g. a construct's Con and Int: counts as modifier 0
-      if (String(ab.base).trim() === '-' || String(ab.base).trim() === '') { out.abilities[a] = { score: null, mod: 0 }; out.mods[a] = 0; continue; }
-      let score = n(ab.base) + n(ab.adj) + ((a === 'str' || a === 'dex') ? physBonus : 0);
-      if (a === 'int' && intMin !== null) score = Math.max(score, intMin);
-      score = Math.max(0, score);
-      out.abilities[a] = { score, mod: mod(score) };
-      out.mods[a] = mod(score);
-    }
+      if (String(ab.base).trim() === '-' || String(ab.base).trim() === '') return null;
+      let s = n(ab.base) + n(ab.adj) + ((a === 'str' || a === 'dex') ? physBonus : 0);
+      if (a === 'int' && intMin !== null) s = Math.max(s, intMin);
+      return s;
+    };
+    const vars = mods => Object.assign({ level: hd, bab, C: Object.assign({}, (master && master.formulaVars && master.formulaVars.C) || {}) }, mods);
+    const scoresFrom = rows => {
+      const ab = {}, md = {};
+      for (const a of ABIL) {
+        const b = baseScore(a);
+        if (b === null) { ab[a] = { score: null, mod: 0, bonus: 0 }; md[a] = 0; continue; }
+        const bonus = rows ? E.stack(rows, a) : 0;
+        const score = Math.max(0, b + bonus);
+        ab[a] = { score, mod: mod(score), bonus }; md[a] = mod(score);
+      }
+      return { ab, md };
+    };
+    let pass = scoresFrom(null);
+    const ctx = {};
+    let rows = bonusRows(c, vars(pass.md), ctx);
+    pass = scoresFrom(rows);
+    const V = vars(pass.md);
+    rows = bonusRows(c, V, ctx);
+    pass = scoresFrom(rows);
+    out.abilities = pass.ab; out.mods = pass.md; out.rows = rows; out.formulaVars = V;
+    out.overlaps = E.findOverlaps ? E.findOverlaps(rows) : [];
+    out.loseDex = !!ctx.loseDex;
     const m = out.mods;
     const size = M.SIZES.find(s => s.name === c.size) || M.SIZES[4];
     out.size = size;
+    const T = key => E.stack(rows, key);
 
     // Hit points
     const avg = (hdSize + 1) / 2;
-    let hpMax = Math.floor(avg * hd) + m.con * hd + n(c.hpMisc);
-    if (c.kind === 'Familiar' && master) hpMax = Math.floor(master.hp.max / 2) + n(c.hpMisc);
+    let hpMax = Math.floor(avg * hd) + m.con * hd + n(c.hpMisc) + T('hp');
+    if (c.kind === 'Familiar' && master) hpMax = Math.floor(master.hp.max / 2) + n(c.hpMisc) + T('hp');
     if (isNum(c.hpOverride)) hpMax = n(c.hpOverride);
-    out.hp = { max: hpMax, current: hpMax - Math.abs(n(c.damage)) + n(c.temp) };
+    out.hp = { max: hpMax, current: hpMax - Math.abs(n(c.damage)) + n(c.temp), bonus: T('hp') };
 
-    // Defense
-    const natural = n(c.natural) + natBonus;
-    const parts = { armor: n(c.armor), dex: m.dex, size: size.atk, natural, deflect: n(c.deflect), dodge: n(c.dodge), misc: n(c.acMisc) };
+    // Defense: manual fields compete with same-type bonuses (armor, deflection); dodge stacks
+    const armorFx = E.posNeg(rows, 'ac', 'Armor'), deflFx = E.posNeg(rows, 'ac', 'Deflection');
+    const dodgeFx = E.stack(rows, 'ac', t => t === 'Dodge (stacks)');
+    const tempAc = E.stack(rows, 'ac', t => t !== 'Armor' && t !== 'Deflection' && t !== 'Dodge (stacks)');
+    let dexAc = m.dex, dodge = n(c.dodge) + dodgeFx;
+    if (ctx.loseDex) { dexAc = Math.min(0, dexAc); dodge = Math.min(0, dodge); }
+    const parts = {
+      armor: Math.max(n(c.armor), armorFx.pos) + armorFx.neg, dex: dexAc, size: size.atk,
+      natural: n(c.natural) + natBonus + T('nat'), deflect: Math.max(n(c.deflect), deflFx.pos) + deflFx.neg,
+      dodge, misc: n(c.acMisc), temp: tempAc,
+    };
     out.ac = {
       parts,
-      total: 10 + parts.armor + parts.dex + parts.size + parts.natural + parts.deflect + parts.dodge + parts.misc,
-      touch: 10 + parts.dex + parts.size + parts.deflect + parts.dodge + parts.misc,
-      flat: 10 + parts.armor + Math.min(0, parts.dex) + parts.size + parts.natural + parts.deflect + Math.min(0, parts.dodge) + parts.misc,
+      total: 10 + parts.armor + parts.dex + parts.size + parts.natural + parts.deflect + parts.dodge + parts.misc + parts.temp,
+      touch: 10 + parts.dex + parts.size + parts.deflect + parts.dodge + parts.misc + parts.temp,
+      flat: 10 + parts.armor + Math.min(0, parts.dex) + parts.size + parts.natural + parts.deflect + Math.min(0, parts.dodge) + parts.misc + parts.temp,
     };
-    out.cmb = bab + m.str + size.cmb;
-    out.cmd = 10 + bab + m.str + m.dex + size.cmb + parts.deflect + parts.dodge;
-    out.init = m.dex + n(c.initMisc);
+    out.cmb = bab + m.str + size.cmb + T('mAtk') + T('cmb');
+    out.cmd = 10 + bab + m.str + parts.dex + size.cmb + parts.deflect + parts.dodge + parts.temp + T('cmd');
+    let initText = 0;
+    for (const r of rows) if (/initiative/i.test(r.text || '')) { const mm = String(r.text).match(/[-+]?\d+/); if (mm) initText += parseInt(mm[0], 10); }
+    out.init = m.dex + n(c.initMisc) + T('init') + initText;
 
     // Saves
     const saveAb = { fort: 'con', ref: 'dex', will: 'wis' };
     out.saves = {};
     for (const s of ['fort', 'ref', 'will']) {
-      out.saves[s] = { base: base[s], ability: m[saveAb[s]], misc: n(c.saveMisc && c.saveMisc[s]), total: base[s] + m[saveAb[s]] + n(c.saveMisc && c.saveMisc[s]) };
+      const bonus = T(s), misc = n(c.saveMisc && c.saveMisc[s]);
+      out.saves[s] = { base: base[s], ability: m[saveAb[s]], misc, bonus, total: base[s] + m[saveAb[s]] + misc + bonus };
     }
 
     // Attacks (natural or manufactured; each listed attack is rolled once on a full attack)
     const pa = c.powerAttack ? Math.floor(bab / 4) + 1 : 0;
     out.powerAttack = pa;
+    const wRows = rows.filter(r => r.weapon);
     out.attacks = (c.attacks || []).map(a => {
       const abil = ABIL.includes(a.ability) ? a.ability : 'str';
       const secondary = a.secondary === true || a.secondary === 'true';
       const mult = isNum(a.dmgMult) ? n(a.dmgMult) : (secondary ? 0.5 : 1);
       const ranged = a.ranged === true;
-      const atk = bab + m[abil] + size.atk + n(a.misc) + n(c.atkMisc) + (secondary ? (c.multiattack ? -2 : -5) : 0) - (ranged ? 0 : pa);
+      const mine = wRows.filter(r => String(a.name || '').toLowerCase().includes(r.weapon.toLowerCase()));
+      const fxAtk = ranged ? T('rAtk') : T('mAtk');
+      const fxDmg = ranged ? T('rDmg') : T('mDmg');
+      const atk = bab + m[abil] + size.atk + n(a.misc) + n(c.atkMisc) + fxAtk + E.stack(mine, 'wAtk')
+        + (secondary ? (c.multiattack ? -2 : -5) : 0) - (ranged ? 0 : pa);
       // Power Attack: +2 damage per -1 (x1.5 for Str x1.5 attacks, half for secondary/off-hand)
       const paDmg = ranged || !pa ? 0 : Math.floor(pa * 2 * (mult >= 1.5 ? 1.5 : mult < 1 ? 0.5 : 1));
-      const dmg = (abil === 'str' || !a.dmgAbility ? Math.floor(m.str * mult) : Math.floor(m[a.dmgAbility] * mult)) + n(a.dmgMisc) + paDmg;
+      const dmg = Math.floor(m.str * mult) + n(a.dmgMisc) + paDmg + fxDmg + E.stack(mine, 'wDmg');
       const count = Math.max(1, Math.min(8, Math.floor(n(a.count)) || 1));
       const list = Array(count).fill(atk);
       if (a.iterative) for (let i = 1, it = Math.max(1, 1 + Math.floor((bab - 1) / 5)); i < Math.min(4, it); i++) list.push(atk - 5 * i);
@@ -181,6 +234,7 @@
     const meta = window.PF_DATA.skillMeta;
     const ranksPer = Math.max(1, (c.kind === 'Eidolon' ? 4 : 2) + m.int);
     out.skillRanks = { used: (c.skills || []).reduce((t, s) => t + n(s.ranks), 0), available: ranksPer * hd };
+    const key = s => String(s || '').replace(/:$/, '').trim().toLowerCase();
     out.skills = (c.skills || []).map(s => {
       const info = meta[s.name] || { ability: 'Dex', acp: false };
       const ab = M.ABBR_TO_KEY[info.ability] || 'dex';
@@ -189,12 +243,48 @@
       let sizeMod = 0;
       if (s.name === 'Stealth') sizeMod = size.stealth;
       if (s.name === 'Fly') sizeMod = size.fly;
-      const total = ranks + m[ab] + (isClass && ranks > 0 ? 3 : 0) + n(s.misc) + sizeMod;
-      return { name: s.name, ranks, ability: info.ability, isClass, total };
+      // bonuses aimed at this skill (formulas may use its ranks) plus "all skills", stacked by type
+      const byType = new Map();
+      for (const r of rows) {
+        const vals = [];
+        if (r.skill && key(r.skill) === key(s.name)) { const x = E.evalBonus(r.formula, Object.assign({}, V, { ranks })); if (x !== null) vals.push(x); }
+        if (isNum(r.v && r.v.skills)) vals.push(n(r.v.skills));
+        if (r.text && s.name && !r.skill && r.text.toLowerCase().includes(s.name.toLowerCase())) { const mm = String(r.text).match(/[-+]?\d+/); if (mm) vals.push(parseInt(mm[0], 10)); }
+        if (!vals.length) continue;
+        const t = r.type || 'Untyped (stacks)';
+        if (!byType.has(t)) byType.set(t, []);
+        byType.get(t).push(...vals);
+      }
+      let temp = 0;
+      for (const [t, vals] of byType) temp += E.typeTotal(t, vals);
+      const total = ranks + m[ab] + (isClass && ranks > 0 ? 3 : 0) + n(s.misc) + sizeMod + temp;
+      return { name: s.name, ranks, ability: info.ability, isClass, temp, total };
     });
     out.featsAllowed = Math.ceil(hd / 2);
     return out;
   }
 
-  window.PF_COMPANION = { KINDS, AC_SKILLS, BASE_FORMS, blankCompanion, normalize, compute };
+  // Bonus rows for a companion: active buffs, feats, gear, evolutions, and conditions.
+  function bonusRows(c, V, ctx) {
+    const E = window.PF_ENGINE;
+    const rows = [];
+    for (const b of c.buffs || []) if (b.active) E.pushBonuses(rows, b.bonuses || [], 'buff', x => x.label || b.name || 'Buff', 'Untyped (stacks)', V);
+    for (const f of c.feats || []) E.pushBonuses(rows, f.bonuses || [], 'feat', x => x.label || f.name || 'Feat', 'Untyped (stacks)', V);
+    for (const g of c.gear || []) E.pushBonuses(rows, g.bonuses || [], 'gear', x => x.label || g.item || g.slot || 'Gear', 'Enhancement', V);
+    for (const e of c.evolutions || []) E.pushBonuses(rows, e.bonuses || [], 'evolution', x => x.label || e.name || 'Evolution', 'Untyped (stacks)', V);
+    ctx.loseDex = false;
+    const condMap = new Map(window.PF_DATA.conditions.map(x => [x.name, x]));
+    for (const name of c.conditions || []) {
+      const cd = condMap.get(name);
+      if (!cd) continue;
+      const v = {};
+      for (const k of ['str', 'dex', 'con', 'int', 'wis', 'cha', 'fort', 'ref', 'will', 'mAtk', 'mDmg', 'rAtk', 'rDmg', 'skills']) if (isNum(cd[k])) v[k] = n(cd[k]);
+      if (typeof cd.ac === 'string' && cd.ac.startsWith('LOSEDEX')) { ctx.loseDex = true; v.ac = n(cd.ac.slice(7)); }
+      else if (isNum(cd.ac)) v.ac = n(cd.ac);
+      rows.push({ src: 'condition', name, type: 'Untyped (stacks)', v, text: cd.skillText || '' });
+    }
+    return rows;
+  }
+
+  window.PF_COMPANION = { KINDS, AC_SKILLS, BASE_FORMS, BUFF_PRESETS, blankCompanion, normalize, compute };
 })();

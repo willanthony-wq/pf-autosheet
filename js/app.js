@@ -142,7 +142,7 @@
       tr.classList.toggle('untrained', !!s.untrained);
     });
     $$('.bonus-value').forEach(el => {
-      el.classList.toggle('bad', !E.isValidBonus(el.value, App.d.formulaVars));
+      el.classList.toggle('bad', !E.isValidBonus(el.value, bonusVars(el)));
       const out = el.parentElement && el.parentElement.querySelector('.bonus-result');
       if (out) out.textContent = bonusResult(el);
     });
@@ -164,7 +164,8 @@
     const y = window.scrollY;
     const fn = { play: renderPlay, character: renderOverview, overview: renderOverview, race: renderRace, skills: renderSkills, combat: renderCombat, companion: renderCompanion, spells: renderSpells, effects: renderEffects,
       features: renderFeatures, notes: renderNotes, settings: renderSettings }[App.tab] || renderOverview;
-    main.innerHTML = fn() + `<datalist id="weapon-names">${App.ch.weapons.filter(w => w.name).map(w => `<option value="${esc(w.name)}">`).join('')}</datalist>`;
+    const wnames = App.ch.weapons.map(w => w.name).concat(...(App.ch.companions || []).map(c => (c.attacks || []).map(a => a.name))).filter(Boolean);
+    main.innerHTML = fn() + `<datalist id="weapon-names">${[...new Set(wnames)].map(w => `<option value="${esc(w)}">`).join('')}</datalist>`;
     updateOutputs();
     window.scrollTo(0, y);
     renderDiscordState();
@@ -295,18 +296,18 @@
   }
 
   // Formula help: shown from the ? next to every bonus value.
-  function formulaHelp() {
+  function formulaHelp(forCompanion) {
     const C = (App.d.formulaVars && App.d.formulaVars.C) || {};
     const mine = App.ch.classes.map((c, i) => c.name && c.level ? `<code>class${i + 1}</code> or <code>${esc(E.classSlug(c.name))}</code> = ${esc(C[E.classSlug(c.name)] || 0)} (${esc(c.name)})` : '').filter(Boolean);
     return `<span class="help-tip" tabindex="0" role="button" aria-label="Formula help">?<span class="help-pop" role="tooltip">
       <strong>Value: a number or a formula</strong><br>
       <strong>Variables</strong><br>
-      <code>level</code> your total character level<br>
-      <code>bab</code> base attack bonus<br>
-      <code>str dex con int wis cha</code> ability modifiers<br>
+      <code>level</code> ${forCompanion ? "the companion's Hit Dice" : 'your total character level'}<br>
+      <code>bab</code> ${forCompanion ? "the companion's " : ''}base attack bonus<br>
+      <code>str dex con int wis cha</code> ${forCompanion ? "the companion's " : ''}ability modifiers<br>
       <code>ranks</code> ranks in the skill this bonus targets<br>
       <code>class1 class2 class3</code> levels in your 1st, 2nd, 3rd class<br>
-      a class name, e.g. <code>rogue</code>, <code>cleric</code>, <code>monk_unchained</code>: your levels in it (spaces and brackets become _)<br>
+      a class name, e.g. <code>rogue</code>, <code>druid</code>, <code>monk_unchained</code>: your levels in it (spaces and brackets become _)<br>
       ${mine.length ? `<em>Yours:</em> ${mine.join('; ')}<br>` : ''}
       <strong>Functions</strong><br>
       <code>floor(x)</code> round down · <code>ceil(x)</code> round up<br>
@@ -318,14 +319,17 @@
       Skill Focus: <code>ranks >= 10 ? 6 : 3</code><br>
       +1 per 4 levels: <code>floor(level/4) + 1</code></span></span>`;
   }
+  // Formula variables for a bonus field: the character's, or a companion's (data-vars).
+  function bonusVars(el) { return (el && el.dataset && el.dataset.vars ? dget(el.dataset.vars + '/formulaVars') : App.d.formulaVars) || {}; }
   // What a bonus value works out to right now (shown as "= 3" next to formulas).
   function bonusResult(el) {
     const v = String(el.value || '').trim();
     if (!v || /^[-+]?\d+(\.\d+)?$/.test(v)) return '';
-    const V = Object.assign({}, App.d.formulaVars || {});
+    const V = Object.assign({}, bonusVars(el));
     if (el.dataset.target === 'skill' && el.dataset.skill) {
       const key = el.dataset.skill.replace(/:$/, '').toLowerCase();
-      const s = App.d.skills.concat(App.d.specialty).find(x => x.name.replace(/:$/, '').toLowerCase() === key);
+      const pool = el.dataset.vars ? (dget(el.dataset.vars + '/skills') || []) : App.d.skills.concat(App.d.specialty);
+      const s = pool.find(x => x.name.replace(/:$/, '').toLowerCase() === key);
       V.ranks = s ? s.ranks : 0;
     }
     const r = E.evalBonus(v, V);
@@ -342,7 +346,8 @@
       if (b.target === 'skill') detail = sel(`${p}/skill`, skillNames, { blank: '— skill —', aria: 'Skill' });
       else if (b.target === 'weapon' || b.target === 'weaponDmg') detail = inp(`${p}/weapon`, { ph: 'Weapon name contains…', list: 'weapon-names', aria: 'Weapon' });
       else detail = inp(`${p}/text`, { ph: b.target === 'note' ? 'When it applies' : 'Notes (optional)', aria: 'Notes' });
-      const bad = E.isValidBonus(b.value, App.d.formulaVars) ? '' : ' bad';
+      const V = o.varsPath ? (dget(o.varsPath + '/formulaVars') || {}) : App.d.formulaVars;
+      const bad = E.isValidBonus(b.value, V) ? '' : ' bad';
       return `<div class="bonus-row${o.label ? ' with-label' : ''}${b.active === false ? ' inactive' : ''}">
         <input type="checkbox" data-bind="${p}/active" data-type="bool" data-rerender aria-label="Bonus on"${b.active === false ? '' : ' checked'}>
         ${o.label ? inp(`${p}/label`, { ph: 'Name', aria: 'Bonus name' }) : ''}
@@ -350,7 +355,7 @@
         ${sel(`${p}/target`, M.BONUS_TARGETS, { blank: false, rerender: true, aria: 'Applies to' })}
         ${detail}
         ${b.target === 'note' ? '<span></span>' : `<span class="val-cell">${inp(`${p}/value`, { ph: '2 or a formula', aria: 'Value', cls: 'bonus-value' + bad, title: 'A number, or a formula. Click the ? for help.' })
-          .replace('<input ', `<input data-target="${esc(b.target)}" data-skill="${esc(b.skill || '')}" `)}<span class="bonus-result"></span>${formulaHelp()}</span>`}
+          .replace('<input ', `<input data-target="${esc(b.target)}" data-skill="${esc(b.skill || '')}"${o.varsPath ? ` data-vars="${esc(o.varsPath)}"` : ''} `)}<span class="bonus-result"></span>${formulaHelp(!!o.varsPath)}</span>`}
         ${removeBtn(listPath, i, 'bonus')}</div>`;
     }).join('');
     return rows ? `<div class="bonus-list">${rows}</div>` : '';
@@ -385,8 +390,8 @@
     }).join('') || '<p class="small muted">None yet.</p>';
   }
   function suggestBonuses(key, i, kind) {
-    const item = App.ch[key][i];
-    const name = key === 'traits' ? item.text : key === 'slots' ? item.item : item.name;
+    const item = pathGet(App.ch, `${key}/${i}`);
+    const name = /traits$/.test(key) ? item.text : /(slots|gear)$/.test(key) ? item.item : item.name;
     const res = window.PF_FEATS.suggest(kind, name, skillNameList());
     if (!res) { toast(`No standard bonuses known for "${name || 'this ' + kind}". Use + Bonus to add your own.`); return; }
     item.bonuses = (item.bonuses || []).concat(res);
@@ -516,6 +521,29 @@
     return `<div class="grid play-grid">${header}${checks}${attacks}${playCompanionCards()}${stack}${side}</div>`;
   }
 
+  // Companion lists with bonus editors: buffs, feats, gear, evolutions
+  function compFeatureList(ci, key) {
+    const c = App.ch.companions[ci], base = `companions/${ci}/${key}`;
+    const varsPath = `companions/${ci}`;
+    return (c[key] || []).map((x, i) => {
+      const p = `${base}/${i}`;
+      let head, desc = '', kind = null, defType = 'Untyped (stacks)';
+      if (key === 'buffs') {
+        head = `<input type="checkbox" data-bind="${p}/active" data-type="bool" data-rerender aria-label="Buff on"${x.active ? ' checked' : ''}>${inp(`${p}/name`, { ph: 'Buff' })}`;
+      } else if (key === 'feats') {
+        head = inp(`${p}/name`, { ph: 'Weapon Focus (Bite)' }); desc = area(`${p}/text`, { rows: 1, ph: 'Description' }); kind = 'feat';
+      } else if (key === 'gear') {
+        head = `${inp(`${p}/slot`, { ph: 'slot', aria: 'Slot' })}${inp(`${p}/item`, { ph: 'Amulet of Natural Armor +1', aria: 'Item' })}`; kind = 'item'; defType = 'Enhancement';
+      } else {
+        head = `${inp(`${p}/name`, { ph: 'Improved Natural Armor' })}${inp(`${p}/cost`, { type: 'num', aria: 'Cost', title: 'Evolution points' })}`; kind = 'evolution';
+      }
+      const hasBonuses = (x.bonuses || []).length > 0;
+      return `<div class="feature-item${key === 'buffs' && !x.active ? ' inactive-item' : ''}"><div class="feature-head comp-${key}">${head}${removeBtn(base, i)}</div>${desc}
+        ${bonusEditor(`${p}/bonuses`, x.bonuses, { varsPath })}
+        ${addBonusButtons(`${p}/bonuses`, defType, hasBonuses ? null : kind, i, base)}</div>`;
+    }).join('') || '<p class="small muted">None yet.</p>';
+  }
+
   // ----- Companions (animal companions, eidolons, familiars, others)
   const CP = () => window.PF_COMPANION;
   function compWho(ci) {
@@ -570,20 +598,21 @@
     const abRows = M.ABILITIES.map(a => `<tr><td class="l ability-name">${M.ABILITY_NAMES[a]}</td>
         <td>${inp(`${p}/abilities/${a}/base`, { cls: 'n', aria: a + ' base', title: 'Use - for no score (e.g. a construct\'s Con)' })}</td>
         <td>${inp(`${p}/abilities/${a}/adj`, { type: 'num', aria: a + ' adjustment' })}</td>
+        <td>${out(`${dp}/abilities/${a}/bonus`, 'sign')}</td>
         <td>${out(`${dp}/abilities/${a}/score`, '', 'calc big')}</td>
         <td>${rollBtn(M.ABILITY_NAMES[a] + ' check', `${dp}/abilities/${a}/mod`, { who })}</td></tr>`).join('');
-    const abil = card('Ability Scores', `<table><thead><tr><th class="l">Ability</th><th>Base</th><th title="Ability increases, items, templates">Adj.</th><th>Score</th><th>Mod</th></tr></thead><tbody>${abRows}</tbody></table>
+    const abil = card('Ability Scores', `<table><thead><tr><th class="l">Ability</th><th>Base</th><th title="Ability increases, templates">Adj.</th><th title="From buffs, feats, gear, evolutions">Bonus</th><th>Score</th><th>Mod</th></tr></thead><tbody>${abRows}</tbody></table>
       <p class="small muted">Type <span class="kbd">-</span> for a score the creature doesn't have (a construct's Con or Int).${dc.physBonus ? ` Str and Dex include the +${dc.physBonus} bonus from its level.` : ''}</p>`);
 
     const saveRow = (k, label) => `<tr><td class="l">${label}</td><td>${rollBtn(label + ' save', `${dp}/saves/${k}/total`, { who })}</td>
-      <td>${out(`${dp}/saves/${k}/base`, 'sign')}</td><td>${out(`${dp}/saves/${k}/ability`, 'sign')}</td><td>${inp(`${p}/saveMisc/${k}`, { type: 'num', aria: label + ' misc' })}</td></tr>`;
+      <td>${out(`${dp}/saves/${k}/base`, 'sign')}</td><td>${out(`${dp}/saves/${k}/ability`, 'sign')}</td><td>${out(`${dp}/saves/${k}/bonus`, 'sign')}</td><td>${inp(`${p}/saveMisc/${k}`, { type: 'num', aria: label + ' misc' })}</td></tr>`;
     const defense = card('Defense', `
       <div class="inline"><span class="big"><span data-out="${dp}/hp/current">${dc.hp.current}</span> / <span data-out="${dp}/hp/max">${dc.hp.max}</span> HP</span></div>
       <div class="inline" style="margin:6px 0"><input type="number" id="comp-hp-amt-${ci}" class="n-wide" placeholder="amt" aria-label="Amount">
         <button class="btn small" data-action="comp-hp" data-c="${ci}" data-mode="damage">Damage</button><button class="btn small" data-action="comp-hp" data-c="${ci}" data-mode="heal">Heal</button></div>
       <div class="fields">
         ${field('Damage taken', inp(`${p}/damage`, { type: 'num' }))}${field('Temp HP', inp(`${p}/temp`, { type: 'num' }))}
-        ${field('Bonus HP', inp(`${p}/hpMisc`, { type: 'num', title: 'Toughness, construct size bonus, etc.' }))}${field('Max HP override', inp(`${p}/hpOverride`, { type: 'num', ph: 'auto' }))}
+        ${field('Bonus HP', inp(`${p}/hpMisc`, { type: 'num', title: 'Toughness, construct size bonus, etc.' }))}${field('Max HP override', inp(`${p}/hpOverride`, { type: 'num', ph: 'auto', title: 'Replaces the calculated maximum, including HP bonuses from feats and buffs. Leave blank to calculate.' }))}
       </div>
       <div class="tiles" style="margin-top:10px">
         <div class="tile"><div class="label">AC</div><div class="value">${out(`${dp}/ac/total`, '', '')}</div></div>
@@ -598,7 +627,7 @@
         ${field('Deflection', inp(`${p}/deflect`, { type: 'num' }))}${field('Dodge', inp(`${p}/dodge`, { type: 'num' }))}
         ${field('AC misc', inp(`${p}/acMisc`, { type: 'num' }))}${field('Initiative misc', inp(`${p}/initMisc`, { type: 'num' }))}
       </div>
-      <table style="margin-top:10px"><thead><tr><th class="l">Save</th><th>Total</th><th>Base</th><th>Ability</th><th>Misc</th></tr></thead>
+      <table style="margin-top:10px"><thead><tr><th class="l">Save</th><th>Total</th><th>Base</th><th>Ability</th><th title="From buffs, feats, gear">Bonus</th><th>Misc</th></tr></thead>
         <tbody>${saveRow('fort', 'Fortitude')}${saveRow('ref', 'Reflex')}${saveRow('will', 'Will')}</tbody></table>`);
 
     const atkRows = c.attacks.map((a, i) => `<div class="weapon">
@@ -637,14 +666,32 @@
       <p class="small muted">Ranks: ${dc.skillRanks.used} / ${dc.skillRanks.available}.${c.kind === 'Animal Companion' ? ' Animal companion class skills (●) are filled in automatically.' : ''}</p>`,
       { tools: `<button class="btn small" data-action="comp-add-skill" data-c="${ci}">+ Skill</button>` });
 
-    const featRows = c.feats.map((f, i) => `<div class="list-row feature-row">${inp(`${p}/feats/${i}/name`, { ph: 'Feat' })}${area(`${p}/feats/${i}/text`, { rows: 1, ph: 'Description' })}${removeBtn(`${p}/feats`, i, 'feat')}</div>`).join('');
-    const evoRows = c.kind === 'Eidolon' ? c.evolutions.map((e, i) => `<div class="list-row evo-row">${inp(`${p}/evolutions/${i}/name`, { ph: 'Evolution' })}${inp(`${p}/evolutions/${i}/cost`, { type: 'num', aria: 'Cost' })}${removeBtn(`${p}/evolutions`, i, 'evolution')}</div>`).join('') : '';
-    const abilities = card('Feats & Abilities', `<h3 style="margin:0 0 4px">Feats <span class="muted small">(${c.feats.length} / ${dc.featsAllowed})</span></h3>${featRows || '<p class="small muted">None yet.</p>'}
-      <button class="btn small" data-action="comp-add-list" data-c="${ci}" data-list="feats">+ Feat</button>
-      ${c.kind === 'Eidolon' ? `<h3 style="margin:12px 0 4px">Evolutions <span class="muted small">(${dc.evolutionsUsed} / ${dc.evolutionPool} points)</span></h3>${evoRows || '<p class="small muted">None yet.</p>'}
-        <button class="btn small" data-action="comp-add-list" data-c="${ci}" data-list="evolutions">+ Evolution</button>` : ''}
-      ${c.kind === 'Animal Companion' || c.kind === 'Familiar' ? `<div style="margin-top:12px">${field('Tricks', area(`${p}/tricks`, { rows: 2, ph: 'Attack, Come, Defend, Down, Guard…' }))}</div>` : ''}
+    // Bonus-bearing lists: buffs, feats, gear, evolutions (same bonus editor as the character)
+    const presets = Object.keys(CP().BUFF_PRESETS);
+    const otherConds = D.conditions.filter(x => !c.conditions.includes(x.name));
+    const buffs = card('Buffs & Conditions', `${compFeatureList(ci, 'buffs') }
+      <div class="inline" style="margin-top:6px"><select id="comp-buff-preset" aria-label="Buff to add" style="width:auto"><option value="">Custom buff</option>${presets.map(n => `<option>${esc(n)}</option>`).join('')}</select>
+        <button class="btn small" data-action="comp-add-buff" data-c="${ci}">+ Add buff</button></div>
+      <h3 style="margin:12px 0 6px">Conditions</h3>
+      <div class="chips">${c.conditions.map(nm => `<button class="chip cond on" data-action="comp-toggle-condition" data-c="${ci}" data-name="${esc(nm)}" title="Click to remove">${esc(nm)} ✕</button>`).join('')}
+        <select class="comp-add-condition" data-c="${ci}" aria-label="Add a condition" style="width:auto"><option value="">+ Add condition…</option>${otherConds.map(x => `<option>${esc(x.name)}</option>`).join('')}</select></div>
+      <p class="small muted">Buffs switched on here (or on the Play tab) change the companion's numbers. Formulas: <code>level</code> is the companion's HD; class names are your levels (e.g. <code>druid</code>).</p>`,
+      { cls: 'span-2' });
+    const feats = card(`Feats (${c.feats.length} / ${dc.featsAllowed})`, compFeatureList(ci, 'feats') + `<button class="btn small" data-action="comp-add-list" data-c="${ci}" data-list="feats">+ Feat</button>`);
+    const gear = card('Gear', compFeatureList(ci, 'gear') + `<button class="btn small" data-action="comp-add-list" data-c="${ci}" data-list="gear">+ Item</button>
+      <p class="small muted">Barding, collars, amulets… Give an item bonuses, or use <strong>Add standard bonuses</strong> for common ones (Amulet of Natural Armor, Cloak of Resistance, ability belts).</p>`);
+    const evolutions = c.kind === 'Eidolon' ? card(`Evolutions (${dc.evolutionsUsed} / ${dc.evolutionPool} points)`, compFeatureList(ci, 'evolutions') + `<button class="btn small" data-action="comp-add-list" data-c="${ci}" data-list="evolutions">+ Evolution</button>`, { cls: 'span-2' }) : '';
+    const abilities = card('Tricks & Special Abilities', `
+      ${c.kind === 'Animal Companion' || c.kind === 'Familiar' ? field('Tricks', area(`${p}/tricks`, { rows: 2, ph: 'Attack, Come, Defend, Down, Guard…' })) : ''}
       <div style="margin-top:8px">${field('Special abilities & upgrades', area(`${p}/special`, { rows: 3, ph: 'Scent, trip, gear upgrades…' }))}</div>`);
+    const groups = {};
+    const srcLabel = { buff: 'Buffs', feat: 'Feats', gear: 'Gear', evolution: 'Evolutions', condition: 'Conditions' };
+    for (const r of dc.rows) (groups[r.src] = groups[r.src] || new Set()).add(r.name);
+    const notes = [];
+    for (const k of ['buffs', 'feats', 'gear', 'evolutions']) for (const x of c[k] || []) if (k !== 'buffs' || x.active) for (const b of x.bonuses || []) if (b.active !== false && b.target === 'note' && b.text) notes.push(`<strong>${esc(x.name || x.item || 'Note')}</strong>: ${esc(b.text)}`);
+    const active = card('Active Bonuses', `${Object.keys(srcLabel).filter(k => groups[k]).map(k => `<p class="small"><strong>${srcLabel[k]}:</strong> ${[...groups[k]].map(esc).join(', ')}</p>`).join('') || '<p class="small muted">Nothing active.</p>'}
+      ${dc.overlaps.length ? `<h3 style="margin:8px 0 4px">Not stacking</h3><ul class="small notes-list">${dc.overlaps.map(o => `<li>${o.names.map(x => `<strong>${esc(x)}</strong>`).join(' and ')} both give a ${esc(o.type)} bonus to ${esc(o.keys.join(', '))}. Only the highest (+${o.best}) counts.</li>`).join('')}</ul>` : ''}
+      ${notes.length ? `<h3 style="margin:8px 0 4px">Situational</h3><ul class="small notes-list">${notes.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}`);
 
     const resRows = c.resources.map((r, i) => `<div class="list-row res-row">${inp(`${p}/resources/${i}/name`, { ph: 'Overdrive rounds' })}
         <span class="counter"><button class="btn small" data-action="bump" data-path="${p}/resources/${i}/uses" data-d="-1" aria-label="Use one">−</button>${inp(`${p}/resources/${i}/uses`, { type: 'num', aria: 'Uses' })}<span class="muted">/</span>${inp(`${p}/resources/${i}/max`, { type: 'num', aria: 'Max' })}<button class="btn small" data-action="bump" data-path="${p}/resources/${i}/uses" data-d="1" aria-label="Add one">+</button></span>
@@ -653,7 +700,7 @@
       <button class="btn small" data-action="comp-add-list" data-c="${ci}" data-list="resources">+ Resource</button>
       <div style="margin-top:10px">${field('Notes', area(`${p}/notes`, { rows: 4 }))}</div>`);
 
-    return `<div class="grid two">${top}${basics}${abil}${defense}${attacks}${skills}${abilities}${resources}</div>`;
+    return `<div class="grid two">${top}${basics}${abil}${defense}${buffs}${attacks}${skills}${feats}${gear}${evolutions}${abilities}${active}${resources}</div>`;
   }
 
   // Play tab: one card per companion
@@ -681,7 +728,10 @@
             ${c.dr ? `<p class="small muted">${esc(c.dr)}</p>` : ''}</div>
           <div><div class="save-row">${save('fort', 'Fort')}${save('ref', 'Reflex')}${save('will', 'Will')}</div>
             <div class="inline" style="margin-top:8px"><span class="small">Init</span>${rollBtn('Initiative', `${dp}/init`, { who })}<span class="small">CMB</span>${rollBtn('Combat maneuver', `${dp}/cmb`, { who })}</div>
-            <div class="chips" style="margin-top:8px"><label class="chip${c.powerAttack ? ' on' : ''}"><input type="checkbox" data-bind="companions/${ci}/powerAttack" data-type="bool" data-rerender${c.powerAttack ? ' checked' : ''}>Power Attack</label></div>
+            <div class="chips" style="margin-top:8px"><label class="chip${c.powerAttack ? ' on' : ''}"><input type="checkbox" data-bind="companions/${ci}/powerAttack" data-type="bool" data-rerender${c.powerAttack ? ' checked' : ''}>Power Attack</label>
+              ${c.buffs.map((b, bi) => `<label class="chip${b.active ? ' on' : ''}" title="Buff (Companion tab)"><input type="checkbox" data-bind="companions/${ci}/buffs/${bi}/active" data-type="bool" data-rerender${b.active ? ' checked' : ''}>${esc(b.name || 'Buff')}</label>`).join('')}</div>
+            <div class="chips" style="margin-top:6px">${c.conditions.map(nm => `<button class="chip cond on" data-action="comp-toggle-condition" data-c="${ci}" data-name="${esc(nm)}" title="Click to remove">${esc(nm)} ✕</button>`).join('')}
+              <select class="comp-add-condition" data-c="${ci}" aria-label="Add a condition" style="width:auto"><option value="">+ Condition…</option>${D.conditions.filter(x => !c.conditions.includes(x.name)).map(x => `<option>${esc(x.name)}</option>`).join('')}</select></div>
             ${res}</div>
           <div>${atk || '<p class="small muted">No attacks yet.</p>'}
             ${c.attacks.length > 1 ? `<button class="btn small primary" data-action="comp-attack" data-c="${ci}" data-i="all" data-mode="full" style="margin-top:6px">Full attack (all)</button>` : ''}
@@ -1119,6 +1169,7 @@
   document.addEventListener('change', e => {
     const el = e.target;
     if (el.id === 'add-condition' && el.value) { App.ch.conditions.push(el.value); changed(true); return; }
+    if (el.classList && el.classList.contains('comp-add-condition') && el.value) { App.ch.companions[+el.dataset.c].conditions.push(el.value); changed(true); return; }
     // Typing an item into an empty slot: show its bonus buttons once the field is left
     if (el.dataset && el.dataset.rerenderBlur !== undefined) { render(); return; }
     if (!el.dataset || !el.dataset.bind) return;
@@ -1195,7 +1246,8 @@
       'comp-add-attack': () => { App.ch.companions[+el.dataset.c].attacks.push({ name: '', count: 1, secondary: 'false', ability: 'str', dmgMult: '', dice: '', crit: '20', mult: 'x2', misc: 0, dmgMisc: 0, iterative: false, ranged: false, notes: '' }); changed(true); },
       'comp-add-skill': () => { App.ch.companions[+el.dataset.c].skills.push({ name: '', ranks: 0, misc: 0 }); changed(true); },
       'comp-add-list': () => {
-        const blanks = { feats: { name: '', text: '' }, evolutions: { name: '', cost: 1 }, resources: { name: '', uses: '', max: '' } };
+        const blanks = { feats: { name: '', text: '', bonuses: [] }, evolutions: { name: '', cost: 1, bonuses: [] }, resources: { name: '', uses: '', max: '' },
+          gear: { slot: '', item: '', bonuses: [] } };
         App.ch.companions[+el.dataset.c][el.dataset.list].push(blanks[el.dataset.list]); changed(true);
       },
       'comp-hp': () => {
@@ -1207,6 +1259,17 @@
         changed(true);
       },
       'comp-attack': () => rollCompAttack(+el.dataset.c, el.dataset.i, el.dataset.mode, priv),
+      'comp-add-buff': () => {
+        const ci = +el.dataset.c, name = $('#comp-buff-preset').value;
+        const preset = window.PF_COMPANION.BUFF_PRESETS[name];
+        App.ch.companions[ci].buffs.push({ name: name || '', active: true, bonuses: preset ? JSON.parse(JSON.stringify(preset)) : [] });
+        changed(true);
+      },
+      'comp-toggle-condition': () => {
+        const c = App.ch.companions[+el.dataset.c], k = c.conditions.indexOf(el.dataset.name);
+        if (k >= 0) c.conditions.splice(k, 1); else c.conditions.push(el.dataset.name);
+        changed(true);
+      },
       'attack': () => rollAttack(+el.dataset.i, el.dataset.mode, priv),
       'cast': () => castSpell(+el.dataset.l, +el.dataset.i, priv),
       'cast-sla': () => castSla(+el.dataset.g, +el.dataset.i, priv),

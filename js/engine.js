@@ -738,5 +738,5 @@
     return out;
   }
 
-  window.PF_ENGINE = { compute, evalBonus, isValidBonus, classSlug, getClass, attackOptions, evalExpr, stack, typeTotal, sign, n, isNum, firstNumber, classByName };
+  window.PF_ENGINE = { compute, evalBonus, isValidBonus, classSlug, pushBonuses, posNeg, findOverlaps, getClass, attackOptions, evalExpr, stack, typeTotal, sign, n, isNum, firstNumber, classByName };
 })();
