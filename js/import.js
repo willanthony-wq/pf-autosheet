@@ -220,6 +220,7 @@
     // ---- Magic item features (T42:AB46)
     for (let i = 0; i < 5; i++) {
       const r = 42 + i;
+      // The sheet's combined "Deflect/Enhance/Resist" type is split by target in PF_MODEL.normalize().
       ch.magicItems[i] = { name: s(at('T', r)), target: s(at('X', r)) || 'Saves', type: s(at('Z', r)) || 'Deflect/Enhance/Resist', value: numOrBlank(at('AB', r)) };
     }
 

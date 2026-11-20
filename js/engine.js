@@ -7,7 +7,13 @@
   const { ABILITIES, STACKING_TYPES, SIZES, AGE, XP } = M;
 
   const classByName = new Map(D.classes.map(c => [c.name, c]));
-  const DER = 'Deflect/Enhance/Resist';
+  const ENH = 'Enhancement', DEFL = 'Deflection', RES = 'Resistance';
+  const LEGACY_DER = 'Deflect/Enhance/Resist'; // the Autosheet's combined type; split by what it applies to
+  function typeFor(type, key) {
+    const t = type || 'Untyped (stacks)';
+    if (t !== LEGACY_DER) return t;
+    return key === 'ac' ? DEFL : (key === 'fort' || key === 'ref' || key === 'will') ? RES : ENH;
+  }
   const BACKGROUND_SKILLS = new Set(['Appraise', 'Artistry:', 'Craft:', 'Handle Animal', 'Kn. Engineering', 'Kn. Geography',
     'Kn. History', 'Kn. Nobility', 'Linguistics', 'Lore:', 'Perform:', 'Prof:', 'Sleight of Hand']);
   const FLIGHT = { Clumsy: -8, Poor: -4, Average: 0, Good: 4, Perfect: 8 };
@@ -46,8 +52,8 @@
     for (const r of rows) {
       const raw = r.v ? r.v[key] : undefined;
       if (!isNum(raw)) continue;
-      if (typeFilter && !typeFilter(r.type)) continue;
-      const t = r.type || 'Untyped (stacks)';
+      const t = typeFor(r.type, key);
+      if (typeFilter && !typeFilter(t)) continue;
       if (!byType.has(t)) byType.set(t, []);
       byType.get(t).push(n(raw));
     }
@@ -205,10 +211,11 @@
     const ageIdx = Math.max(0, AGE.categories.indexOf(ch.info.age));
     for (const a of ABILITIES) {
       const ab = ch.abilities[a];
-      const der = posNeg(rows, a, DER);
-      const others = stack(rows, a, t => t !== DER);
+      // Enhancement from effects doesn't stack with the Enhance column; only the excess counts.
+      const fx = posNeg(rows, a, ENH);
+      const others = stack(rows, a, t => t !== ENH);
       const enh = n(ab.enh);
-      const temp = Math.max(0, der.pos - enh) + der.neg + others;
+      const temp = Math.max(0, fx.pos - enh) + fx.neg + others;
       const age = AGE.mods[a][ageIdx];
       const score = Math.max(0, n(ab.base) + enh + n(ab.inh) + temp - Math.abs(n(ab.pen)) + age);
       d.abilities[a] = { score, mod: mod(score), temp, age };
@@ -258,12 +265,13 @@
       const mat = lookup(D.materials, p.material);
       const enhNum = isNum(p.enh) ? n(p.enh) : 0;
       const mwk = enhNum > 0 || p.enh === 'Mwk' || p.enh === 'Masterwork';
-      const ac = enhNum + (it ? it.ac : 0) + (mat ? mat.ac : 0);
+      const base = (it ? it.ac : 0) + (mat ? mat.ac : 0);
+      const ac = enhNum + base;
       const acp = it ? Math.min(0, -it.acp + (mat ? mat.acp : 0) + n(p.mSkill) + (mwk ? 1 : 0)) : Math.min(0, n(p.mSkill));
       const maxDex = it && isNum(it.maxDex) ? it.maxDex + (mat ? mat.maxDex : 0) + n(p.mDex) : null;
       const asf = it ? Math.max(0, it.asf + (mat ? mat.asf : 0)) : 0;
       const weight = it && it.type in LOAD_RANK && table === D.armor ? LOAD_RANK[it.type] + (mat ? mat.weight : 0) : 0;
-      return { ac, acp, maxDex, asf, weight, note: mat && mat.note ? mat.note : '' };
+      return { ac, base, enh: enhNum, acp, maxDex, asf, weight, note: mat && mat.note ? mat.note : '' };
     }
     const a = piece(ch.armor, D.armor), s = piece(ch.shield, D.shields);
     const enc = ENCUMBRANCE[ch.movement.encumbrance] || ENCUMBRANCE.Light;
@@ -285,24 +293,28 @@
     d.saves = {};
     for (const s of ['fort', 'ref', 'will']) {
       const base = d.baseSaves[s], ability = m[saveAbility[s]];
-      const resist = stack(rows, s, t => t === DER);
-      const temp = stack(rows, s, t => t !== DER);
+      const resist = stack(rows, s, t => t === RES);
+      const temp = stack(rows, s, t => t !== RES);
       const misc = n(ch.saves[s].misc);
       d.saves[s] = { base, ability, resist, misc, temp, total: base + ability + resist + misc + temp };
     }
 
     // Armor class
+    // Armor: an Enhancement effect on AC (e.g. Magic Vestment) replaces the armor's own enhancement if higher;
+    // an Armor-type effect (e.g. Mage Armor) replaces the whole armor bonus if higher.
     const armorFx = posNeg(rows, 'ac', 'Armor');
-    const armor = Math.max(d.armor.armor.ac, armorFx.pos) + armorFx.neg;
+    const enhFx = posNeg(rows, 'ac', ENH);
+    const worn = d.armor.armor.base + Math.max(d.armor.armor.enh, enhFx.pos);
+    const armor = Math.max(worn, armorFx.pos) + armorFx.neg + enhFx.neg;
     const shield = d.armor.shield.ac;
     let dex = d.armor.maxDex === null ? m.dex : Math.min(m.dex, d.armor.maxDex);
     if (d.loseDex) dex = Math.min(0, dex);
     const size = d.size.atk;
     const natural = d.effectTotals.nat;
-    const deflect = stack(rows, 'ac', t => t === DER);
+    const deflect = stack(rows, 'ac', t => t === DEFL);
     const dodgeRaw = stack(rows, 'ac', t => t === 'Dodge (stacks)');
     const dodge = d.loseDex ? Math.min(0, dodgeRaw) : dodgeRaw;
-    const temp = stack(rows, 'ac', t => t !== 'Armor' && t !== DER && t !== 'Dodge (stacks)');
+    const temp = stack(rows, 'ac', t => t !== 'Armor' && t !== ENH && t !== DEFL && t !== 'Dodge (stacks)');
     const misc = n(ch.ac.misc);
     d.ac = {
       parts: { armor, shield, dex, size, natural, deflect, dodge, misc, temp },
@@ -340,7 +352,7 @@
     function tempFor(name) {
       const byType = new Map();
       for (const r of rows) {
-        const t = r.type || 'Untyped (stacks)';
+        const t = typeFor(r.type, 'skills');
         const vals = [];
         if (isNum(r.v && r.v.skills)) vals.push(n(r.v.skills));
         if (r.text && name && r.text.toLowerCase().includes(name.toLowerCase().replace(/:$/, ''))) {

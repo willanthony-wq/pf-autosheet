@@ -40,8 +40,8 @@
     { key: 'skills', label: 'All', group: 'Skills', title: 'Bonus to all skill checks' },
   ];
 
-  const BONUS_TYPES = ['Alchemical', 'Armor', 'Circumstance (stacks)', 'Competence', 'Deflect/Enhance/Resist',
-    'Dodge (stacks)', 'Insight', 'Luck', 'Morale', 'Precision Damage', 'Sacred / Profane', 'Size', 'Untyped (stacks)'];
+  const BONUS_TYPES = ['Alchemical', 'Armor', 'Circumstance (stacks)', 'Competence', 'Deflection', 'Dodge (stacks)', 'Enhancement',
+    'Insight', 'Luck', 'Morale', 'Precision Damage', 'Resistance', 'Sacred / Profane', 'Size', 'Untyped (stacks)'];
   const STACKING_TYPES = ['Untyped (stacks)', 'Dodge (stacks)', 'Circumstance (stacks)'];
 
   const SIZES = [
@@ -143,7 +143,7 @@
       armor: { name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0 },
       shield: { name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0 },
       armorNotes: '',
-      magicItems: Array.from({ length: 5 }, () => ({ name: '', target: 'Saves', type: 'Deflect/Enhance/Resist', value: '' })),
+      magicItems: Array.from({ length: 5 }, () => ({ name: '', target: 'Saves', type: 'Resistance', value: '' })),
       toggles: defaultToggles(),
       conditions: [],      // names from PF_DATA.conditions
       negativeLevels: 0,
@@ -183,8 +183,34 @@
     const have = new Set(ch.toggles.map(t => t.id));
     defaultToggles().forEach(t => { if (!have.has(t.id)) ch.toggles.push(t); });
     ch.effects.forEach(e => { if (!e.id) e.id = uid(); if (!e.v) e.v = {}; });
+    migrateLegacyTypes(ch);
     while (ch.spellcasting.levels.length < 10) ch.spellcasting.levels.push({ spells: [], used: 0, perDayOverride: '' });
     return ch;
+  }
+
+  // The Autosheet used one combined "Deflect/Enhance/Resist" type. Split it: AC -> Deflection,
+  // saves -> Resistance, anything else -> Enhancement. A row touching several groups is split into several rows.
+  const LEGACY = 'Deflect/Enhance/Resist';
+  function legacyGroup(key) { return key === 'ac' ? 'Deflection' : (key === 'fort' || key === 'ref' || key === 'will') ? 'Resistance' : 'Enhancement'; }
+  function migrateLegacyTypes(ch) {
+    const out = [];
+    for (const e of ch.effects) {
+      if (e.type !== LEGACY) { out.push(e); continue; }
+      const groups = {};
+      for (const [k, val] of Object.entries(e.v || {})) (groups[legacyGroup(k)] = groups[legacyGroup(k)] || {})[k] = val;
+      const types = Object.keys(groups);
+      if (types.length <= 1) { e.type = types[0] || 'Enhancement'; out.push(e); continue; }
+      types.forEach((t, i) => out.push(Object.assign({}, e, { id: i === 0 ? e.id : uid(), type: t, v: groups[t], text: i === 0 ? e.text : '' })));
+    }
+    ch.effects = out;
+    for (const t of ch.toggles) {
+      if (t.type !== LEGACY) continue;
+      const keys = Object.keys(t.v || {});
+      t.type = keys.some(k => ['fort', 'ref', 'will'].includes(k)) ? 'Resistance' : keys.includes('ac') ? 'Deflection' : 'Enhancement';
+    }
+    for (const m of ch.magicItems) {
+      if (m.type === LEGACY || !m.type) m.type = m.target === 'AC' ? 'Deflection' : m.target === 'NatAC' ? 'Enhancement' : 'Resistance';
+    }
   }
 
   function isPlainObject(o) { return o && typeof o === 'object' && !Array.isArray(o); }

@@ -501,7 +501,7 @@
       <td style="min-width:180px">${inp(`effects/${i}/text`, { ph: 'Stealth +4, Initiative +2' })}</td>
       <td>${removeBtn('effects', i, 'effect')}</td></tr>`).join('');
     const totals = `<tr class="totals"><td></td><td class="l">Total (all active)</td><td></td>${M.EFFECT_COLS.map(c => `<td>${out('effectTotals/' + c.key, '', '')}</td>`).join('')}<td></td><td></td></tr>`;
-    const effects = card('Effects', `<p class="small muted" style="margin-top:0">Same rules as the Autosheet's Effect Table: bonuses of the same type don't stack (highest wins), penalties always stack, and Untyped, Dodge and Circumstance bonuses stack. Speed accepts <span class="kbd">x0.5</span> to multiply. The text column applies a number to any skill (or Initiative) it names, e.g. <span class="kbd">Perception, Stealth +2</span>.</p>
+    const effects = card('Effects', `<p class="small muted" style="margin-top:0">Bonuses of the same type don't stack (highest wins), penalties always stack, and Untyped, Dodge and Circumstance bonuses stack. Deflection, Enhancement and Resistance are separate types, so a ring of protection, a belt and a cloak all count. Speed accepts <span class="kbd">x0.5</span> to multiply. The text column applies a number to any skill (or Initiative) it names, e.g. <span class="kbd">Perception, Stealth +2</span>.</p>
       <div class="scroll-x"><table class="effects-table">${head}<tbody>${effRows}${totals}</tbody></table></div>`,
       { tools: `<button class="btn small" data-action="add-effect">+ Effect</button>` });
 
@@ -641,7 +641,7 @@
       'add': () => {
         const blanks = { traits: { kind: 'Trait', text: '' }, racialFeatures: { name: '', text: '' }, classFeatures: { name: '', text: '' },
           feats: { level: '', name: '', text: '' }, resources: { name: '', uses: '', max: '' }, slots: { slot: '', item: '' },
-          magicItems: { name: '', target: 'Saves', type: 'Deflect/Enhance/Resist', value: '', active: true } };
+          magicItems: { name: '', target: 'Saves', type: 'Resistance', value: '', active: true } };
         App.ch[el.dataset.list].push(blanks[el.dataset.list]); changed(true);
       },
       'remove': () => { const arr = get(el.dataset.list); if (Array.isArray(arr)) { arr.splice(+el.dataset.i, 1); changed(true); } },

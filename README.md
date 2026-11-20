@@ -60,7 +60,7 @@ The webhook URL is stored only in this browser. It is never written into exporte
 - **Classes:** 213 classes from Class Charts, covering base, hybrid, occult, monstrous, prestige, Eberron prestige, NPC and the third-party sets. HD, BAB, saves, skill ranks and class skills come from them.
 - **HP:** all six HP formulas, Con, favored-class HP, damage/temp/nonlethal tracking and negative levels.
 - **Abilities:** age modifiers, enhancement vs. effect bonuses, inherent bonuses and penalties.
-- **Effect table:** bonuses of the same type don't stack, while penalties and Untyped, Dodge and Circumstance bonuses do. Effects reach AC, saves, abilities, attacks, damage, caster level, extra attacks, size, speed and skills. The free-text column applies to named skills and Initiative.
+- **Effect table:** bonuses of the same type don't stack, while penalties and Untyped, Dodge and Circumstance bonuses do. Deflection, Enhancement and Resistance are separate types. Effects reach AC, saves, abilities, attacks, damage, caster level, extra attacks, size, speed and skills. The free-text column applies to named skills and Initiative.
 - **Combat toggles:** Power Attack, Combat Expertise and Deadly Aim scale with BAB. Heroism, Haste, Rapid Shot, Studied Target, and three custom toggles.
 - **Conditions:** the sheet's conditions table, plus Unchained wound thresholds.
 - **Defenses:** AC, touch, flat-footed and CMD, with armor and shield tables, special materials, max Dex, armor check penalty, spell failure and encumbrance.
@@ -71,6 +71,8 @@ The webhook URL is stored only in this browser. It is never written into exporte
 ## Differences from the spreadsheet
 
 These are small fixes, chosen to follow the Core Rulebook where the sheet's formulas fell short:
+
+- The sheet's single "Deflect/Enhance/Resist" type is split into **Deflection**, **Enhancement** and **Resistance**, which stack with each other. An Enhancement bonus on AC (such as Magic Vestment) replaces the armor's own enhancement if it's higher. Imported and older saved characters are converted automatically: AC becomes Deflection, saves become Resistance, and anything else becomes Enhancement.
 
 - Negative levels also apply to Fortitude saves. The sheet left Fort out.
 - Wound thresholds also apply to Fortitude and skills, matching the Unchained rule text.
