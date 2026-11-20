@@ -105,7 +105,7 @@
     return `<span class="${cls === undefined ? 'calc' : cls}" data-out="${esc(path)}" data-fmt="${f || ''}">${esc(fmt(dget(path), f))}</span>`;
   }
   function rollBtn(label, modPath, o = {}) {
-    return `<button class="roll${o.big ? ' big-roll' : ''}" data-action="roll-check" data-label="${esc(label)}" data-mod="${esc(modPath)}" title="Roll ${esc(label)} (Shift-click for a private roll)">` +
+    return `<button class="roll${o.big ? ' big-roll' : ''}" data-action="roll-check" data-label="${esc(label)}" data-mod="${esc(modPath)}"${o.who ? ` data-who="${esc(o.who)}"` : ''} title="Roll ${esc(label)} (Shift-click for a private roll)">` +
       `<span data-out="${esc(modPath)}" data-fmt="sign">${esc(fmt(dget(modPath), 'sign'))}</span></button>`;
   }
   function field(label, control, cls) { return `<label class="field${cls ? ' ' + cls : ''}">${esc(label)}${control}</label>`; }
@@ -152,7 +152,7 @@
 
   // ---------- Rendering ----------
   const TABS = [
-    ['play', 'Play'], ['character', 'Character'], ['race', 'Race'], ['skills', 'Skills'], ['combat', 'Combat'], ['spells', 'Spells'],
+    ['play', 'Play'], ['character', 'Character'], ['race', 'Race'], ['skills', 'Skills'], ['combat', 'Combat'], ['companion', 'Companion'], ['spells', 'Spells'],
     ['effects', 'Effects'], ['features', 'Features & Gear'], ['notes', 'Notes'], ['settings', 'Settings'],
   ];
 
@@ -162,7 +162,7 @@
     const main = $('#main');
     if (!App.ch) { main.innerHTML = renderEmpty(); return; }
     const y = window.scrollY;
-    const fn = { play: renderPlay, character: renderOverview, overview: renderOverview, race: renderRace, skills: renderSkills, combat: renderCombat, spells: renderSpells, effects: renderEffects,
+    const fn = { play: renderPlay, character: renderOverview, overview: renderOverview, race: renderRace, skills: renderSkills, combat: renderCombat, companion: renderCompanion, spells: renderSpells, effects: renderEffects,
       features: renderFeatures, notes: renderNotes, settings: renderSettings }[App.tab] || renderOverview;
     main.innerHTML = fn() + `<datalist id="weapon-names">${App.ch.weapons.filter(w => w.name).map(w => `<option value="${esc(w.name)}">`).join('')}</datalist>`;
     updateOutputs();
@@ -513,7 +513,216 @@
     // Spells, Resources and Active Bonuses stack in the column beside them.
     const stack = `<div class="play-stack span-2">${buffs}${skills}</div>`;
     const side = `<div class="play-stack">${spells}${res}${active}</div>`;
-    return `<div class="grid play-grid">${header}${checks}${attacks}${stack}${side}</div>`;
+    return `<div class="grid play-grid">${header}${checks}${attacks}${playCompanionCards()}${stack}${side}</div>`;
+  }
+
+  // ----- Companions (animal companions, eidolons, familiars, others)
+  const CP = () => window.PF_COMPANION;
+  function compWho(ci) {
+    const c = App.ch.companions[ci];
+    return `${(c && (c.name || c.species || c.kind)) || 'Companion'}${App.ch.info.name ? ' (' + App.ch.info.name + ')' : ''}`;
+  }
+  function compLevelLabel(kind) {
+    return { 'Animal Companion': 'Effective druid level', Eidolon: 'Summoner level', Familiar: 'Master level' }[kind] || '';
+  }
+  function renderCompanion() {
+    const ch = App.ch;
+    if (App.compIdx === undefined || App.compIdx >= ch.companions.length) App.compIdx = 0;
+    const pills = ch.companions.map((c, i) => `<button class="chip${i === App.compIdx ? ' on' : ''}" data-action="comp-select" data-c="${i}">${esc(c.name || c.species || c.kind)}</button>`).join('');
+    const adder = `<span class="inline"><select id="comp-kind" aria-label="Companion kind" style="width:auto">${CP().KINDS.map(k => `<option>${esc(k)}</option>`).join('')}</select>
+      <button class="btn small primary" data-action="comp-add">+ Add companion</button></span>`;
+    const top = card('Companions', `<div class="chips">${pills || '<span class="muted small">No companions yet.</span>'}</div>
+      <p class="small muted" style="margin-bottom:0">Animal companions, eidolons and familiars follow the Core Rulebook / APG tables by level; "Other" covers cohorts, constructs and mounts where you set HD, BAB and good saves. Each companion also gets a card on the Play tab.</p>`,
+      { cls: 'span-2', tools: adder });
+    if (!ch.companions.length) return `<div class="grid two">${top}</div>`;
+
+    const ci = App.compIdx, c = ch.companions[ci], dc = App.d.companions[ci], p = `companions/${ci}`, dp = `companions/${ci}`;
+    const who = compWho(ci);
+    const kindOpts = CP().KINDS;
+    const lvlLabel = compLevelLabel(c.kind);
+    const summary = [
+      `HD <strong>${dc.hd}</strong>`, `BAB <strong>${sign(dc.bab)}</strong>`,
+      `Base saves <strong>${sign(dc.baseSaves.fort)} / ${sign(dc.baseSaves.ref)} / ${sign(dc.baseSaves.will)}</strong>`,
+      `Skill ranks <strong>${dc.skillRanks.used} / ${dc.skillRanks.available}</strong>`, `Feats <strong>${dc.featsAllowed}</strong>`,
+      dc.tricks !== null && dc.tricks !== undefined ? `Bonus tricks <strong>${dc.tricks}</strong>` : '',
+      dc.natBonus ? `Natural armor bonus <strong>+${dc.natBonus}</strong>` : '', dc.physBonus ? `Str/Dex bonus <strong>+${dc.physBonus}</strong>` : '',
+      dc.evolutionPool !== undefined ? `Evolution points <strong>${dc.evolutionsUsed} / ${dc.evolutionPool}</strong>` : '',
+      dc.maxAttacks !== undefined ? `Max attacks <strong>${dc.maxAttacks}</strong>` : '',
+    ].filter(Boolean).map(x => `<span class="pill">${x}</span>`).join('');
+    const basics = card(c.name || 'Companion', `<div class="fields">
+        ${field('Name', inp(`${p}/name`, { ph: 'Rex' }))}
+        ${field('Kind', sel(`${p}/kind`, kindOpts, { blank: false, rerender: true }))}
+        ${field('Species / type', inp(`${p}/species`, { ph: 'Wolf, construct…' }))}
+        ${field('Size', sel(`${p}/size`, M.SIZES.map(s => s.name), { blank: false }))}
+        ${lvlLabel ? field(lvlLabel, inp(`${p}/level`, { type: 'num', ph: String(dc.effLevel), title: 'Leave blank to follow your level' })) : ''}
+        ${c.kind === 'Eidolon' ? field('Base form', sel(`${p}/baseForm`, Object.keys(CP().BASE_FORMS), { blank: false })) : ''}
+        ${c.kind === 'Other' ? field('Hit dice', inp(`${p}/hd`, { type: 'num' })) + field('Hit die', sel(`${p}/hdSize`, [6, 8, 10, 12].map(x => ({ v: x, l: 'd' + x })), { blank: false, type: 'num' }))
+          + field('BAB', sel(`${p}/babProg`, [{ v: 'full', l: 'Full (= HD)' }, { v: 'medium', l: '¾ HD' }, { v: 'poor', l: '½ HD' }], { blank: false })) : ''}
+        ${field('Speed', inp(`${p}/speed`, { ph: '50 ft.' }))}${field('Senses', inp(`${p}/senses`, { ph: 'Low-light vision, scent' }))}
+        ${field('DR / SR / resistances', inp(`${p}/dr`, { ph: 'DR 5/adamantine' }))}
+      </div>
+      ${c.kind === 'Other' ? `<p class="inline small" style="margin-top:8px">Good saves:
+        <label class="inline">${chk(`${p}/goodSaves/fort`)} Fort</label><label class="inline">${chk(`${p}/goodSaves/ref`)} Ref</label><label class="inline">${chk(`${p}/goodSaves/will`)} Will</label></p>` : ''}
+      <div class="pills">${summary}</div>
+      ${dc.special.length ? `<p class="small"><strong>Special:</strong> ${dc.special.map(esc).join('; ')}</p>` : ''}`,
+      { cls: 'span-2', tools: `<button class="btn small danger" data-action="comp-remove" data-c="${ci}">Remove</button>` });
+
+    const abRows = M.ABILITIES.map(a => `<tr><td class="l ability-name">${M.ABILITY_NAMES[a]}</td>
+        <td>${inp(`${p}/abilities/${a}/base`, { cls: 'n', aria: a + ' base', title: 'Use - for no score (e.g. a construct\'s Con)' })}</td>
+        <td>${inp(`${p}/abilities/${a}/adj`, { type: 'num', aria: a + ' adjustment' })}</td>
+        <td>${out(`${dp}/abilities/${a}/score`, '', 'calc big')}</td>
+        <td>${rollBtn(M.ABILITY_NAMES[a] + ' check', `${dp}/abilities/${a}/mod`, { who })}</td></tr>`).join('');
+    const abil = card('Ability Scores', `<table><thead><tr><th class="l">Ability</th><th>Base</th><th title="Ability increases, items, templates">Adj.</th><th>Score</th><th>Mod</th></tr></thead><tbody>${abRows}</tbody></table>
+      <p class="small muted">Type <span class="kbd">-</span> for a score the creature doesn't have (a construct's Con or Int).${dc.physBonus ? ` Str and Dex include the +${dc.physBonus} bonus from its level.` : ''}</p>`);
+
+    const saveRow = (k, label) => `<tr><td class="l">${label}</td><td>${rollBtn(label + ' save', `${dp}/saves/${k}/total`, { who })}</td>
+      <td>${out(`${dp}/saves/${k}/base`, 'sign')}</td><td>${out(`${dp}/saves/${k}/ability`, 'sign')}</td><td>${inp(`${p}/saveMisc/${k}`, { type: 'num', aria: label + ' misc' })}</td></tr>`;
+    const defense = card('Defense', `
+      <div class="inline"><span class="big"><span data-out="${dp}/hp/current">${dc.hp.current}</span> / <span data-out="${dp}/hp/max">${dc.hp.max}</span> HP</span></div>
+      <div class="inline" style="margin:6px 0"><input type="number" id="comp-hp-amt-${ci}" class="n-wide" placeholder="amt" aria-label="Amount">
+        <button class="btn small" data-action="comp-hp" data-c="${ci}" data-mode="damage">Damage</button><button class="btn small" data-action="comp-hp" data-c="${ci}" data-mode="heal">Heal</button></div>
+      <div class="fields">
+        ${field('Damage taken', inp(`${p}/damage`, { type: 'num' }))}${field('Temp HP', inp(`${p}/temp`, { type: 'num' }))}
+        ${field('Bonus HP', inp(`${p}/hpMisc`, { type: 'num', title: 'Toughness, construct size bonus, etc.' }))}${field('Max HP override', inp(`${p}/hpOverride`, { type: 'num', ph: 'auto' }))}
+      </div>
+      <div class="tiles" style="margin-top:10px">
+        <div class="tile"><div class="label">AC</div><div class="value">${out(`${dp}/ac/total`, '', '')}</div></div>
+        <div class="tile"><div class="label">Touch</div><div class="value">${out(`${dp}/ac/touch`, '', '')}</div></div>
+        <div class="tile"><div class="label">Flat-footed</div><div class="value">${out(`${dp}/ac/flat`, '', '')}</div></div>
+        <div class="tile"><div class="label">CMD</div><div class="value">${out(`${dp}/cmd`, '', '')}</div></div>
+        <div class="tile"><div class="label">CMB</div><div class="value">${rollBtn('Combat maneuver', `${dp}/cmb`, { who })}</div></div>
+        <div class="tile"><div class="label">Initiative</div><div class="value">${rollBtn('Initiative', `${dp}/init`, { who })}</div></div>
+      </div>
+      <div class="fields" style="margin-top:8px">
+        ${field('Natural armor (species)', inp(`${p}/natural`, { type: 'num' }))}${field('Armor / barding', inp(`${p}/armor`, { type: 'num' }))}
+        ${field('Deflection', inp(`${p}/deflect`, { type: 'num' }))}${field('Dodge', inp(`${p}/dodge`, { type: 'num' }))}
+        ${field('AC misc', inp(`${p}/acMisc`, { type: 'num' }))}${field('Initiative misc', inp(`${p}/initMisc`, { type: 'num' }))}
+      </div>
+      <table style="margin-top:10px"><thead><tr><th class="l">Save</th><th>Total</th><th>Base</th><th>Ability</th><th>Misc</th></tr></thead>
+        <tbody>${saveRow('fort', 'Fortitude')}${saveRow('ref', 'Reflex')}${saveRow('will', 'Will')}</tbody></table>`);
+
+    const atkRows = c.attacks.map((a, i) => `<div class="weapon">
+        <div class="comp-atk-grid">
+          ${field('Attack', inp(`${p}/attacks/${i}/name`, { ph: 'Bite' }))}
+          ${field('Count', inp(`${p}/attacks/${i}/count`, { type: 'num', title: 'Number of these attacks, e.g. 2 claws' }))}
+          ${field('Primary?', sel(`${p}/attacks/${i}/secondary`, [{ v: 'false', l: 'Primary' }, { v: 'true', l: 'Secondary' }], { blank: false }))}
+          ${field('To hit', sel(`${p}/attacks/${i}/ability`, M.ABILITIES.map(x => ({ v: x, l: x.toUpperCase() })), { blank: false }))}
+          ${field('Str to damage', sel(`${p}/attacks/${i}/dmgMult`, [{ v: '', l: 'auto' }, { v: 1, l: '×1' }, { v: 1.5, l: '×1.5' }, { v: 0.5, l: '×½' }, { v: 0, l: 'none' }], { blank: false, type: 'numOrText' }))}
+          ${field('Damage dice', inp(`${p}/attacks/${i}/dice`, { ph: '1d6' }))}
+          ${field('Crit', inp(`${p}/attacks/${i}/crit`, { ph: '20' }))}${field('Mult', inp(`${p}/attacks/${i}/mult`, { ph: 'x2' }))}
+          ${field('Misc atk', inp(`${p}/attacks/${i}/misc`, { type: 'num' }))}${field('Misc dmg', inp(`${p}/attacks/${i}/dmgMisc`, { type: 'num' }))}
+        </div>
+        <div class="inline small" style="margin-top:4px"><label class="inline">${chk(`${p}/attacks/${i}/iterative`)} Iterative attacks (weapon-like)</label>
+          <label class="inline">${chk(`${p}/attacks/${i}/ranged`)} Ranged (no Power Attack)</label>
+          ${inp(`${p}/attacks/${i}/notes`, { ph: 'Notes: trip, grab, poison…' })}</div>
+        <div class="result"><span class="atk" data-out="${dp}/attacks/${i}/attackText">${esc(dc.attacks[i] ? dc.attacks[i].attackText : '')}</span>
+          <span class="muted">dmg</span> <span data-out="${dp}/attacks/${i}/damageText">${esc(dc.attacks[i] ? dc.attacks[i].damageText : '')}</span><span style="flex:1"></span>
+          <button class="btn small primary" data-action="comp-attack" data-c="${ci}" data-i="${i}" data-mode="full">Roll</button>
+          <button class="btn small" data-action="comp-attack" data-c="${ci}" data-i="${i}" data-mode="single">Single</button>
+          <button class="btn small" data-action="comp-attack" data-c="${ci}" data-i="${i}" data-mode="damage">Dmg</button>
+          ${removeBtn(`${p}/attacks`, i, 'attack')}</div></div>`).join('');
+    const attacks = card('Attacks', `${atkRows || '<p class="muted small">No attacks yet.</p>'}
+      <div class="inline small" style="margin-top:8px"><label class="inline">${chk(`${p}/multiattack`)} Multiattack (secondary attacks −2 instead of −5)</label>
+        <label class="inline">${chk(`${p}/powerAttack`)} Power Attack${dc.powerAttack ? ` (−${dc.powerAttack} / +${dc.powerAttack * 2})` : ''}</label>
+        <span class="inline">Attack misc (all) ${inp(`${p}/atkMisc`, { type: 'num' })}</span></div>
+      <p class="small muted">"Str to damage: auto" is ×1 for primary and ×½ for secondary attacks; use ×1.5 for a creature's only natural attack.</p>`,
+      { cls: 'span-2', tools: `<button class="btn small primary" data-action="comp-attack" data-c="${ci}" data-i="all" data-mode="full">Full attack (all)</button><button class="btn small" data-action="comp-add-attack" data-c="${ci}">+ Attack</button>` });
+
+    const skillNames = App.d.skills.map(s => s.name).concat(M.SPECIALTY_SKILLS);
+    const skRows = c.skills.map((s, i) => `<tr><td class="l">${sel(`${p}/skills/${i}/name`, skillNames, { blank: '— skill —', rerender: true })}</td>
+        <td>${dc.skills[i] && dc.skills[i].isClass && !s.classSkill ? '<span class="cs-dot" title="Class skill">●</span>' : chk(`${p}/skills/${i}/classSkill`, { aria: 'Class skill' })}</td>
+        <td>${inp(`${p}/skills/${i}/ranks`, { type: 'num', aria: 'Ranks' })}</td><td>${inp(`${p}/skills/${i}/misc`, { type: 'num', aria: 'Misc' })}</td>
+        <td>${s.name ? rollBtn(s.name, `${dp}/skills/${i}/total`, { who }) : ''}</td><td>${removeBtn(`${p}/skills`, i, 'skill')}</td></tr>`).join('');
+    const skills = card('Skills', `${skRows ? `<table><thead><tr><th class="l">Skill</th><th title="Class skill">CS</th><th>Ranks</th><th>Misc</th><th>Total</th><th></th></tr></thead><tbody>${skRows}</tbody></table>` : '<p class="muted small">No skills yet.</p>'}
+      <p class="small muted">Ranks: ${dc.skillRanks.used} / ${dc.skillRanks.available}.${c.kind === 'Animal Companion' ? ' Animal companion class skills (●) are filled in automatically.' : ''}</p>`,
+      { tools: `<button class="btn small" data-action="comp-add-skill" data-c="${ci}">+ Skill</button>` });
+
+    const featRows = c.feats.map((f, i) => `<div class="list-row feature-row">${inp(`${p}/feats/${i}/name`, { ph: 'Feat' })}${area(`${p}/feats/${i}/text`, { rows: 1, ph: 'Description' })}${removeBtn(`${p}/feats`, i, 'feat')}</div>`).join('');
+    const evoRows = c.kind === 'Eidolon' ? c.evolutions.map((e, i) => `<div class="list-row evo-row">${inp(`${p}/evolutions/${i}/name`, { ph: 'Evolution' })}${inp(`${p}/evolutions/${i}/cost`, { type: 'num', aria: 'Cost' })}${removeBtn(`${p}/evolutions`, i, 'evolution')}</div>`).join('') : '';
+    const abilities = card('Feats & Abilities', `<h3 style="margin:0 0 4px">Feats <span class="muted small">(${c.feats.length} / ${dc.featsAllowed})</span></h3>${featRows || '<p class="small muted">None yet.</p>'}
+      <button class="btn small" data-action="comp-add-list" data-c="${ci}" data-list="feats">+ Feat</button>
+      ${c.kind === 'Eidolon' ? `<h3 style="margin:12px 0 4px">Evolutions <span class="muted small">(${dc.evolutionsUsed} / ${dc.evolutionPool} points)</span></h3>${evoRows || '<p class="small muted">None yet.</p>'}
+        <button class="btn small" data-action="comp-add-list" data-c="${ci}" data-list="evolutions">+ Evolution</button>` : ''}
+      ${c.kind === 'Animal Companion' || c.kind === 'Familiar' ? `<div style="margin-top:12px">${field('Tricks', area(`${p}/tricks`, { rows: 2, ph: 'Attack, Come, Defend, Down, Guard…' }))}</div>` : ''}
+      <div style="margin-top:8px">${field('Special abilities & upgrades', area(`${p}/special`, { rows: 3, ph: 'Scent, trip, gear upgrades…' }))}</div>`);
+
+    const resRows = c.resources.map((r, i) => `<div class="list-row res-row">${inp(`${p}/resources/${i}/name`, { ph: 'Overdrive rounds' })}
+        <span class="counter"><button class="btn small" data-action="bump" data-path="${p}/resources/${i}/uses" data-d="-1" aria-label="Use one">−</button>${inp(`${p}/resources/${i}/uses`, { type: 'num', aria: 'Uses' })}<span class="muted">/</span>${inp(`${p}/resources/${i}/max`, { type: 'num', aria: 'Max' })}<button class="btn small" data-action="bump" data-path="${p}/resources/${i}/uses" data-d="1" aria-label="Add one">+</button></span>
+        ${removeBtn(`${p}/resources`, i)}</div>`).join('');
+    const resources = card('Resources & Notes', `${resRows || '<p class="small muted">Track rounds per day, charges and so on.</p>'}
+      <button class="btn small" data-action="comp-add-list" data-c="${ci}" data-list="resources">+ Resource</button>
+      <div style="margin-top:10px">${field('Notes', area(`${p}/notes`, { rows: 4 }))}</div>`);
+
+    return `<div class="grid two">${top}${basics}${abil}${defense}${attacks}${skills}${abilities}${resources}</div>`;
+  }
+
+  // Play tab: one card per companion
+  function playCompanionCards() {
+    const ch = App.ch, d = App.d;
+    return ch.companions.map((c, ci) => {
+      const dc = d.companions[ci], dp = `companions/${ci}`, who = compWho(ci);
+      const pct = dc.hp.max > 0 ? Math.max(0, Math.min(100, dc.hp.current / dc.hp.max * 100)) : 0;
+      const sub = [c.species, c.kind + (compLevelLabel(c.kind) ? ' ' + dc.effLevel : ''), c.size !== 'Medium' ? c.size : '', c.speed].filter(Boolean).join(' · ');
+      const atk = c.attacks.map((a, i) => `<div class="play-res"><span><strong>${esc(a.name || 'Attack')}</strong>${E.n(a.count) > 1 ? ` ×${esc(a.count)}` : ''}<br><span class="atk-text" data-out="${dp}/attacks/${i}/attackText">${esc(dc.attacks[i].attackText)}</span> <span class="sub" data-out="${dp}/attacks/${i}/damageText">${esc(dc.attacks[i].damageText)}</span></span>
+          <span class="inline" style="flex-wrap:nowrap"><button class="btn small primary" data-action="comp-attack" data-c="${ci}" data-i="${i}" data-mode="full">Roll</button><button class="btn small" data-action="comp-attack" data-c="${ci}" data-i="${i}" data-mode="damage">Dmg</button></span></div>`).join('');
+      const skills = c.skills.filter(s => s.name).map(s => { const i = c.skills.indexOf(s); return `<div class="skill-cell"><span>${esc(s.name)}</span>${rollBtn(s.name, `${dp}/skills/${i}/total`, { who })}</div>`; }).join('');
+      const res = c.resources.map((r, i) => `<div class="play-res"><span>${esc(r.name || 'Resource')}</span><span class="counter"><button class="btn small" data-action="bump" data-path="companions/${ci}/resources/${i}/uses" data-d="-1">−</button><strong>${esc(r.uses === '' || r.uses === undefined ? 0 : r.uses)}</strong>${r.max !== '' && r.max !== undefined ? `<span class="muted">/ ${esc(r.max)}</span>` : ''}<button class="btn small" data-action="bump" data-path="companions/${ci}/resources/${i}/uses" data-d="1">+</button></span></div>`).join('');
+      const save = (k, l) => `<div class="save-btn"><span class="label">${l}</span>${rollBtn(l + ' save', `${dp}/saves/${k}/total`, { who })}</div>`;
+      return `<section class="card span-all comp-card"><header><h2>${esc(c.name || c.species || c.kind)}</h2><span class="muted small">${esc(sub)}</span><span class="spacer"></span>
+          <button class="btn small ghost" data-action="comp-edit" data-c="${ci}">Edit</button></header>
+        <div class="comp-play">
+          <div><span class="big">${dc.hp.current} / ${dc.hp.max} HP</span>
+            <div class="hp-bar${pct < 50 ? ' low' : ''}"><span style="width:${pct}%"></span></div>
+            <div class="inline"><input type="number" id="comp-hp-amt-${ci}" class="n-wide" placeholder="amt" aria-label="Amount">
+              <button class="btn small" data-action="comp-hp" data-c="${ci}" data-mode="damage">Damage</button><button class="btn small" data-action="comp-hp" data-c="${ci}" data-mode="heal">Heal</button></div>
+            <div class="tiles play-tiles" style="margin-top:8px">
+              <div class="tile"><div class="label">AC</div><div class="value">${dc.ac.total}</div></div><div class="tile"><div class="label">Touch</div><div class="value">${dc.ac.touch}</div></div>
+              <div class="tile"><div class="label">Flat</div><div class="value">${dc.ac.flat}</div></div><div class="tile"><div class="label">CMD</div><div class="value">${dc.cmd}</div></div></div>
+            ${c.dr ? `<p class="small muted">${esc(c.dr)}</p>` : ''}</div>
+          <div><div class="save-row">${save('fort', 'Fort')}${save('ref', 'Reflex')}${save('will', 'Will')}</div>
+            <div class="inline" style="margin-top:8px"><span class="small">Init</span>${rollBtn('Initiative', `${dp}/init`, { who })}<span class="small">CMB</span>${rollBtn('Combat maneuver', `${dp}/cmb`, { who })}</div>
+            <div class="chips" style="margin-top:8px"><label class="chip${c.powerAttack ? ' on' : ''}"><input type="checkbox" data-bind="companions/${ci}/powerAttack" data-type="bool" data-rerender${c.powerAttack ? ' checked' : ''}>Power Attack</label></div>
+            ${res}</div>
+          <div>${atk || '<p class="small muted">No attacks yet.</p>'}
+            ${c.attacks.length > 1 ? `<button class="btn small primary" data-action="comp-attack" data-c="${ci}" data-i="all" data-mode="full" style="margin-top:6px">Full attack (all)</button>` : ''}
+            ${skills ? `<div class="skill-grid" style="margin-top:8px">${skills}</div>` : ''}</div>
+        </div></section>`;
+    }).join('');
+  }
+
+  function rollCompAttack(ci, which, mode, priv) {
+    const c = App.ch.companions[ci], dc = App.d.companions[ci];
+    const idx = which === 'all' ? c.attacks.map((_, i) => i) : [+which];
+    const lines = [];
+    let anyCrit = false, anyFumble = false;
+    for (const i of idx) {
+      const a = c.attacks[i], da = dc.attacks[i];
+      if (!a || !da) continue;
+      const low = DICE.critLow(a.crit), mult = DICE.critMult(a.mult);
+      const name = a.name || 'Attack';
+      if (mode === 'damage') {
+        const dm = DICE.damage(a.dice, da.damageBonus, 1);
+        lines.push(`**${name} damage: ${dm.total}** (${dm.text})`);
+        continue;
+      }
+      const bonuses = mode === 'single' ? da.attacks.slice(0, 1) : da.attacks;
+      bonuses.forEach((b, k) => {
+        const r = DICE.check(b);
+        let line = `**${name}${bonuses.length > 1 ? ' ' + (k + 1) : ''}: ${r.total}** (d20 ${r.nat} ${DICE.signed(b)})`;
+        if (r.nat === 1) { line += ' natural 1, miss'; anyFumble = true; }
+        else {
+          if (r.nat >= low) { const cf = DICE.check(b); line += ` threat! confirm ${cf.total} (d20 ${cf.nat})`; anyCrit = true; }
+          const dm = DICE.damage(a.dice, da.damageBonus, 1);
+          line += ` · dmg **${dm.total}** (${dm.text})`;
+          if (r.nat >= low) { const cr = DICE.damage(a.dice, da.damageBonus, mult); line += ` · if confirmed: **${cr.total}** (x${mult}: ${cr.text})`; }
+        }
+        if (a.notes) line += ` · ${a.notes}`;
+        lines.push(line);
+      });
+    }
+    if (!lines.length) { toast('Add an attack first.'); return; }
+    const title = which === 'all' ? 'Full attack' : (c.attacks[+which].name || 'Attack') + (mode === 'damage' ? ' damage' : '');
+    emit({ title: `${compWho(ci)}: ${title}`, total: null, lines, crit: anyCrit, fumble: anyFumble && !anyCrit }, priv);
   }
 
   // ----- Race
@@ -969,7 +1178,35 @@
       },
       'toggle-all-levels': () => { App.showAllSpellLevels = el.checked; render(); },
       'rest': () => restAction(),
-      'roll-check': () => rollCheck(el.dataset.label, dget(el.dataset.mod), priv),
+      'roll-check': () => rollCheck(el.dataset.label, dget(el.dataset.mod), priv, false, el.dataset.who),
+      'comp-select': () => { App.compIdx = +el.dataset.c; render(); },
+      'comp-edit': () => { App.compIdx = +el.dataset.c; App.tab = 'companion'; render(); window.scrollTo(0, 0); },
+      'comp-add': () => {
+        const kind = $('#comp-kind').value;
+        const c = window.PF_COMPANION.blankCompanion(kind);
+        if (kind === 'Animal Companion') c.skills = [{ name: 'Perception', ranks: 0, misc: 0 }, { name: 'Stealth', ranks: 0, misc: 0 }];
+        App.ch.companions.push(c); App.compIdx = App.ch.companions.length - 1; changed(true);
+      },
+      'comp-remove': () => {
+        const c = App.ch.companions[+el.dataset.c];
+        if (!confirm(`Remove ${c.name || 'this companion'}? This can't be undone (export the character first if you want a copy).`)) return;
+        App.ch.companions.splice(+el.dataset.c, 1); App.compIdx = 0; changed(true);
+      },
+      'comp-add-attack': () => { App.ch.companions[+el.dataset.c].attacks.push({ name: '', count: 1, secondary: 'false', ability: 'str', dmgMult: '', dice: '', crit: '20', mult: 'x2', misc: 0, dmgMisc: 0, iterative: false, ranged: false, notes: '' }); changed(true); },
+      'comp-add-skill': () => { App.ch.companions[+el.dataset.c].skills.push({ name: '', ranks: 0, misc: 0 }); changed(true); },
+      'comp-add-list': () => {
+        const blanks = { feats: { name: '', text: '' }, evolutions: { name: '', cost: 1 }, resources: { name: '', uses: '', max: '' } };
+        App.ch.companions[+el.dataset.c][el.dataset.list].push(blanks[el.dataset.list]); changed(true);
+      },
+      'comp-hp': () => {
+        const ci = +el.dataset.c, c = App.ch.companions[ci];
+        const amt = Math.abs(parseFloat(($('#comp-hp-amt-' + ci) || {}).value) || 0);
+        if (!amt) { toast('Enter an amount first.'); return; }
+        if (el.dataset.mode === 'damage') { const t = Math.min(c.temp || 0, amt); c.temp = (c.temp || 0) - t; c.damage = (Math.abs(c.damage) || 0) + amt - t; }
+        else c.damage = Math.max(0, (Math.abs(c.damage) || 0) - amt);
+        changed(true);
+      },
+      'comp-attack': () => rollCompAttack(+el.dataset.c, el.dataset.i, el.dataset.mode, priv),
       'attack': () => rollAttack(+el.dataset.i, el.dataset.mode, priv),
       'cast': () => castSpell(+el.dataset.l, +el.dataset.i, priv),
       'cast-sla': () => castSla(+el.dataset.g, +el.dataset.i, priv),
@@ -1066,13 +1303,13 @@
 
   // ---------- Rolling ----------
   function who() { return App.ch ? (App.ch.info.name || 'Unnamed') : 'Dice'; }
-  function rollCheck(label, mod, priv, test) {
+  function rollCheck(label, mod, priv, test, whoName) {
     if (mod === null || mod === undefined) { toast(label + ' needs ranks to roll (trained only).'); return; }
     const r = DICE.check(mod);
     const lines = [`1d20 (${r.nat}) ${DICE.signed(mod)}`];
     if (r.nat === 20) lines.push('Natural 20!');
     if (r.nat === 1) lines.push('Natural 1.');
-    emit({ title: `${who()}: ${label}${test ? ' (test)' : ''}`, total: r.total, lines, crit: r.nat === 20, fumble: r.nat === 1 }, priv);
+    emit({ title: `${whoName || who()}: ${label}${test ? ' (test)' : ''}`, total: r.total, lines, crit: r.nat === 20, fumble: r.nat === 1 }, priv);
   }
   function rollFree(expr, priv) {
     try {

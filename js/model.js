@@ -186,6 +186,7 @@
       slots: ITEM_SLOTS.map(s => ({ slot: s, item: '', bonuses: [] })),
       background: BACKGROUND_QUESTIONS.map(q => ({ q, a: '' })),
       settings: { skillSystem: 'Standard Skills', woundThresholds: false, minSkillRanks: false },
+      companions: [],           // animal companions, eidolons, familiars, others (see companion.js)
       customClasses: [],        // classes copied from an imported workbook's Class Charts
       customAttackOptions: [],  // attack formulas copied from an imported workbook
     };
@@ -210,6 +211,7 @@
     ch.effects.forEach(e => { if (!e.id) e.id = uid(); if (!e.v) e.v = {}; });
     migrateLegacyTypes(ch);
     magicItemsToEffects(ch);
+    if (window.PF_COMPANION) ch.companions = (ch.companions || []).map(c => window.PF_COMPANION.normalize(c));
     for (const k of ['traits', 'feats', 'classFeatures', 'slots']) (ch[k] || []).forEach(x => { if (!Array.isArray(x.bonuses)) x.bonuses = []; });
     while (ch.spellcasting.levels.length < 10) ch.spellcasting.levels.push({ spells: [], used: 0, perDayOverride: '' });
     return ch;

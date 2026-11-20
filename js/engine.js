@@ -302,6 +302,7 @@
     computeMovement(ch, d, rows, ctx);
     computeSpells(ch, d);
     computeAttacks(ch, d);
+    d.companions = window.PF_COMPANION ? (ch.companions || []).map(c => window.PF_COMPANION.compute(c, d)) : [];
     return d;
   }
 

@@ -60,6 +60,7 @@ The webhook URL is stored only in this browser. It is never written into exporte
 
 - **Play:** everything you need at the table on one page: HP with damage/heal buttons, AC/touch/flat-footed/CMD, initiative, saves, ability checks, attacks, buffs and conditions, all skills (with a filter), spells with slot tracking and cast buttons, resources, and a list of active bonuses and situational reminders.
 - **Character:** identity, classes, ability scores, HP settings, and the full save and AC breakdowns.
+- **Companion:** animal companions, eidolons, familiars and other creatures (cohorts, constructs, mounts). Each one also gets a card on the Play tab with HP, defenses, saves, attacks, skills and resources; its rolls post under its own name.
 - **Race, Skills, Combat, Spells, Effects, Features & Gear, Notes, Settings:** the detailed editors.
 
 ## What's automated (same rules as the spreadsheet)
@@ -67,6 +68,7 @@ The webhook URL is stored only in this browser. It is never written into exporte
 - **Classes:** 213 classes from Class Charts, covering base, hybrid, occult, monstrous, prestige, Eberron prestige, NPC and the third-party sets. HD, BAB, saves, skill ranks and class skills come from them.
 - **Race:** a Race tab with racial ability modifiers (including the flexible +2), size, speed, senses, bonus skill ranks per level, racial bonuses to saves, skills, AC, attacks or initiative, and racial features. One-click presets for the seven core races (Dwarf, Elf, Gnome, Half-Elf, Half-Orc, Halfling, Human), all editable.
 - **Feats, traits, class features and worn magic items:** each can carry bonuses that change your numbers: skills, saves, AC, natural armor, CMD, CMB, max HP, initiative, attack and damage (all, melee, ranged, or one named weapon), caster level and speed. Values can be formulas using `level`, `bab`, ability modifiers, `ranks`, `class1`/`class2`/`class3` (levels in each class slot) or a class name such as `rogue` or `machine_smith` (your levels in that class), e.g. `max(3, level)` for Toughness, `max(1, floor(rogue/2))` for Trapfinding or `ranks >= 10 ? 6 : 3` for Skill Focus. The **?** beside each value explains the variables, and the result shows next to the field. **Add standard bonuses** fills them in for common feats (Toughness, Improved Initiative, Iron Will, Skill Focus, Weapon Focus, Dodge, the +2/+2 skill feats…) traits (Reactionary, Resilient…) and magic items (belts and headbands of ability scores, cloaks of resistance, rings of protection, amulets of natural armor, bracers of armor, skill items like Eyes of the Eagle). An item's enhancement bonus to an ability doesn't add on top of the same amount typed in the ability's Enhance column. Situational ones become reminders on the Play tab.
+- **Companions:** *Animal Companion* follows the Core Rulebook table by effective druid level (HD, BAB, saves, natural armor, Str/Dex bonus, tricks, feats, special abilities). *Eidolon* follows the APG summoner table (HD d10, full BAB, two good saves from the base form, armor bonus, Str/Dex bonus, evolution pool, max attacks), with an evolutions list tracked against the pool. *Familiar* uses half your HP, your BAB, the better of its or your base saves, and natural armor/Int/abilities by your level. *Other* lets you set HD, hit die, BAB progression and good saves. Abilities can be "-" (no score, e.g. a construct's Con). Attacks support count, primary/secondary, Str multiplier, iteratives, Multiattack and Power Attack. Unchained summoner eidolons use different numbers; model those with *Other*.
 - **HP:** all six HP formulas, Con, favored-class HP, damage/temp/nonlethal tracking and negative levels.
 - **Abilities:** age modifiers, enhancement vs. effect bonuses, inherent bonuses and penalties.
 - **Effect table:** bonuses of the same type don't stack, while penalties and Untyped, Dodge and Circumstance bonuses do. Deflection, Enhancement and Resistance are separate types. Effects reach AC, saves, abilities, attacks, damage, caster level, extra attacks, size, speed and skills. The free-text column applies to named skills and Initiative.
@@ -107,6 +109,7 @@ Not ported:
 | `js/data.js` | Class, skill, armor, condition and attack tables, generated from the spreadsheet |
 | `js/attacks-extra.js` | Extra attack formulas (INT and CHA to hit) added on top of the spreadsheet's list |
 | `js/model.js` | Character data model and defaults |
+| `js/companion.js` | Companion rules (animal companion, eidolon, familiar tables) and calculations |
 | `js/engine.js` | Calculations: a port of the sheet's formulas |
 | `js/import.js` | `.xlsx` importer |
 | `js/dice.js` | Dice expressions, checks, crits |

@@ -293,3 +293,13 @@ label.choice input { margin-top: 3px; accent-color: var(--accent); }
   font-size: 12px; font-weight: 400; line-height: 1.5; text-align: left; cursor: auto; white-space: normal; }
 .help-pop code { font-family: ui-monospace, monospace; background: var(--calc); padding: 0 4px; border-radius: 3px; }
 .help-tip:hover .help-pop, .help-tip:focus .help-pop, .help-tip:focus-within .help-pop { display: block; }
+
+/* ---------- Companions ---------- */
+.pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.pill { background: var(--calc); border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+.comp-atk-grid { display: grid; gap: 6px 8px; grid-template-columns: 2fr 60px 1fr 70px 80px 1fr 60px 60px 70px 70px; align-items: end; }
+@container (max-width: 760px) { .comp-atk-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.comp-play { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+@container (max-width: 760px) { .comp-play { grid-template-columns: minmax(0, 1fr); } }
+.comp-card { border-left: 4px solid var(--gold); }
+.evo-row { grid-template-columns: 1fr 70px 28px; align-items: center; }
