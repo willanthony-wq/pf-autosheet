@@ -422,7 +422,7 @@
       <div class="chips">${ch.conditions.map(n => `<button class="chip cond on" data-action="toggle-condition" data-name="${esc(n)}" title="Click to remove">${esc(n)} ✕</button>`).join('')}
         <select id="add-condition" aria-label="Add a condition" style="width:auto"><option value="">+ Add condition…</option>${others.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('')}</select></div>
       <div class="inline" style="margin-top:8px"><span class="small">Negative levels</span>${inp('negativeLevels', { type: 'num' })}</div>
-      <p class="small muted" style="margin-bottom:0">Name and fill in your own buffs on the Effects tab; they appear here as switches.</p>`, { cls: 'span-2' });
+      <p class="small muted" style="margin-bottom:0">Name and fill in your own buffs on the Effects tab; they appear here as switches.</p>`);
 
     const filter = App.skillFilter || '';
     const all = d.skills.map((s, i) => ({ s, path: `skills/${i}` })).concat(d.specialty.map((s, i) => ({ s, path: `specialty/${i}` })));
@@ -430,7 +430,7 @@
       <div class="skill-grid">${all.map(({ s, path }) => `<div class="skill-cell${s.untrained ? ' untrained' : ''}" data-skill-name="${esc(s.label.toLowerCase())}"${filter && !s.label.toLowerCase().includes(filter.toLowerCase()) ? ' hidden' : ''}>
           <span>${s.isClass ? '<span class="cs-dot" title="Class skill">●</span> ' : ''}${esc(s.label)}${s.ranks ? ` <span class="sub">${s.ranks}r</span>` : ''}</span>
           <button class="roll" data-action="roll-check" data-label="${esc(s.label)}" data-mod="${path}/total" data-roll-disabled="${path}/total"><span data-out="${path}/total" data-fmt="sign">${esc(fmt(s.total, 'sign'))}</span></button></div>`).join('')}</div>`,
-      { cls: 'span-all', tools: `<span class="small muted">● class skill</span>` });
+      { tools: `<span class="small muted">● class skill</span>` });
 
     let spells = '';
     if (d.spells.data || ch.spellcasting.levels.some(l => l.spells.length)) {
@@ -444,7 +444,7 @@
       }).join('');
       const slas = ch.spellcasting.sla.map((g, gi) => g.items.filter(x => x.name).map(x => `<button class="btn small spell-btn" data-action="cast-sla" data-g="${gi}" data-i="${g.items.indexOf(x)}">${esc(x.name)} <span class="sub">${esc(g.label)}${x.uses !== '' && x.uses !== undefined ? ' · ' + esc(x.uses) + ' left' : ''}</span></button>`).join('')).join('');
       spells = card(`Spells${d.spells.className ? ' · ' + d.spells.className : ''}`, blocks + (slas ? `<h3 style="margin:8px 0 4px">Spell-like abilities</h3><div class="spell-names">${slas}</div>` : ''),
-        { cls: 'span-2', tools: `<button class="btn small ghost" data-action="rest">Rest</button><button class="btn small ghost" data-action="tab" data-tab="spells">Edit</button>` });
+        { tools: `<button class="btn small ghost" data-action="rest">Rest</button><button class="btn small ghost" data-action="tab" data-tab="spells">Edit</button>` });
     }
 
     const res = card('Resources', `${ch.resources.map((r, i) => `<div class="play-res"><span>${esc(r.name || 'Resource')}</span>
@@ -459,7 +459,11 @@
       ${notes.length ? `<h3 style="margin:8px 0 4px">Situational</h3><ul class="small notes-list">${notes.map(x => `<li><strong>${esc(x.label || x.src)}</strong>${x.label && x.label !== x.src ? ` <span class="muted">(${esc(x.src)})</span>` : ''}: ${esc(x.text)}</li>`).join('')}</ul>` : ''}
       ${ch.race.senses ? `<p class="small"><strong>Senses:</strong> ${esc(ch.race.senses)}</p>` : ''}${ch.languages ? `<p class="small"><strong>Languages:</strong> ${esc(ch.languages)}</p>` : ''}`);
 
-    return `<div class="grid play-grid">${header}${checks}${attacks}${buffs}${skills}${spells}${res}${active}</div>`;
+    // Buffs and Skills share one column so Skills always sits directly under Buffs.
+    // Spells, Resources and Active Bonuses stack in the column beside them.
+    const stack = `<div class="play-stack span-2">${buffs}${skills}</div>`;
+    const side = `<div class="play-stack">${spells}${res}${active}</div>`;
+    return `<div class="grid play-grid">${header}${checks}${attacks}${stack}${side}</div>`;
   }
 
   // ----- Race
