@@ -317,3 +317,5 @@ label.choice input { margin-top: 3px; accent-color: var(--accent); }
 .spell-config { grid-column: 1 / -1; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 4px 0 8px; background: var(--panel); }
 .spell-buff { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
 .btn.ghost.on { color: var(--accent); }
+
+.spell-row.sla-row { grid-template-columns: 60px 1fr auto auto 28px; }

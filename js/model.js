@@ -215,6 +215,7 @@
     for (const k of ['traits', 'feats', 'classFeatures', 'slots']) (ch[k] || []).forEach(x => { if (!Array.isArray(x.bonuses)) x.bonuses = []; });
     while (ch.spellcasting.levels.length < 10) ch.spellcasting.levels.push({ spells: [], used: 0, perDayOverride: '' });
     ch.spellcasting.levels.forEach(l => (l.spells || []).forEach(s => { if (!s.id) s.id = uid(); }));
+    (ch.spellcasting.sla || []).forEach(g => (g.items || []).forEach(s => { if (!s.id) s.id = uid(); }));
     return ch;
   }
 

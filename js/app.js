@@ -497,7 +497,7 @@
         const names = lv.spells.filter(s => s.name).map((s, i) => `<button class="btn small spell-btn" data-action="cast" data-l="${L}" data-i="${lv.spells.indexOf(s)}" title="Cast (Shift-click: private)">${esc(s.name)}${s.prepared ? ` <span class="sub">${esc(s.prepared)}</span>` : ''}${spellSummary(s) ? ` <span class="sub">· ${esc(spellSummary(s))}</span>` : ''}</button>`).join('');
         return `<div class="play-spell-level"><div class="inline"><strong>${L === 0 ? 'Cantrips' : 'Level ' + L}</strong><span class="sub">DC ${info.dc}${info.perDay !== null ? ' · ' + esc(String(info.perDay)) + '/day' : ''}</span>${pips}</div><div class="spell-names">${names || '<span class="sub">none listed</span>'}</div></div>`;
       }).join('');
-      const slas = ch.spellcasting.sla.map((g, gi) => g.items.filter(x => x.name).map(x => `<button class="btn small spell-btn" data-action="cast-sla" data-g="${gi}" data-i="${g.items.indexOf(x)}">${esc(x.name)} <span class="sub">${esc(g.label)}${x.uses !== '' && x.uses !== undefined ? ' · ' + esc(x.uses) + ' left' : ''}</span></button>`).join('')).join('');
+      const slas = ch.spellcasting.sla.map((g, gi) => g.items.filter(x => x.name).map(x => `<button class="btn small spell-btn" data-action="cast-sla" data-g="${gi}" data-i="${g.items.indexOf(x)}">${esc(x.name)} <span class="sub">${esc(g.label)}${x.uses !== '' && x.uses !== undefined ? ' · ' + esc(x.uses) + ' left' : ''}${spellSummary(x) ? ' · ' + esc(spellSummary(x)) : ''}</span></button>`).join('')).join('');
       spells = card(`Spells${d.spells.className ? ' · ' + d.spells.className : ''}`, blocks + (slas ? `<h3 style="margin:8px 0 4px">Spell-like abilities</h3><div class="spell-names">${slas}</div>` : ''),
         { tools: `<button class="btn small ghost" data-action="rest">Rest</button><button class="btn small ghost" data-action="tab" data-tab="spells">Edit</button>` });
     }
@@ -1016,9 +1016,16 @@
     const levels = card('Spells', `<div class="grid two">${blocks || '<p class="muted">Pick a casting class above, or tick "Show all levels".</p>'}</div>`, { cls: 'span-2' });
 
     const sla = card('Spell-like Abilities', sc.sla.map((g, gi) => `<h3 style="margin:8px 0 4px">${esc(g.label)}</h3>
-      ${g.items.map((it, i) => `<div class="spell-row" style="grid-template-columns: 60px 1fr auto 28px">
-        ${inp(`spellcasting/sla/${gi}/items/${i}/uses`, { ph: 'uses', aria: 'Uses' })}${inp(`spellcasting/sla/${gi}/items/${i}/name`, { ph: 'Ability', aria: 'Name' })}
-        <button class="btn small" data-action="cast-sla" data-g="${gi}" data-i="${i}">Use</button>${removeBtn(`spellcasting/sla/${gi}/items`, i, 'ability')}</div>`).join('')}
+      ${g.items.map((it, i) => {
+        const p = `spellcasting/sla/${gi}/items/${i}`, open = App.openSpells && App.openSpells.has(it.id), sum = spellSummary(it);
+        return `<div class="spell-row sla-row">
+        ${inp(`${p}/uses`, { ph: 'uses', aria: 'Uses left', title: 'Uses left; counts down when you click Use' })}${inp(`${p}/name`, { ph: 'Ability', aria: 'Name' })}
+        <button class="btn small" data-action="cast-sla" data-g="${gi}" data-i="${i}" title="Use: counts down uses, rolls configured dice, switches on its buff (Shift-click: private)">Use</button>
+        <button class="btn small ghost${open ? ' on' : ''}" data-action="spell-config" data-id="${esc(it.id)}" title="Set up damage, attack roll or buff" aria-label="Ability setup">⚙</button>
+        ${removeBtn(`spellcasting/sla/${gi}/items`, i, 'ability')}
+        ${sum ? `<span class="spell-sum">${esc(sum)}</span>` : ''}
+        ${open ? spellConfigAt(p, it, true) : ''}</div>`;
+      }).join('')}
       <button class="btn small" data-action="add-sla" data-g="${gi}">+ ${esc(g.label)}</button>`).join(''));
     const notes = card('Spellcasting Notes', area('spellcasting/notes', { rows: 8 }));
     return `<div class="grid two">${header}${levels}${sla}${notes}</div>`;
@@ -1224,7 +1231,7 @@
         render();
       },
       'spell-presets': () => {
-        const s = App.ch.spellcasting.levels[+el.dataset.l].spells[+el.dataset.i];
+        const s = get(el.dataset.path);
         const res = spellPresetFor(s.name);
         if (!res) { toast(`No standard bonuses known for "${s.name || 'this spell'}". Use + Bonus to add your own.`); return; }
         s.buff = s.buff || { on: true, target: 'self', bonuses: [] };
@@ -1232,7 +1239,7 @@
         changed(true);
         toast(`Added ${res.length} bonus${res.length === 1 ? '' : 'es'} for ${s.name}.`);
       },
-      'add-sla': () => { App.ch.spellcasting.sla[+el.dataset.g].items.push({ name: '', uses: '' }); changed(true); },
+      'add-sla': () => { App.ch.spellcasting.sla[+el.dataset.g].items.push({ id: M.uid(), name: '', uses: '' }); changed(true); },
       'add': () => {
         const blanks = { traits: { kind: 'Trait', text: '', bonuses: [] }, racialFeatures: { name: '', text: '' }, classFeatures: { name: '', text: '', bonuses: [] },
           feats: { level: '', name: '', text: '', bonuses: [] }, resources: { name: '', uses: '', max: '' }, slots: { slot: '', item: '', bonuses: [] }, };
@@ -1466,12 +1473,14 @@
   function formulaCell(path, ph, title) {
     return `<span class="val-cell">${inp(path, { ph, cls: 'bonus-value', title: title || 'A number or a formula; cl = caster level. Click ? for help.' })}<span class="bonus-result"></span>${formulaHelp()}</span>`;
   }
-  function spellConfig(L, i) {
-    const s = App.ch.spellcasting.levels[L].spells[i], p = `spellcasting/levels/${L}/spells/${i}`;
+  function spellConfig(L, i) { return spellConfigAt(`spellcasting/levels/${L}/spells/${i}`, App.ch.spellcasting.levels[L].spells[i]); }
+  // Setup panel shared by spells and spell-like abilities (sla adds caster level and DC fields).
+  function spellConfigAt(p, s, sla) {
     const targets = [{ v: 'self', l: (App.ch.info.name || 'Me') + ' (self)' }].concat(App.ch.companions.map(c => ({ v: 'c:' + c.id, l: (c.name || c.species || c.kind) + ' (companion)' })));
     const buff = s.buff || {};
     return `<div class="spell-config">
       <div class="fields">
+        ${sla ? field('Caster level', formulaCell(`${p}/cl`, 'yours (' + App.d.spells.cl + ')', 'Blank = your caster level. Racial abilities often use your character level: type level')) + field('Save DC', formulaCell(`${p}/dc`, 'e.g. 10 + 2 + cha', 'Usually 10 + spell level + Cha modifier; blank = no DC')) : ''}
         ${field('Attack roll', sel(`${p}/attack`, [{ v: 'rtouch', l: 'Ranged touch' }, { v: 'mtouch', l: 'Melee touch' }], { blank: 'None', rerender: true }))}
         ${field('Dice count', formulaCell(`${p}/dmgCount`, 'e.g. min(cl, 5)'))}
         ${field('Die', sel(`${p}/dmgDie`, [4, 6, 8, 10, 12, 20].map(x => ({ v: x, l: 'd' + x })), { blank: 'no dice', type: 'num', rerender: true }))}
@@ -1486,7 +1495,7 @@
         ${buff.on ? `<div class="fields" style="margin-top:6px">${field('Target', sel(`${p}/buff/target`, targets, { blank: false }))}</div>
           ${bonusEditor(`${p}/buff/bonuses`, buff.bonuses || [])}
           <div class="inline small bonus-tools"><button class="btn small ghost" data-action="add-bonus" data-list="${p}/buff/bonuses" data-type="Untyped (stacks)">+ Bonus</button>
-            <button class="btn small ghost" data-action="spell-presets" data-l="${L}" data-i="${i}">Add standard bonuses</button></div>
+            <button class="btn small ghost" data-action="spell-presets" data-path="${p}">Add standard bonuses</button></div>
           <p class="small muted" style="margin:4px 0 0">The effect appears on the Effects and Play tabs (or as a companion buff) named after the spell. Switch it off when the spell ends; casting again switches it back on.</p>` : ''}
       </div>
       ${field('Notes', inp(`${p}/notes`, { ph: 'Area, range, special…' }))}
@@ -1521,8 +1530,15 @@
     const perDay = App.d.spells.levels[L].perDay;
     if (L > 0 && typeof perDay === 'number' && (lv.used || 0) < perDay) lv.used = (lv.used || 0) + 1;
     const d = App.d, dcv = d.spells.levels[L].dc, cl = d.spells.cl;
+    const r = resolveCast(s, cl, dcv, `Level ${L} spell · DC ${dcv} · CL ${cl}`);
+    changed(true);
+    emit({ title: `${who()} casts ${s.name}`, total: r.total, kind: r.total === null ? 'info' : undefined, lines: r.lines, crit: r.crit, fumble: r.fumble }, priv);
+  }
+  // Rolls a spell's or spell-like ability's configured attack and dice and switches on its buff.
+  function resolveCast(s, cl, dcv, header) {
+    const d = App.d;
     const V = Object.assign({}, d.formulaVars, { cl });
-    const lines = [`Level ${L} spell · DC ${dcv} · CL ${cl}`];
+    const lines = [header];
     let total = null, crit = false, fumble = false, threat = false;
     if (s.attack) {
       const b = s.attack === 'rtouch' ? d.bab + d.mods.dex + d.size.atk + d.effectTotals.rAtk : d.bab + d.mods.str + d.size.atk + d.effectTotals.mAtk;
@@ -1541,21 +1557,28 @@
       if (threat && !s.healing) { const c2 = DICE.damage(`${count}d${s.dmgDie}`, bonus, 2); line += ` · if confirmed: **${c2.total}** (x2: ${c2.text})`; }
       lines.push(line);
     }
-    if (s.save) lines.push(`Save: ${s.save}, DC ${dcv}`);
+    if (s.save) lines.push(`Save: ${s.save}${dcv !== null && dcv !== undefined ? ', DC ' + dcv : ''}`);
     if (s.duration) lines.push(`Duration: ${s.duration}`);
     if (s.buff && s.buff.on) {
       const tn = applySpellBuff(s);
       lines.push(tn ? `Buff on: ${tn}` : 'Buff target companion not found; pick a target in the spell setup.');
     }
     if (s.notes) lines.push(s.notes);
-    changed(true);
-    emit({ title: `${who()} casts ${s.name}`, total, kind: total === null ? 'info' : undefined, lines, crit, fumble }, priv);
+    return { lines, total, crit, fumble };
   }
   function castSla(g, i, priv) {
     const it = App.ch.spellcasting.sla[g].items[i];
     if (!it || !it.name) { toast('Name the ability first.'); return; }
-    if (/^\d+$/.test(String(it.uses)) && +it.uses > 0) { it.uses = String(+it.uses - 1); changed(true); }
-    emit({ title: `${who()} uses ${it.name}`, total: null, kind: 'info', lines: [`Spell-like ability (${App.ch.spellcasting.sla[g].label})`] }, priv);
+    const empty = /^\d+$/.test(String(it.uses)) && +it.uses === 0;
+    if (/^\d+$/.test(String(it.uses)) && +it.uses > 0) it.uses = String(+it.uses - 1);
+    const d = App.d;
+    // Caster level: the ability's own formula (e.g. level), or your spellcasting CL, or your level
+    const cl = String(it.cl || '').trim() ? (E.evalBonus(it.cl, d.formulaVars) ?? (d.spells.cl || d.level)) : (d.spells.cl || d.level);
+    const dcv = String(it.dc || '').trim() ? E.evalBonus(it.dc, Object.assign({}, d.formulaVars, { cl })) : null;
+    const label = App.ch.spellcasting.sla[g].label;
+    const r = resolveCast(it, cl, dcv, `Spell-like ability (${label}) · CL ${cl}${dcv !== null ? ' · DC ' + dcv : ''}${empty ? ' · no uses left' : ''}`);
+    changed(true);
+    emit({ title: `${who()} uses ${it.name}`, total: r.total, kind: r.total === null ? 'info' : undefined, lines: r.lines, crit: r.crit, fumble: r.fumble }, priv);
   }
 
   async function emit(roll, priv) {
