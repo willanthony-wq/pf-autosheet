@@ -28,7 +28,8 @@ The importer reads:
 - identity, classes and favored-class bonuses
 - abilities, HP, saves and AC
 - skill ranks, including class skills you marked by hand
-- weapons, armor and magic item bonuses
+- weapons and armor
+- magic item bonuses (the sheet's "Magic Item or Feature" rows become rows on the Effects tab)
 - the effect table, toggles and conditions
 - spells, spell-like abilities, traits, features and feats
 - resources, item slots and background answers
