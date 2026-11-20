@@ -89,21 +89,73 @@
     return m ? parseInt(m[0], 10) : null;
   }
 
+  // ---------- Bonus formulas ----------
+  // A bonus value is a number or a small formula such as "max(3, level)" or "ranks >= 10 ? 6 : 3".
+  const FORMULA_IDS = new Set(['level', 'bab', 'str', 'dex', 'con', 'int', 'wis', 'cha', 'ranks', 'max', 'min', 'floor', 'ceil', 'abs']);
+  const formulaCache = new Map();
+  function compileFormula(src) {
+    const key = String(src);
+    if (formulaCache.has(key)) return formulaCache.get(key);
+    let f = null;
+    const ok = /^[\d\s+\-*/().,<>=?:!&|a-z_]*$/i.test(key) && (key.match(/[a-z_]+/gi) || []).every(id => FORMULA_IDS.has(id.toLowerCase()));
+    if (ok) {
+      try {
+        f = new Function('V', 'const {level=0,bab=0,str=0,dex=0,con=0,int=0,wis=0,cha=0,ranks=0}=V; const {max,min,floor,ceil,abs}=Math; return (' + key.toLowerCase() + ');');
+      } catch (e) { f = null; }
+    }
+    formulaCache.set(key, f);
+    return f;
+  }
+  function evalBonus(value, V) {
+    if (value === '' || value === null || value === undefined) return null;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    const t = String(value).trim();
+    if (/^[-+]?\d+(\.\d+)?$/.test(t)) return parseFloat(t);
+    const f = compileFormula(t);
+    if (!f) return null;
+    try { const r = Number(f(V || {})); return Number.isFinite(r) ? Math.floor(r) : null; } catch (e) { return null; }
+  }
+  function isValidBonus(value) { return value === '' || value === null || value === undefined || evalBonus(value, {}) !== null; }
+
+  function pushBonuses(rows, list, src, nameFn, defType, V, fixedType) {
+    for (const b of list) {
+      if (!b || b.active === false || !b.target || b.target === 'note') continue;
+      const type = fixedType ? defType : (b.type || defType);
+      const name = nameFn(b);
+      if (b.target === 'skill') {
+        if (b.skill) rows.push({ src, name, type, v: {}, text: '', skill: b.skill, formula: b.value });
+        continue;
+      }
+      const x = evalBonus(b.value, V);
+      if (x === null) continue;
+      const v = {}, row = { src, name, type, v, text: '' };
+      if (b.target === 'saves') Object.assign(v, { fort: x, ref: x, will: x });
+      else if (b.target === 'atk') Object.assign(v, { mAtk: x, rAtk: x });
+      else if (b.target === 'dmg') Object.assign(v, { mDmg: x, rDmg: x });
+      else if (b.target === 'weapon' || b.target === 'weaponDmg') {
+        if (!String(b.weapon || '').trim()) continue;
+        row.weapon = String(b.weapon).trim();
+        v[b.target === 'weapon' ? 'wAtk' : 'wDmg'] = x;
+      } else v[b.target] = x;
+      rows.push(row);
+    }
+  }
+  function abilityVars(d, level, bab) {
+    const V = { level, bab };
+    for (const a of ABILITIES) V[a] = d.mods ? d.mods[a] : 0;
+    return V;
+  }
+
   // ---------- Effect rows ----------
   function buildEffectRows(ch, ctx) {
     const rows = [];
     for (const e of ch.effects) if (e.active) rows.push({ src: 'effect', name: e.name, type: e.type, v: e.v || {}, text: e.text || '' });
-    for (const b of ((ch.race && ch.race.bonuses) || [])) {
-      if (b.active === false || !isNum(b.value) || b.target === 'note') continue;
-      const x = n(b.value), v = {};
-      let text = '';
-      if (b.target === 'saves') Object.assign(v, { fort: x, ref: x, will: x });
-      else if (b.target === 'atk') Object.assign(v, { mAtk: x, rAtk: x });
-      else if (b.target === 'init') text = 'Initiative ' + sign(x);
-      else if (b.target === 'skill') { if (!b.skill) continue; text = b.skill.replace(/:$/, '') + ' ' + sign(x); }
-      else v[b.target] = x;
-      rows.push({ src: 'race', name: b.label || 'Racial bonus', type: 'Racial', v, text });
-    }
+    // Bonuses attached to race, traits, feats and class features
+    const V = ctx.vars || {};
+    pushBonuses(rows, (ch.race && ch.race.bonuses) || [], 'race', b => b.label || 'Racial bonus', 'Racial', V, true);
+    for (const t of ch.traits || []) pushBonuses(rows, t.bonuses || [], 'trait', b => b.label || String(t.text || 'Trait').split(':')[0], 'Trait', V);
+    for (const f of ch.feats || []) pushBonuses(rows, f.bonuses || [], 'feat', b => b.label || f.name || 'Feat', 'Untyped (stacks)', V);
+    for (const f of ch.classFeatures || []) pushBonuses(rows, f.bonuses || [], 'feature', b => b.label || f.name || 'Class feature', 'Untyped (stacks)', V);
 
     const pa = Math.floor(ctx.bab / 4) + 1;
     for (const t of ch.toggles) {
@@ -182,12 +234,20 @@
     // Pre-pass: effect rows need BAB, base speeds and HP (for wound thresholds). HP needs Con,
     // which needs effects, so compute abilities from effects that don't depend on HP first.
     const ctx = { bab: d.bab, speedBase: { base: n(ch.info.speeds.base), fly: ch.info.speeds.fly, swim: ch.info.speeds.swim, burrow: ch.info.speeds.burrow, climb: ch.info.speeds.climb }, hpMax: 0, hpCurrent: 0 };
+    // Bonus formulas can use ability modifiers, so estimate them first, then refine.
+    d.mods = null;
+    ctx.vars = abilityVars({ mods: quickMods(ch) }, d.level, d.bab);
     let rows = buildEffectRows(ch, Object.assign({}, ctx, { hpMax: 0 }));
     computeAbilities(ch, d, rows);
-    computeHp(ch, d);
+    ctx.vars = abilityVars(d, d.level, d.bab);
+    rows = buildEffectRows(ch, Object.assign({}, ctx, { hpMax: 0 }));
+    computeAbilities(ch, d, rows);
+    ctx.vars = abilityVars(d, d.level, d.bab);
+    computeHp(ch, d, rows);
     ctx.hpMax = d.hp.max; ctx.hpCurrent = d.hp.current;
     rows = buildEffectRows(ch, ctx);
     computeAbilities(ch, d, rows);  // wound thresholds don't touch abilities, but recompute for consistency
+    d.formulaVars = ctx.vars;
     d.rows = rows;
     d.loseDex = ctx.loseDex;
     d.woundState = ctx.woundState || '';
@@ -217,6 +277,19 @@
     return d;
   }
 
+  // Rough ability modifiers before effects are known (used only to seed bonus formulas).
+  function quickMods(ch) {
+    const out = {};
+    const ageIdx = Math.max(0, AGE.categories.indexOf(ch.info.age));
+    const r = ch.race || {};
+    for (const a of ABILITIES) {
+      const ab = ch.abilities[a];
+      const race = n(r.abilityMods && r.abilityMods[a]) + (r.flex && r.flexAbility === a ? 2 : 0);
+      out[a] = mod(n(ab.base) + race + n(ab.enh) + n(ab.inh) - Math.abs(n(ab.pen)) + AGE.mods[a][ageIdx]);
+    }
+    return out;
+  }
+
   function computeAbilities(ch, d, rows) {
     d.abilities = {};
     const ageIdx = Math.max(0, AGE.categories.indexOf(ch.info.age));
@@ -237,7 +310,7 @@
     for (const a of ABILITIES) d.mods[a] = d.abilities[a].mod;
   }
 
-  function computeHp(ch, d) {
+  function computeHp(ch, d, rows) {
     const con = d.mods.con;
     const f = ch.info.hpFormula;
     let total = 0;
@@ -256,9 +329,10 @@
       }
     });
     const nl = n(ch.negativeLevels);
-    const max = Math.floor(total) + n(ch.fcb.hp) - 5 * nl;
+    const bonus = rows ? stack(rows, 'hp') : 0;   // e.g. Toughness
+    const max = Math.floor(total) + n(ch.fcb.hp) + bonus - 5 * nl;
     const current = max - Math.abs(n(ch.hp.damage)) + n(ch.hp.temp) - n(ch.hp.nonlethal);
-    d.hp = { max, current, base: Math.floor(total) + n(ch.fcb.hp) };
+    d.hp = { max, current, base: Math.floor(total) + n(ch.fcb.hp), bonus };
   }
 
   function getClass(ch, name) {
@@ -335,12 +409,13 @@
       flat: 10 + armor + shield + Math.min(dex, 0) + size + natural + deflect + Math.min(dodge, 0) + temp,
       touch: 10 + dex + size + deflect + dodge + temp,
     };
-    d.cmd = 10 + d.bab + m.str + dex + d.size.cmb + deflect + dodge + temp;
-    d.cmb = d.bab + m.str + d.size.cmb + d.effectTotals.mAtk;
+    d.cmd = 10 + d.bab + m.str + dex + d.size.cmb + deflect + dodge + temp + stack(rows, 'cmd');
+    d.cmb = d.bab + m.str + d.size.cmb + d.effectTotals.mAtk + stack(rows, 'cmb');
 
     // Initiative: Dex + misc + numbers in active effect text mentioning "Initiative"
     let initTemp = 0;
     for (const r of rows) if (/initiative/i.test(r.text || '')) initTemp += firstNumber(r.text) || 0;
+    initTemp += stack(rows, 'init');
     d.initiative = { dex: m.dex, misc: n(ch.initiative.misc), temp: initTemp, total: m.dex + n(ch.initiative.misc) + initTemp };
   }
 
@@ -362,13 +437,22 @@
     const speeds = ch.info.speeds;
     const flyMan = FLIGHT[ch.movement.flight] || 0;
 
-    function tempFor(name) {
+    const skillKey = s => String(s || '').replace(/:$/, '').trim().toLowerCase();
+    function tempFor(name, label, ranks) {
       const byType = new Map();
       for (const r of rows) {
         const t = typeFor(r.type, 'skills');
         const vals = [];
+        if (r.skill) {
+          if (skillKey(r.skill) === skillKey(name)) {
+            const x = evalBonus(r.formula, Object.assign({}, d.formulaVars, { ranks }));
+            if (x !== null) vals.push(x);
+          }
+          if (!vals.length) continue;
+        }
         if (isNum(r.v && r.v.skills)) vals.push(n(r.v.skills));
-        if (r.text && name && r.text.toLowerCase().includes(name.toLowerCase().replace(/:$/, ''))) {
+        const textName = label || name;
+        if (r.text && textName && r.text.toLowerCase().includes(textName.toLowerCase().replace(/:$/, ''))) {
           const fn = firstNumber(r.text);
           if (fn !== null) vals.push(fn);
         }
@@ -394,7 +478,7 @@
       if (name === 'Swim' && isNum(speeds.swim)) sizeArmor += 8;
       if (name === 'Fly') sizeArmor += d.size.fly + flyMan;
       if (name === 'Stealth' || name === 'C. Stealth') sizeArmor += d.size.stealth;
-      const temp = tempFor(label || name);
+      const temp = tempFor(name, label, ranks);
       const untrained = meta.trained && ranks < 1;
       const total = ranks + m[abKey] + cls + misc + temp + sizeArmor;
       return {
@@ -501,10 +585,11 @@
       unchainedMonk: d.classes.some(c => c.data && c.name === 'Monk (Unchained)'),
     };
     d.attackVars = v;
-    d.weapons = ch.weapons.map(w => attackFor(w, v, T, ch.customAttackOptions || []));
+    const wRows = d.rows.filter(r => r.weapon);
+    d.weapons = ch.weapons.map(w => attackFor(w, v, T, ch.customAttackOptions || [], wRows));
   }
 
-  function attackFor(w, v, T, custom) {
+  function attackFor(w, v, T, custom, wRows) {
     const out = { attacks: [], damageBonus: null, attackText: '', damageText: '', valid: false };
     if (!w.category || !w.formula) return out;
     const cat = D.attackCategories.find(c => c.name === w.category);
@@ -514,7 +599,10 @@
     if (A === null) return out;
     const mwk = w.enh === 'Masterwork' || w.enh === 'Mwk';
     const enhNum = isNum(w.enh) ? n(w.enh) : 0;
-    const W = A + n(w.mAtk) + (mwk ? 1 : enhNum);
+    // Weapon Focus / Specialization style bonuses: match the weapon by name
+    const mine = (wRows || []).filter(r => String(w.name || '').toLowerCase().includes(r.weapon.toLowerCase()));
+    const wAtk = stack(mine, 'wAtk'), wDmg = stack(mine, 'wDmg');
+    const W = A + n(w.mAtk) + (mwk ? 1 : enhNum) + wAtk;
     const iter = Math.max(1, evalExpr(cat.iter, v) || 1);
     const xm = T.xMelee, xr = T.xRanged, m1 = T.m1st, r1 = T.r1st;
     const it = (base, offs) => { const a = []; for (let i = 1; i < Math.min(iter, 4); i++) a.push(base - offs * i); return a; };
@@ -570,7 +658,7 @@
     out.attackText = atk.map(sign).join(' / ');
     const dmg = evalExpr(opt.dmg, v);
     if (dmg !== null) {
-      out.damageBonus = dmg + enhNum + n(w.mDmg);
+      out.damageBonus = dmg + enhNum + n(w.mDmg) + wDmg;
       out.damageText = (w.dice ? w.dice + ' ' : '') + (out.damageBonus >= 0 ? '+ ' : '- ') + Math.abs(out.damageBonus);
     }
     if (w.dmgOverride && String(w.dmgOverride).trim()) { out.damageText = String(w.dmgOverride).trim(); out.damageOverride = out.damageText; }
@@ -578,5 +666,5 @@
     return out;
   }
 
-  window.PF_ENGINE = { compute, getClass, attackOptions, evalExpr, stack, typeTotal, sign, n, isNum, firstNumber, classByName };
+  window.PF_ENGINE = { compute, evalBonus, isValidBonus, getClass, attackOptions, evalExpr, stack, typeTotal, sign, n, isNum, firstNumber, classByName };
 })();

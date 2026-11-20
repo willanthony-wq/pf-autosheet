@@ -2,7 +2,7 @@
 // Imports the character and compares computed values with the values cached in the spreadsheet.
 const path = require("path").resolve(process.argv[2]), app = require("path").resolve(__dirname, "..");
 global.window = {};
-for (const f of ['data', 'model', 'engine', 'import']) require(app + '/js/' + f + '.js');
+for (const f of ['data', 'model', 'races', 'feats', 'engine', 'import']) require(app + '/js/' + f + '.js');
 const cells = require(path);
 const book = { v: (sh, a) => (cells[sh] && cells[sh].v[a] !== undefined ? cells[sh].v[a] : ""), f: (sh, a) => (cells[sh] && cells[sh].f[a]) || "", maxRow: sh => cells[sh] ? cells[sh].max : 0 };
 const main = a => book.v("Main Sheet", a);

@@ -55,10 +55,17 @@ Attack rolls flag crit threats from the weapon's crit range, roll the confirmati
 
 The webhook URL is stored only in this browser. It is never written into exported character files. Anyone who has the URL can post to that channel.
 
+## Tabs
+
+- **Play:** everything you need at the table on one page: HP with damage/heal buttons, AC/touch/flat-footed/CMD, initiative, saves, ability checks, attacks, buffs and conditions, all skills (with a filter), spells with slot tracking and cast buttons, resources, and a list of active bonuses and situational reminders.
+- **Character:** identity, classes, ability scores, HP settings, and the full save and AC breakdowns.
+- **Race, Skills, Combat, Spells, Effects, Features & Gear, Notes, Settings:** the detailed editors.
+
 ## What's automated (same rules as the spreadsheet)
 
 - **Classes:** 213 classes from Class Charts, covering base, hybrid, occult, monstrous, prestige, Eberron prestige, NPC and the third-party sets. HD, BAB, saves, skill ranks and class skills come from them.
 - **Race:** a Race tab with racial ability modifiers (including the flexible +2), size, speed, senses, bonus skill ranks per level, racial bonuses to saves, skills, AC, attacks or initiative, and racial features. One-click presets for the seven core races (Dwarf, Elf, Gnome, Half-Elf, Half-Orc, Halfling, Human), all editable.
+- **Feats, traits and class features:** each can carry bonuses that change your numbers: skills, saves, AC, natural armor, CMD, CMB, max HP, initiative, attack and damage (all, melee, ranged, or one named weapon), caster level and speed. Values can be formulas using `level`, `bab`, ability modifiers and `ranks`, e.g. `max(3, level)` for Toughness or `ranks >= 10 ? 6 : 3` for Skill Focus. **Add standard bonuses** fills them in for common feats (Toughness, Improved Initiative, Iron Will, Skill Focus, Weapon Focus, Dodge, the +2/+2 skill feats…) and traits (Reactionary, Resilient…). Situational ones become reminders on the Play tab.
 - **HP:** all six HP formulas, Con, favored-class HP, damage/temp/nonlethal tracking and negative levels.
 - **Abilities:** age modifiers, enhancement vs. effect bonuses, inherent bonuses and penalties.
 - **Effect table:** bonuses of the same type don't stack, while penalties and Untyped, Dodge and Circumstance bonuses do. Deflection, Enhancement and Resistance are separate types. Effects reach AC, saves, abilities, attacks, damage, caster level, extra attacks, size, speed and skills. The free-text column applies to named skills and Initiative.

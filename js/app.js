@@ -5,7 +5,7 @@
 
   // ---------- State & persistence ----------
   const LS = { roster: 'pfas.roster', char: id => 'pfas.char.' + id, settings: 'pfas.settings', log: 'pfas.log' };
-  const App = { ch: null, d: null, tab: 'overview', roster: { ids: [], current: null }, settings: {}, log: [], showAllSpellLevels: false };
+  const App = { ch: null, d: null, tab: 'play', skillFilter: '', roster: { ids: [], current: null }, settings: {}, log: [], showAllSpellLevels: false };
 
   function lsGet(k, fallback) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; } catch (e) { return fallback; } }
   function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
@@ -141,13 +141,14 @@
       if (!s) return;
       tr.classList.toggle('untrained', !!s.untrained);
     });
+    $$('.bonus-value').forEach(el => el.classList.toggle('bad', !E.isValidBonus(el.value)));
     $$('[data-roll-disabled]').forEach(b => { b.disabled = dget(b.dataset.rollDisabled) === null; });
     document.title = (App.ch && App.ch.info.name ? App.ch.info.name + ' · ' : '') + 'PF Autosheet';
   }
 
   // ---------- Rendering ----------
   const TABS = [
-    ['overview', 'Overview'], ['race', 'Race'], ['skills', 'Skills'], ['combat', 'Combat'], ['spells', 'Spells'],
+    ['play', 'Play'], ['character', 'Character'], ['race', 'Race'], ['skills', 'Skills'], ['combat', 'Combat'], ['spells', 'Spells'],
     ['effects', 'Effects'], ['features', 'Features & Gear'], ['notes', 'Notes'], ['settings', 'Settings'],
   ];
 
@@ -157,9 +158,9 @@
     const main = $('#main');
     if (!App.ch) { main.innerHTML = renderEmpty(); return; }
     const y = window.scrollY;
-    const fn = { overview: renderOverview, race: renderRace, skills: renderSkills, combat: renderCombat, spells: renderSpells, effects: renderEffects,
+    const fn = { play: renderPlay, character: renderOverview, overview: renderOverview, race: renderRace, skills: renderSkills, combat: renderCombat, spells: renderSpells, effects: renderEffects,
       features: renderFeatures, notes: renderNotes, settings: renderSettings }[App.tab] || renderOverview;
-    main.innerHTML = fn();
+    main.innerHTML = fn() + `<datalist id="weapon-names">${App.ch.weapons.filter(w => w.name).map(w => `<option value="${esc(w.name)}">`).join('')}</datalist>`;
     updateOutputs();
     window.scrollTo(0, y);
     renderDiscordState();
@@ -285,26 +286,180 @@
         ${field('AC notes', inp('ac/notes'))}
       </div>`);
 
-    const atkRows = ch.weapons.map((w, i) => {
-      const cat = w.category ? w.category.replace(/\s*\(.*\)$/, '') : 'no attack type';
-      return `<tr>
-        <td class="l"><strong>${esc(w.name || 'Unnamed weapon')}</strong><div class="sub">${esc(cat)}${w.range ? ' · ' + esc(w.range) + ' ft' : ''}${w.type ? ' · ' + esc(w.type) : ''}</div></td>
-        <td><span class="atk-text" data-out="weapons/${i}/attackText" data-fmt="">${esc(fmt(d.weapons[i] && d.weapons[i].attackText))}</span></td>
-        <td><span data-out="weapons/${i}/damageText" data-fmt="">${esc(fmt(d.weapons[i] && d.weapons[i].damageText))}</span></td>
-        <td class="sub">${esc(w.crit || '20')} / ${esc(w.mult || 'x2')}</td>
+
+    return `<div class="grid two">${identity}${classes}${abilities}${hp}${saves}${defenses}</div>`;
+  }
+
+  // ----- Shared bonus editor (race, traits, feats, class features)
+  function skillNameList() { return App.d.skills.map(s => s.name).concat(M.SPECIALTY_SKILLS); }
+  function bonusEditor(listPath, list, o = {}) {
+    const skillNames = skillNameList();
+    const rows = (list || []).map((b, i) => {
+      const p = `${listPath}/${i}`;
+      let detail;
+      if (b.target === 'skill') detail = sel(`${p}/skill`, skillNames, { blank: '— skill —', aria: 'Skill' });
+      else if (b.target === 'weapon' || b.target === 'weaponDmg') detail = inp(`${p}/weapon`, { ph: 'Weapon name contains…', list: 'weapon-names', aria: 'Weapon' });
+      else detail = inp(`${p}/text`, { ph: b.target === 'note' ? 'When it applies' : 'Notes (optional)', aria: 'Notes' });
+      const bad = E.isValidBonus(b.value) ? '' : ' bad';
+      return `<div class="bonus-row${o.label ? ' with-label' : ''}${b.active === false ? ' inactive' : ''}">
+        <input type="checkbox" data-bind="${p}/active" data-type="bool" data-rerender aria-label="Bonus on"${b.active === false ? '' : ' checked'}>
+        ${o.label ? inp(`${p}/label`, { ph: 'Name', aria: 'Bonus name' }) : ''}
+        ${o.fixedType ? `<span class="sub">${esc(o.fixedType)}</span>` : sel(`${p}/type`, M.BONUS_TYPES, { blank: false, aria: 'Bonus type' })}
+        ${sel(`${p}/target`, M.BONUS_TARGETS, { blank: false, rerender: true, aria: 'Applies to' })}
+        ${detail}
+        ${b.target === 'note' ? '<span></span>' : inp(`${p}/value`, { ph: '2 or max(3, level)', aria: 'Value', cls: 'bonus-value' + bad, title: 'A number, or a formula using level, bab, str, dex, con, int, wis, cha, ranks, max(), min(), floor()' })}
+        ${removeBtn(listPath, i, 'bonus')}</div>`;
+    }).join('');
+    return rows ? `<div class="bonus-list">${rows}</div>` : '';
+  }
+  function addBonusButtons(listPath, defType, suggestKind, i, key) {
+    return `<div class="inline small bonus-tools"><button class="btn small ghost" data-action="add-bonus" data-list="${esc(listPath)}" data-type="${esc(defType)}">+ Bonus</button>` +
+      (suggestKind ? `<button class="btn small ghost" data-action="suggest-bonus" data-list="${esc(key)}" data-i="${i}" data-kind="${suggestKind}" title="Fill in the usual bonuses for this ${suggestKind}">Add standard bonuses</button>` : '') + `</div>`;
+  }
+  function featureList(key) {
+    const ch = App.ch;
+    return ch[key].map((x, i) => {
+      let head, desc = '', kind = null, defType = 'Untyped (stacks)';
+      if (key === 'feats') {
+        head = `${inp(`feats/${i}/level`, { ph: 'Lvl', aria: 'Level gained' })}${inp(`feats/${i}/name`, { ph: 'Power Attack' })}`;
+        desc = area(`feats/${i}/text`, { rows: 1, ph: 'Description' }); kind = 'feat';
+      } else if (key === 'traits') {
+        head = `${sel(`traits/${i}/kind`, ['Trait', 'Drawback', 'DB'], { blank: false })}${inp(`traits/${i}/text`, { ph: 'Reactionary: +2 Initiative' })}`;
+        kind = 'trait'; defType = 'Trait';
+      } else {
+        head = `${inp(`classFeatures/${i}/name`, { ph: 'Channel Energy' })}`;
+        desc = area(`classFeatures/${i}/text`, { rows: 1, ph: 'Description' });
+      }
+      const hasBonuses = (x.bonuses || []).length > 0;
+      return `<div class="feature-item"><div class="feature-head ${key}">${head}${removeBtn(key, i)}</div>${desc}
+        ${bonusEditor(`${key}/${i}/bonuses`, x.bonuses)}
+        ${addBonusButtons(`${key}/${i}/bonuses`, defType, hasBonuses ? null : kind, i, key)}</div>`;
+    }).join('') || '<p class="small muted">None yet.</p>';
+  }
+  function suggestBonuses(key, i, kind) {
+    const item = App.ch[key][i];
+    const name = key === 'traits' ? item.text : item.name;
+    const res = window.PF_FEATS.suggest(kind, name, skillNameList());
+    if (!res) { toast(`No standard bonuses known for "${name || 'this ' + kind}". Use + Bonus to add your own.`); return; }
+    item.bonuses = (item.bonuses || []).concat(res);
+    changed(true);
+    toast(`Added ${res.length} bonus${res.length === 1 ? '' : 'es'} for ${name}.`);
+  }
+  function situationalNotes() {
+    const out = [];
+    const add = (src, list) => (list || []).forEach(b => { if (b.active !== false && b.target === 'note' && (b.text || b.label)) out.push({ src, text: b.text || '' , label: b.label || '' }); });
+    add(App.ch.info.race || 'Race', App.ch.race.bonuses);
+    App.ch.traits.forEach(t => add(String(t.text || 'Trait').split(':')[0], t.bonuses));
+    App.ch.feats.forEach(f => add(f.name || 'Feat', f.bonuses));
+    App.ch.classFeatures.forEach(f => add(f.name || 'Class feature', f.bonuses));
+    return out;
+  }
+
+  // ----- Generic choice dialog
+  function choiceDialog(title, intro, choices, def) {
+    return new Promise(resolve => {
+      const dlg = document.createElement('dialog');
+      dlg.innerHTML = `<h2>${esc(title)}</h2>${intro}<form method="dialog">
+        ${choices.map(c => `<label class="choice"><input type="radio" name="choice" value="${esc(c.v)}"${c.v === def ? ' checked' : ''}><span><strong>${esc(c.l)}</strong><br><span class="small muted">${esc(c.desc)}</span></span></label>`).join('')}
+        <div class="actions"><button class="btn" value="cancel">Cancel</button><button class="btn primary" value="ok">Apply</button></div></form>`;
+      document.body.appendChild(dlg);
+      dlg.addEventListener('close', () => {
+        const v = dlg.returnValue === 'ok' ? (dlg.querySelector('input[name=choice]:checked') || {}).value : null;
+        dlg.remove();
+        resolve(v || null);
+      });
+      dlg.showModal();
+    });
+  }
+
+  // ----- Play tab: everything needed at the table on one page
+  function renderPlay() {
+    const ch = App.ch, d = App.d;
+    const classLine = d.classes.filter(c => c.data && c.level).map(c => `${c.name} ${c.level}`).join(' / ') || 'No class yet';
+    const sub = [ch.info.race, classLine, ch.info.alignment, d.size.name !== 'Medium' ? d.size.name : ''].filter(Boolean).join(' · ');
+    const tile = (label, inner) => `<div class="tile"><div class="label">${label}</div><div class="value">${inner}</div></div>`;
+    const header = `<section class="card play-header span-all">
+      <div class="play-id"><h1>${esc(ch.info.name || 'Unnamed')}</h1><div class="muted">${esc(sub)}</div>
+        <div class="play-hp">
+          <span class="big"><span data-out="hp/current">${d.hp.current}</span> / <span data-out="hp/max">${d.hp.max}</span> HP</span>
+          ${ch.hp.temp ? `<span class="sub">incl. ${esc(ch.hp.temp)} temp</span>` : ''}${ch.hp.nonlethal ? `<span class="sub">${esc(ch.hp.nonlethal)} nonlethal</span>` : ''}
+          <div class="hp-bar" id="hp-bar"><span></span></div>
+          <div class="inline"><input type="number" id="hp-amount" class="n-wide" placeholder="amt" aria-label="Amount">
+            <button class="btn small" data-action="hp" data-mode="damage">Damage</button><button class="btn small" data-action="hp" data-mode="heal">Heal</button>
+            <button class="btn small" data-action="hp" data-mode="temp">Temp</button><button class="btn small" data-action="hp" data-mode="nonlethal">Nonlethal</button></div>
+          ${ch.settings.woundThresholds ? `<div class="small">${out('woundState', '', '')}</div>` : ''}
+          ${ch.hp.dr || ch.hp.resist ? `<div class="small muted">${esc([ch.hp.dr, ch.hp.resist].filter(Boolean).join(' · '))}</div>` : ''}
+        </div></div>
+      <div class="tiles play-tiles">
+        ${tile('AC', out('ac/total', '', ''))}${tile('Touch', out('ac/touch', '', ''))}${tile('Flat-footed', out('ac/flat', '', ''))}${tile('CMD', out('cmd', '', ''))}
+        ${tile('Initiative', rollBtn('Initiative', 'initiative/total'))}${tile('CMB', rollBtn('Combat maneuver', 'cmb'))}
+        ${tile('Speed', out('speed/land', 'ft', ''))}${tile('BAB', out('bab', 'sign', ''))}
+      </div></section>`;
+
+    const saveBtn = (k, label) => `<div class="save-btn"><span class="label">${label}</span>${rollBtn(label + ' save', `saves/${k}/total`, { big: true })}</div>`;
+    const checks = card('Saves & Checks', `<div class="save-row">${saveBtn('fort', 'Fort')}${saveBtn('ref', 'Reflex')}${saveBtn('will', 'Will')}</div>
+      ${ch.saves.notes ? `<p class="small muted">${esc(ch.saves.notes)}</p>` : ''}
+      <div class="ability-row">${M.ABILITIES.map(a => `<div class="ab-cell"><span class="label">${a.toUpperCase()} <span class="muted">${out(`abilities/${a}/score`, '', '')}</span></span>${rollBtn(M.ABILITY_NAMES[a] + ' check', `abilities/${a}/mod`)}</div>`).join('')}</div>
+      ${d.spells.data ? `<div class="inline" style="margin-top:8px"><span class="small">Caster level</span>${rollBtn('Caster level check', 'spells/cl')}<span class="small">Concentration</span>${rollBtn('Concentration', 'spells/concentration')}</div>` : ''}`);
+
+    const atkRows = ch.weapons.map((w, i) => `<tr>
+        <td class="l"><strong>${esc(w.name || 'Unnamed weapon')}</strong><div class="sub">${esc(w.crit || '20')}/${esc(w.mult || 'x2')}${w.range ? ' · ' + esc(w.range) + ' ft' : ''}${w.type ? ' · ' + esc(w.type) : ''}</div></td>
+        <td><span class="atk-text" data-out="weapons/${i}/attackText" data-fmt="">${esc(fmt(d.weapons[i] && d.weapons[i].attackText))}</span><div class="sub" data-out="weapons/${i}/damageText" data-fmt="">${esc(fmt(d.weapons[i] && d.weapons[i].damageText))}</div></td>
         <td><span class="inline" style="flex-wrap:nowrap;justify-content:flex-end">
           <button class="btn small primary" data-action="attack" data-i="${i}" data-mode="full" title="Shift-click for a private roll">Full</button>
           <button class="btn small" data-action="attack" data-i="${i}" data-mode="single">Single</button>
-          <button class="btn small" data-action="attack" data-i="${i}" data-mode="damage">Dmg</button></span></td></tr>`;
-    }).join('');
-    const attacks = card('Attacks', atkRows
-      ? `<div class="scroll-x"><table><thead><tr><th class="l">Weapon</th><th>Attack</th><th>Damage</th><th>Crit</th><th></th></tr></thead><tbody>${atkRows}</tbody></table></div>`
+          <button class="btn small" data-action="attack" data-i="${i}" data-mode="damage">Dmg</button></span></td></tr>`).join('');
+    const attacks = card('Attacks', atkRows ? `<div class="scroll-x"><table><tbody>${atkRows}</tbody></table></div>`
       : `<p class="muted">No attacks yet. <button class="btn small" data-action="add-weapon">+ Add a weapon</button></p>`,
-      { cls: 'span-2', tools: `<span class="small muted">BAB ${sign(d.bab)} · CMB ${sign(d.cmb)}</span>
-        <button class="btn small" data-action="add-weapon">+ Weapon</button>
-        <button class="btn small" data-action="tab" data-tab="combat">Edit on Combat tab</button>` });
+      { cls: 'span-2', tools: `<button class="btn small ghost" data-action="tab" data-tab="combat">Edit</button>` });
 
-    return `<div class="grid two">${identity}${classes}${abilities}${hp}${saves}${defenses}${attacks}</div>`;
+    const shown = ch.toggles.map((t, i) => [t, i]).filter(([t]) => t.active || !/^\(Custom Effect/.test(t.name));
+    const others = D.conditions.filter(c => !ch.conditions.includes(c.name));
+    const buffs = card('Buffs & Conditions', `<div class="chips">${shown.map(([t, i]) =>
+      `<label class="chip${t.active ? ' on' : ''}">${chk(`toggles/${i}/active`, { rerender: true })}${esc(t.name)}</label>`).join('')}
+      ${ch.effects.map((e, i) => `<label class="chip${e.active ? ' on' : ''}" title="Effect from the Effects tab">${chk(`effects/${i}/active`, { rerender: true })}${esc(e.name || 'Effect')}</label>`).join('')}</div>
+      <h3 style="margin:10px 0 6px">Conditions</h3>
+      <div class="chips">${ch.conditions.map(n => `<button class="chip cond on" data-action="toggle-condition" data-name="${esc(n)}" title="Click to remove">${esc(n)} ✕</button>`).join('')}
+        <select id="add-condition" aria-label="Add a condition" style="width:auto"><option value="">+ Add condition…</option>${others.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('')}</select></div>
+      <div class="inline" style="margin-top:8px"><span class="small">Negative levels</span>${inp('negativeLevels', { type: 'num' })}</div>
+      <p class="small muted" style="margin-bottom:0">Name and fill in your own buffs on the Effects tab; they appear here as switches.</p>`, { cls: 'span-2' });
+
+    const filter = App.skillFilter || '';
+    const all = d.skills.map((s, i) => ({ s, path: `skills/${i}` })).concat(d.specialty.map((s, i) => ({ s, path: `specialty/${i}` })));
+    const skills = card('Skills', `<input type="text" id="play-skill-filter" placeholder="Filter skills…" value="${esc(filter)}" aria-label="Filter skills" style="margin-bottom:8px">
+      <div class="skill-grid">${all.map(({ s, path }) => `<div class="skill-cell${s.untrained ? ' untrained' : ''}" data-skill-name="${esc(s.label.toLowerCase())}"${filter && !s.label.toLowerCase().includes(filter.toLowerCase()) ? ' hidden' : ''}>
+          <span>${s.isClass ? '<span class="cs-dot" title="Class skill">●</span> ' : ''}${esc(s.label)}${s.ranks ? ` <span class="sub">${s.ranks}r</span>` : ''}</span>
+          <button class="roll" data-action="roll-check" data-label="${esc(s.label)}" data-mod="${path}/total" data-roll-disabled="${path}/total"><span data-out="${path}/total" data-fmt="sign">${esc(fmt(s.total, 'sign'))}</span></button></div>`).join('')}</div>`,
+      { cls: 'span-all', tools: `<span class="small muted">● class skill</span>` });
+
+    let spells = '';
+    if (d.spells.data || ch.spellcasting.levels.some(l => l.spells.length)) {
+      const blocks = ch.spellcasting.levels.map((lv, L) => {
+        const info = d.spells.levels[L];
+        if (info.perDay === null && !lv.spells.length) return '';
+        const n = L > 0 && typeof info.perDay === 'number' ? info.perDay : 0;
+        const pips = n ? `<span class="slot-pips">${Array.from({ length: Math.min(n, 20) }, (_, k) => `<button class="pip${k < (lv.used || 0) ? ' used' : ''}" data-action="pip" data-l="${L}" data-k="${k}" aria-label="Slot ${k + 1}"></button>`).join('')}</span>` : '';
+        const names = lv.spells.filter(s => s.name).map((s, i) => `<button class="btn small spell-btn" data-action="cast" data-l="${L}" data-i="${lv.spells.indexOf(s)}" title="Cast (Shift-click: private)">${esc(s.name)}${s.prepared ? ` <span class="sub">${esc(s.prepared)}</span>` : ''}</button>`).join('');
+        return `<div class="play-spell-level"><div class="inline"><strong>${L === 0 ? 'Cantrips' : 'Level ' + L}</strong><span class="sub">DC ${info.dc}${info.perDay !== null ? ' · ' + esc(String(info.perDay)) + '/day' : ''}</span>${pips}</div><div class="spell-names">${names || '<span class="sub">none listed</span>'}</div></div>`;
+      }).join('');
+      const slas = ch.spellcasting.sla.map((g, gi) => g.items.filter(x => x.name).map(x => `<button class="btn small spell-btn" data-action="cast-sla" data-g="${gi}" data-i="${g.items.indexOf(x)}">${esc(x.name)} <span class="sub">${esc(g.label)}${x.uses !== '' && x.uses !== undefined ? ' · ' + esc(x.uses) + ' left' : ''}</span></button>`).join('')).join('');
+      spells = card(`Spells${d.spells.className ? ' · ' + d.spells.className : ''}`, blocks + (slas ? `<h3 style="margin:8px 0 4px">Spell-like abilities</h3><div class="spell-names">${slas}</div>` : ''),
+        { cls: 'span-2', tools: `<button class="btn small ghost" data-action="rest">Rest</button><button class="btn small ghost" data-action="tab" data-tab="spells">Edit</button>` });
+    }
+
+    const res = card('Resources', `${ch.resources.map((r, i) => `<div class="play-res"><span>${esc(r.name || 'Resource')}</span>
+        <span class="counter"><button class="btn small" data-action="bump" data-path="resources/${i}/uses" data-d="-1" aria-label="Use one">−</button><strong>${esc(r.uses === '' || r.uses === undefined ? 0 : r.uses)}</strong>${r.max !== '' && r.max !== undefined ? `<span class="muted">/ ${esc(r.max)}</span>` : ''}<button class="btn small" data-action="bump" data-path="resources/${i}/uses" data-d="1" aria-label="Add one">+</button></span></div>`).join('') || '<p class="small muted">No resources. Add them on Features &amp; Gear.</p>'}
+      <div class="play-res"><span><strong>Hero points</strong></span><span class="counter"><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="-1">−</button><strong>${esc(ch.heroPoints.current)}</strong><span class="muted">/ ${esc(ch.heroPoints.max)}</span><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="1">+</button></span></div>`);
+
+    const groups = {};
+    const label = { race: 'Race', trait: 'Traits', feat: 'Feats', feature: 'Class features', effect: 'Effects', toggle: 'Toggles', item: 'Magic items', condition: 'Conditions' };
+    for (const r of d.rows) (groups[r.src] = groups[r.src] || new Set()).add(r.name);
+    const notes = situationalNotes();
+    const active = card('Active Bonuses', `${Object.keys(label).filter(k => groups[k]).map(k => `<p class="small"><strong>${label[k]}:</strong> ${[...groups[k]].map(esc).join(', ')}</p>`).join('') || '<p class="small muted">Nothing active.</p>'}
+      ${notes.length ? `<h3 style="margin:8px 0 4px">Situational</h3><ul class="small notes-list">${notes.map(x => `<li><strong>${esc(x.label || x.src)}</strong>${x.label && x.label !== x.src ? ` <span class="muted">(${esc(x.src)})</span>` : ''}: ${esc(x.text)}</li>`).join('')}</ul>` : ''}
+      ${ch.race.senses ? `<p class="small"><strong>Senses:</strong> ${esc(ch.race.senses)}</p>` : ''}${ch.languages ? `<p class="small"><strong>Languages:</strong> ${esc(ch.languages)}</p>` : ''}`);
+
+    return `<div class="grid play-grid">${header}${checks}${attacks}${buffs}${skills}${spells}${res}${active}</div>`;
   }
 
   // ----- Race
@@ -325,46 +480,54 @@
         <tbody><tr>${M.ABILITIES.map(a => `<td>${inp(`race/abilityMods/${a}`, { type: 'num', aria: M.ABILITY_NAMES[a] + ' racial modifier' })}</td>`).join('')}</tr></tbody></table></div>
       <p class="inline" style="margin-top:8px"><label class="inline">${chk('race/flex', { rerender: true })} +2 to one ability score of your choice</label>
         ${r.flex ? sel('race/flexAbility', M.ABILITIES.map(a => ({ v: a, l: M.ABILITY_NAMES[a] })), { blank: '— pick one —', aria: 'Ability for the +2' }) : ''}</p>
-      <p class="small muted">Racial modifiers add to your scores automatically, so enter your <em>base</em> (rolled or point-buy) scores on the Overview tab. Characters imported from the spreadsheet already have racial modifiers inside their base scores, so leave these at 0 for them.</p>`,
+      <p class="small muted">Racial modifiers add to your scores automatically, so enter your <em>base</em> (rolled or point-buy) scores on the Character tab. Characters imported from the spreadsheet already have racial modifiers inside their base scores, so leave these at 0 for them.</p>`,
       { cls: 'span-2' });
 
-    const skillNames = App.d.skills.map(s => s.name).concat(M.SPECIALTY_SKILLS);
-    const rows = r.bonuses.map((b, i) => `<tr class="${b.active === false ? 'inactive' : ''}">
-        <td><input type="checkbox" data-bind="race/bonuses/${i}/active" data-type="bool" data-rerender aria-label="Active"${b.active === false ? '' : ' checked'}></td>
-        <td class="l" style="min-width:140px">${inp(`race/bonuses/${i}/label`, { ph: 'Keen Senses' })}</td>
-        <td style="min-width:150px">${sel(`race/bonuses/${i}/target`, R.BONUS_TARGETS, { blank: false, rerender: true })}</td>
-        <td class="l" style="min-width:160px">${b.target === 'skill' ? sel(`race/bonuses/${i}/skill`, skillNames, { blank: '— skill —' }) : inp(`race/bonuses/${i}/text`, { ph: b.target === 'note' ? 'When it applies' : 'Notes (optional)' })}</td>
-        <td>${inp(`race/bonuses/${i}/value`, { type: 'num', aria: 'Value' })}</td>
-        <td>${removeBtn('race/bonuses', i, 'bonus')}</td></tr>`).join('');
-    const bonuses = card('Racial Bonuses', (rows ? `<div class="scroll-x"><table><thead><tr><th>On</th><th class="l">Name</th><th>Applies to</th><th class="l">Skill / notes</th><th>Value</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
-      : '<p class="small muted">No racial bonuses yet. Apply a core race above, or add your own.</p>') +
-      `<p class="small muted">These count as racial bonuses: two racial bonuses to the same thing don't stack, but they stack with every other type. "Situational" entries are reminders only and don't change any numbers.</p>`,
-      { tools: `<button class="btn small" data-action="add-race-bonus">+ Bonus</button>`, cls: 'span-2' });
+    const bonusHtml = bonusEditor('race/bonuses', r.bonuses, { fixedType: 'Racial', label: true });
+    const bonuses = card('Racial Bonuses', (bonusHtml || '<p class="small muted">No racial bonuses yet. Apply a core race above, or add your own.</p>') +
+      `<p class="small muted">These count as racial bonuses: two racial bonuses to the same thing don't stack, but they stack with every other type. "Situational" entries are reminders shown on the Play tab and don't change any numbers.</p>`,
+      { tools: `<button class="btn small" data-action="add-bonus" data-list="race/bonuses" data-type="Racial">+ Bonus</button>`, cls: 'span-2' });
 
     const list = ch.racialFeatures.map((x, i) => `<div class="list-row feature-row">${inp(`racialFeatures/${i}/name`, { ph: 'Feature' })}${area(`racialFeatures/${i}/text`, { rows: 1, ph: 'Description' })}${removeBtn('racialFeatures', i)}</div>`).join('') || '<p class="small muted">None yet.</p>';
     const feats = card('Racial Features', list, { tools: `<button class="btn small" data-action="add" data-list="racialFeatures">+ Feature</button>`, cls: 'span-2' });
     return `<div class="grid two">${main}${bonuses}${feats}</div>`;
   }
-  function applyRacePreset(name) {
+  async function applyRacePreset(name) {
     const p = window.PF_RACES.RACES[name];
     if (!p) { toast('Choose a race first.'); return; }
     const ch = App.ch, r = ch.race;
-    const hasData = r.bonuses.length || ch.racialFeatures.length || r.flex || Object.values(r.abilityMods || {}).some(x => +x);
-    if (hasData && !confirm(`Replace your racial ability modifiers, bonuses and features with the ${name} defaults?`)) return;
+    const imported = ch.source === 'autosheet-xlsx';
+    const choice = await choiceDialog(`Apply ${name}`,
+      `<p class="small">${imported ? 'This character was imported from the spreadsheet, where racial ability modifiers and bonus skill ranks are already part of the base scores. ' : ''}Anything already on the Race tab is replaced.</p>`,
+      [
+        { v: 'all', l: 'Everything', desc: 'Ability modifiers, bonus skill ranks, racial bonuses, size, speed, senses and features. Best for a new character.' },
+        { v: 'nomods', l: 'Everything except ability modifiers and skill ranks', desc: 'For characters whose base scores already include their race (imported from the spreadsheet).' },
+        { v: 'features', l: 'Features and senses only', desc: 'Adds the racial features text. No numbers change.' },
+      ], imported ? 'nomods' : 'all');
+    if (!choice) return;
     r.preset = name;
-    r.abilityMods = Object.assign({ str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 }, p.abilityMods);
-    r.flex = !!p.flex; r.flexAbility = '';
-    r.skillRanksPerLevel = p.skillRanksPerLevel || 0;
+    ch.info.race = name;
     r.senses = p.senses || '';
-    r.bonuses = p.bonuses.map(b => Object.assign({ active: true, skill: '', text: '' }, b));
     ch.racialFeatures = p.features.map(([n, t]) => ({ name: n, text: t }));
-    ch.info.race = name; ch.info.size = p.size; ch.info.speeds.base = p.speed;
-    if (p.slowAndSteady) ch.movement.ignoreArmor = 'Slow and Steady (ignore Encumbrance/Heavy/Medium)';
-    else if (String(ch.movement.ignoreArmor || '').startsWith('Slow and Steady')) ch.movement.ignoreArmor = '';
     if (!ch.languages) ch.languages = p.languages;
+    if (choice !== 'features') {
+      r.bonuses = p.bonuses.map(b => Object.assign({ label: '', active: true, skill: '', weapon: '', text: '' }, b));
+      ch.info.size = p.size; ch.info.speeds.base = p.speed;
+      if (p.slowAndSteady) ch.movement.ignoreArmor = 'Slow and Steady (ignore Encumbrance/Heavy/Medium)';
+      else if (String(ch.movement.ignoreArmor || '').startsWith('Slow and Steady')) ch.movement.ignoreArmor = '';
+    }
+    if (choice === 'all') {
+      r.abilityMods = Object.assign({ str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 }, p.abilityMods);
+      r.flex = !!p.flex; r.flexAbility = '';
+      r.skillRanksPerLevel = p.skillRanksPerLevel || 0;
+    } else {
+      r.abilityMods = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 };
+      r.flex = false; r.flexAbility = ''; r.skillRanksPerLevel = 0;
+    }
     changed(true);
-    toast(p.flex ? `${name} applied. Pick which ability gets the +2.` : `${name} applied.`);
+    toast(choice === 'all' && p.flex ? `${name} applied. Pick which ability gets the +2.` : `${name} applied.`);
   }
+
 
   // ----- Skills
   function renderSkills() {
@@ -601,12 +764,11 @@
   // ----- Features & gear
   function renderFeatures() {
     const ch = App.ch;
-    const list = (key, cols, add) => ch[key].map((x, i) => `<div class="list-row ${add}">${cols(i)}${removeBtn(key, i)}</div>`).join('') || '<p class="small muted">None yet.</p>';
-    const traits = card('Traits & Drawbacks', list('traits', i => `${sel(`traits/${i}/kind`, ['Trait', 'Drawback', 'DB'], { blank: false })}${inp(`traits/${i}/text`, { ph: 'Reactionary: +2 Initiative' })}`, 'trait-row'),
+    const traits = card('Traits & Drawbacks', featureList('traits'),
       { tools: `<button class="btn small" data-action="add" data-list="traits">+ Trait</button>` });
-    const cf = card('Class Features', list('classFeatures', i => `${inp(`classFeatures/${i}/name`, { ph: 'Channel Energy' })}${area(`classFeatures/${i}/text`, { rows: 1, ph: 'Description' })}`, 'feature-row'),
+    const cf = card('Class Features', featureList('classFeatures'),
       { tools: `<button class="btn small" data-action="add" data-list="classFeatures">+ Feature</button>` });
-    const feats = card('Feats', list('feats', i => `${inp(`feats/${i}/level`, { ph: 'Lvl', aria: 'Level gained' })}${inp(`feats/${i}/name`, { ph: 'Power Attack' })}${area(`feats/${i}/text`, { rows: 1, ph: 'Description' })}`, 'feat-row'),
+    const feats = card('Feats', featureList('feats'),
       { tools: `<button class="btn small" data-action="add" data-list="feats">+ Feat</button>` });
     const res = card('Resources', `${ch.resources.map((r, i) => `<div class="list-row res-row">${inp(`resources/${i}/name`, { ph: 'Wand of CLW, Rage rounds…' })}
         <span class="counter"><button class="btn small" data-action="bump" data-path="resources/${i}/uses" data-d="-1" aria-label="Use one">−</button>${inp(`resources/${i}/uses`, { type: 'num', aria: 'Uses' })}<span class="muted">/</span>${inp(`resources/${i}/max`, { type: 'num', aria: 'Max' })}<button class="btn small" data-action="bump" data-path="resources/${i}/uses" data-d="1" aria-label="Add one">+</button></span>
@@ -616,7 +778,8 @@
       { tools: `<button class="btn small" data-action="add" data-list="resources">+ Resource</button>` });
     const slots = card('Magic Items Worn', `<table><tbody>${ch.slots.map((s, i) => `<tr><td class="l" style="width:110px">${inp(`slots/${i}/slot`)}</td><td class="l">${inp(`slots/${i}/item`)}</td><td>${removeBtn('slots', i)}</td></tr>`).join('')}</tbody></table>`,
       { tools: `<button class="btn small" data-action="add" data-list="slots">+ Slot</button>` });
-    return `<div class="grid two">${traits}${cf}${feats}${res}${slots}</div>`;
+    const help = `<p class="small muted span-2" style="margin:0">Give a feat, trait or class feature a <strong>bonus</strong> and it changes your numbers: pick what it applies to and a value. Values can be formulas such as <span class="kbd">max(3, level)</span> (Toughness), <span class="kbd">floor(level/2)</span> or <span class="kbd">ranks >= 10 ? 6 : 3</span> (Skill Focus). <strong>Add standard bonuses</strong> fills them in for common feats and traits.</p>`;
+    return `<div class="grid two">${help}${feats}${traits}${cf}${res}${slots}</div>`;
   }
 
   // ----- Notes
@@ -683,6 +846,12 @@
   }
 
   document.addEventListener('input', e => {
+    if (e.target.id === 'play-skill-filter') {
+      App.skillFilter = e.target.value;
+      const q = App.skillFilter.trim().toLowerCase();
+      $$('.skill-cell').forEach(c => { c.hidden = !!q && !c.dataset.skillName.includes(q); });
+      return;
+    }
     const el = e.target;
     if (!el.dataset || !el.dataset.bind) return;
     if (el.tagName === 'SELECT' || el.type === 'checkbox') return; // handled on change
@@ -691,6 +860,7 @@
   });
   document.addEventListener('change', e => {
     const el = e.target;
+    if (el.id === 'add-condition' && el.value) { App.ch.conditions.push(el.value); changed(true); return; }
     if (!el.dataset || !el.dataset.bind) return;
     if (!(el.tagName === 'SELECT' || el.type === 'checkbox')) return;
     applyBind(el);
@@ -718,14 +888,20 @@
         const cards = $$('.weapon'); const last = cards[cards.length - 1];
         if (last) { last.scrollIntoView({ block: 'center' }); const n = last.querySelector('input'); if (n) n.focus(); }
       },
-      'add-race-bonus': () => { App.ch.race.bonuses.push({ label: '', target: 'skill', skill: '', value: '', text: '', active: true }); changed(true); },
       'apply-race': () => applyRacePreset($('#race-preset').value),
+      'add-bonus': () => {
+        const list = get(el.dataset.list);
+        const b = { label: '', type: el.dataset.type || 'Untyped (stacks)', target: 'skill', skill: '', weapon: '', value: '', text: '', active: true };
+        if (Array.isArray(list)) list.push(b); else pathSet(App.ch, el.dataset.list, [b]);
+        changed(true);
+      },
+      'suggest-bonus': () => suggestBonuses(el.dataset.list, +el.dataset.i, el.dataset.kind),
       'add-effect': () => { App.ch.effects.push(M.blankEffect('', 'Untyped (stacks)')); changed(true); },
       'add-spell': () => { App.ch.spellcasting.levels[+el.dataset.l].spells.push({ name: '', prepared: '' }); changed(true); },
       'add-sla': () => { App.ch.spellcasting.sla[+el.dataset.g].items.push({ name: '', uses: '' }); changed(true); },
       'add': () => {
-        const blanks = { traits: { kind: 'Trait', text: '' }, racialFeatures: { name: '', text: '' }, classFeatures: { name: '', text: '' },
-          feats: { level: '', name: '', text: '' }, resources: { name: '', uses: '', max: '' }, slots: { slot: '', item: '' },
+        const blanks = { traits: { kind: 'Trait', text: '', bonuses: [] }, racialFeatures: { name: '', text: '' }, classFeatures: { name: '', text: '', bonuses: [] },
+          feats: { level: '', name: '', text: '', bonuses: [] }, resources: { name: '', uses: '', max: '' }, slots: { slot: '', item: '' },
           magicItems: { name: '', target: 'Saves', type: 'Resistance', value: '', active: true } };
         App.ch[el.dataset.list].push(blanks[el.dataset.list]); changed(true);
       },
@@ -766,7 +942,7 @@
     if (App.ch) saveNow();
     const ch = M.blankCharacter();
     ch.info.name = 'New character';
-    App.ch = ch; App.tab = 'overview';
+    App.ch = ch; App.tab = 'character';
     saveNow(); recompute(); render();
   }
   function deleteCharacter() {
@@ -798,7 +974,7 @@
       } else throw new Error('Choose a .xlsx (Google Sheets download) or a .json file exported from this sheet.');
       if (App.ch) saveNow();
       if (!ch.id || App.roster.ids.includes(ch.id)) ch.id = M.uid();
-      App.tab = 'overview';
+      App.tab = 'play';
       adoptCharacter(ch);
       showImportResult(ch, warnings);
     } catch (err) {

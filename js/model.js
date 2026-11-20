@@ -41,7 +41,20 @@
   ];
 
   const BONUS_TYPES = ['Alchemical', 'Armor', 'Circumstance (stacks)', 'Competence', 'Deflection', 'Dodge (stacks)', 'Enhancement',
-    'Insight', 'Luck', 'Morale', 'Precision Damage', 'Racial', 'Resistance', 'Sacred / Profane', 'Size', 'Untyped (stacks)'];
+    'Insight', 'Luck', 'Morale', 'Precision Damage', 'Racial', 'Resistance', 'Sacred / Profane', 'Size', 'Trait', 'Untyped (stacks)'];
+
+  // What a bonus on a race, trait, feat or class feature can apply to.
+  const BONUS_TARGETS = [
+    { v: 'skill', l: 'One skill…' }, { v: 'skills', l: 'All skills' },
+    { v: 'saves', l: 'All saving throws' }, { v: 'fort', l: 'Fortitude' }, { v: 'ref', l: 'Reflex' }, { v: 'will', l: 'Will' },
+    { v: 'ac', l: 'Armor Class' }, { v: 'nat', l: 'Natural armor' }, { v: 'cmd', l: 'CMD' },
+    { v: 'hp', l: 'Max hit points' }, { v: 'init', l: 'Initiative' },
+    { v: 'atk', l: 'All attack rolls' }, { v: 'mAtk', l: 'Melee attack' }, { v: 'rAtk', l: 'Ranged attack' },
+    { v: 'dmg', l: 'All damage' }, { v: 'mDmg', l: 'Melee damage' }, { v: 'rDmg', l: 'Ranged damage' },
+    { v: 'weapon', l: 'One weapon: attack' }, { v: 'weaponDmg', l: 'One weapon: damage' },
+    { v: 'cmb', l: 'CMB' }, { v: 'cl', l: 'Caster level' }, { v: 'speed', l: 'Speed' },
+    { v: 'note', l: 'Situational (note only)' },
+  ];
   const STACKING_TYPES = ['Untyped (stacks)', 'Dodge (stacks)', 'Circumstance (stacks)'];
 
   const SIZES = [
@@ -116,6 +129,7 @@
     ABILITIES.forEach(a => { abil[a] = { base: 10, enh: 0, inh: 0, pen: 0 }; });
     return {
       schema: 2,
+      source: '',               // 'autosheet-xlsx' when imported from the Google Sheet
       id: uid(),
       info: {
         name: '', alignment: '', race: '', deity: '', player: '', gender: '', ageYears: '', height: '', weight: '',
@@ -193,6 +207,7 @@
     defaultToggles().forEach(t => { if (!have.has(t.id)) ch.toggles.push(t); });
     ch.effects.forEach(e => { if (!e.id) e.id = uid(); if (!e.v) e.v = {}; });
     migrateLegacyTypes(ch);
+    for (const k of ['traits', 'feats', 'classFeatures']) (ch[k] || []).forEach(x => { if (!Array.isArray(x.bonuses)) x.bonuses = []; });
     while (ch.spellcasting.levels.length < 10) ch.spellcasting.levels.push({ spells: [], used: 0, perDayOverride: '' });
     return ch;
   }
@@ -228,7 +243,7 @@
   function uid() { return Math.random().toString(36).slice(2, 10); }
 
   window.PF_MODEL = {
-    ABILITIES, ABILITY_NAMES, ABBR_TO_KEY, EFFECT_COLS, BONUS_TYPES, STACKING_TYPES, SIZES, AGE, XP,
+    ABILITIES, ABILITY_NAMES, ABBR_TO_KEY, EFFECT_COLS, BONUS_TYPES, BONUS_TARGETS, STACKING_TYPES, SIZES, AGE, XP,
     HP_FORMULAS, SKILL_SYSTEMS, SPECIALTY_SKILLS, ITEM_SLOTS, BACKGROUND_QUESTIONS,
     blankCharacter, blankEffect, blankWeapon, isBlankWeapon, defaultToggles, normalize, uid,
   };

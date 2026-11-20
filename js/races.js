@@ -108,13 +108,7 @@
     },
   };
 
-  const BONUS_TARGETS = [
-    { v: 'saves', l: 'All saving throws' }, { v: 'fort', l: 'Fortitude' }, { v: 'ref', l: 'Reflex' }, { v: 'will', l: 'Will' },
-    { v: 'ac', l: 'Armor Class' }, { v: 'nat', l: 'Natural armor' },
-    { v: 'atk', l: 'Attack rolls' }, { v: 'mAtk', l: 'Melee attack' }, { v: 'rAtk', l: 'Ranged attack' },
-    { v: 'init', l: 'Initiative' }, { v: 'skill', l: 'One skill…' }, { v: 'skills', l: 'All skills' }, { v: 'cl', l: 'Caster level' },
-    { v: 'note', l: 'Situational (note only)' },
-  ];
+  const BONUS_TARGETS = window.PF_MODEL.BONUS_TARGETS;
 
   window.PF_RACES = { RACES, BONUS_TARGETS };
 })();

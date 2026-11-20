@@ -53,6 +53,7 @@
 
   function importAutosheet(book) {
     const ch = M.blankCharacter();
+    ch.source = 'autosheet-xlsx';
     const warnings = [];
     const MS = 'Main Sheet';
     const get = addr => book.v(MS, addr);
