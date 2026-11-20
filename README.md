@@ -113,6 +113,8 @@ Not ported:
 | `tools/extract.py` | Regenerates `js/data.js` from an Autosheet `.xlsx` |
 | `tools/dump_cells.py`, `tools/verify.js` | Compares the web sheet's math with a real character's spreadsheet |
 
+Before pushing an update, run `python tools/stamp.py`. It adds a version to the CSS and JS links in `index.html` so browsers load the new files instead of cached ones (GitHub Pages lets browsers cache for 10 minutes).
+
 To regenerate the tables after editing the master sheet's Class Charts (requires `openpyxl`):
 
 ```powershell

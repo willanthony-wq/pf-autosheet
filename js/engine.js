@@ -248,6 +248,7 @@
     rows = buildEffectRows(ch, ctx);
     computeAbilities(ch, d, rows);  // wound thresholds don't touch abilities, but recompute for consistency
     d.formulaVars = ctx.vars;
+    d.overlaps = findOverlaps(rows);
     d.rows = rows;
     d.loseDex = ctx.loseDex;
     d.woundState = ctx.woundState || '';
@@ -288,6 +289,38 @@
       out[a] = mod(n(ab.base) + race + n(ab.enh) + n(ab.inh) - Math.abs(n(ab.pen)) + AGE.mods[a][ageIdx]);
     }
     return out;
+  }
+
+  // Bonuses of the same (non-stacking) type to the same thing from different sources: only the highest counts.
+  const KEY_LABELS = { ac: 'AC', nat: 'natural armor', fort: 'Fort', ref: 'Ref', will: 'Will', str: 'Str', dex: 'Dex', con: 'Con', int: 'Int', wis: 'Wis', cha: 'Cha',
+    mAtk: 'melee attack', mDmg: 'melee damage', rAtk: 'ranged attack', rDmg: 'ranged damage', cl: 'caster level', skills: 'all skills',
+    speed: 'speed', hp: 'max HP', init: 'initiative', cmb: 'CMB', cmd: 'CMD', wAtk: 'weapon attack', wDmg: 'weapon damage' };
+  function findOverlaps(rows) {
+    const groups = new Map();
+    const keys = new Set();
+    rows.forEach(r => Object.keys(r.v || {}).forEach(k => keys.add(k)));
+    for (const key of keys) {
+      if (!KEY_LABELS[key]) continue;
+      const byType = new Map();
+      for (const r of rows) {
+        const raw = r.v && r.v[key];
+        if (!isNum(raw) || n(raw) <= 0) continue;
+        const t = typeFor(r.type, key);
+        if (STACKING_TYPES.includes(t)) continue;
+        const id = key === 'wAtk' || key === 'wDmg' ? t + '|' + r.weapon : t;
+        if (!byType.has(id)) byType.set(id, []);
+        byType.get(id).push({ name: r.name, val: n(raw), type: t });
+      }
+      for (const list of byType.values()) {
+        const names = [...new Set(list.map(x => x.name))];
+        if (names.length < 2) continue;
+        const best = Math.max(...list.map(x => x.val));
+        const gid = list[0].type + '|' + names.slice().sort().join('|') + '|' + best;
+        if (!groups.has(gid)) groups.set(gid, { type: list[0].type, names, best, keys: [] });
+        groups.get(gid).keys.push(KEY_LABELS[key]);
+      }
+    }
+    return [...groups.values()];
   }
 
   function computeAbilities(ch, d, rows) {

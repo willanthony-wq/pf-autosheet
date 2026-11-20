@@ -417,7 +417,8 @@
     const others = D.conditions.filter(c => !ch.conditions.includes(c.name));
     const buffs = card('Buffs & Conditions', `<div class="chips">${shown.map(([t, i]) =>
       `<label class="chip${t.active ? ' on' : ''}">${chk(`toggles/${i}/active`, { rerender: true })}${esc(t.name)}</label>`).join('')}
-      ${ch.effects.map((e, i) => `<label class="chip${e.active ? ' on' : ''}" title="Effect from the Effects tab">${chk(`effects/${i}/active`, { rerender: true })}${esc(e.name || 'Effect')}</label>`).join('')}</div>
+      ${ch.effects.map((e, i) => `<label class="chip${e.active ? ' on' : ''}" title="Effect from the Effects tab">${chk(`effects/${i}/active`, { rerender: true })}${esc(e.name || 'Effect')}</label>`).join('')}
+      ${ch.magicItems.map((m, i) => [m, i]).filter(([m]) => m.name && E.isNum(m.value)).map(([m, i]) => `<label class="chip${m.active === false ? '' : ' on'}" title="Magic item bonus from the Combat tab"><input type="checkbox" data-bind="magicItems/${i}/active" data-type="bool" data-rerender${m.active === false ? '' : ' checked'}>${esc(m.name)}</label>`).join('')}</div>
       <h3 style="margin:10px 0 6px">Conditions</h3>
       <div class="chips">${ch.conditions.map(n => `<button class="chip cond on" data-action="toggle-condition" data-name="${esc(n)}" title="Click to remove">${esc(n)} ✕</button>`).join('')}
         <select id="add-condition" aria-label="Add a condition" style="width:auto"><option value="">+ Add condition…</option>${others.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('')}</select></div>
@@ -456,6 +457,7 @@
     for (const r of d.rows) (groups[r.src] = groups[r.src] || new Set()).add(r.name);
     const notes = situationalNotes();
     const active = card('Active Bonuses', `${Object.keys(label).filter(k => groups[k]).map(k => `<p class="small"><strong>${label[k]}:</strong> ${[...groups[k]].map(esc).join(', ')}</p>`).join('') || '<p class="small muted">Nothing active.</p>'}
+      ${d.overlaps.length ? `<h3 style="margin:8px 0 4px">Not stacking</h3><ul class="small notes-list">${d.overlaps.map(o => `<li>${o.names.map(n => `<strong>${esc(n)}</strong>`).join(' and ')} both give a ${esc(o.type)} bonus to ${esc(o.keys.join(', '))}. Only the highest (+${o.best}) counts.</li>`).join('')}</ul>` : ''}
       ${notes.length ? `<h3 style="margin:8px 0 4px">Situational</h3><ul class="small notes-list">${notes.map(x => `<li><strong>${esc(x.label || x.src)}</strong>${x.label && x.label !== x.src ? ` <span class="muted">(${esc(x.src)})</span>` : ''}: ${esc(x.text)}</li>`).join('')}</ul>` : ''}
       ${ch.race.senses ? `<p class="small"><strong>Senses:</strong> ${esc(ch.race.senses)}</p>` : ''}${ch.languages ? `<p class="small"><strong>Languages:</strong> ${esc(ch.languages)}</p>` : ''}`);
 
