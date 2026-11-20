@@ -285,7 +285,26 @@
         ${field('AC notes', inp('ac/notes'))}
       </div>`);
 
-    return `<div class="grid two">${identity}${classes}${abilities}${hp}${saves}${defenses}</div>`;
+    const atkRows = ch.weapons.map((w, i) => {
+      const cat = w.category ? w.category.replace(/\s*\(.*\)$/, '') : 'no attack type';
+      return `<tr>
+        <td class="l"><strong>${esc(w.name || 'Unnamed weapon')}</strong><div class="sub">${esc(cat)}${w.range ? ' · ' + esc(w.range) + ' ft' : ''}${w.type ? ' · ' + esc(w.type) : ''}</div></td>
+        <td><span class="atk-text" data-out="weapons/${i}/attackText" data-fmt="">${esc(fmt(d.weapons[i] && d.weapons[i].attackText))}</span></td>
+        <td><span data-out="weapons/${i}/damageText" data-fmt="">${esc(fmt(d.weapons[i] && d.weapons[i].damageText))}</span></td>
+        <td class="sub">${esc(w.crit || '20')} / ${esc(w.mult || 'x2')}</td>
+        <td><span class="inline" style="flex-wrap:nowrap;justify-content:flex-end">
+          <button class="btn small primary" data-action="attack" data-i="${i}" data-mode="full" title="Shift-click for a private roll">Full</button>
+          <button class="btn small" data-action="attack" data-i="${i}" data-mode="single">Single</button>
+          <button class="btn small" data-action="attack" data-i="${i}" data-mode="damage">Dmg</button></span></td></tr>`;
+    }).join('');
+    const attacks = card('Attacks', atkRows
+      ? `<div class="scroll-x"><table><thead><tr><th class="l">Weapon</th><th>Attack</th><th>Damage</th><th>Crit</th><th></th></tr></thead><tbody>${atkRows}</tbody></table></div>`
+      : `<p class="muted">No attacks yet. <button class="btn small" data-action="add-weapon">+ Add a weapon</button></p>`,
+      { cls: 'span-2', tools: `<span class="small muted">BAB ${sign(d.bab)} · CMB ${sign(d.cmb)}</span>
+        <button class="btn small" data-action="add-weapon">+ Weapon</button>
+        <button class="btn small" data-action="tab" data-tab="combat">Edit on Combat tab</button>` });
+
+    return `<div class="grid two">${identity}${classes}${abilities}${hp}${saves}${defenses}${attacks}</div>`;
   }
 
   // ----- Race
@@ -413,10 +432,10 @@
           <button class="btn small primary" data-action="attack" data-i="${i}" data-mode="full" title="Shift-click for a private roll">Full attack</button>
           <button class="btn small" data-action="attack" data-i="${i}" data-mode="single">Single attack</button>
           <button class="btn small" data-action="attack" data-i="${i}" data-mode="damage">Damage</button>
-          ${i >= 6 ? removeBtn('weapons', i, 'weapon') : ''}
+          ${removeBtn('weapons', i, 'weapon')}
         </div></div>`;
     }).join('');
-    const weaponsCard = card('Attacks', weapons + `<div style="margin-top:10px">${field('Attack notes', area('attackNotes', { rows: 2 }))}</div>`,
+    const weaponsCard = card('Attacks', (weapons || '<p class="muted">No weapons yet. Click <strong>+ Weapon</strong> to add one.</p>') + `<div style="margin-top:10px">${field('Attack notes', area('attackNotes', { rows: 2 }))}</div>`,
       { tools: `<span class="small muted">BAB ${sign(d.bab)} · CMB ${sign(d.cmb)}</span><button class="btn small" data-action="add-weapon">+ Weapon</button>`, cls: 'span-2' });
 
     const toggles = card('Combat Toggles', `<div class="chips">${ch.toggles.map((t, i) =>
@@ -652,6 +671,7 @@
     return el.value;
   }
   function applyBind(el) {
+    if (!App.ch) return;
     const path = el.dataset.bind;
     const val = coerce(el);
     if (el.dataset.type === 'fx' && val === undefined) {
@@ -692,7 +712,12 @@
       'theme': () => { setTheme(el.dataset.theme); },
       'add-class': () => { App.ch.classes.push({ name: '', level: 0 }); changed(true); },
       'add-specialty': () => { App.ch.specialty.push({ base: 'Craft:', detail: '', ranks: 0, misc: 0 }); changed(true); },
-      'add-weapon': () => { App.ch.weapons.push(M.blankWeapon()); changed(true); },
+      'add-weapon': () => {
+        App.ch.weapons.push(M.blankWeapon());
+        App.tab = 'combat'; changed(true);
+        const cards = $$('.weapon'); const last = cards[cards.length - 1];
+        if (last) { last.scrollIntoView({ block: 'center' }); const n = last.querySelector('input'); if (n) n.focus(); }
+      },
       'add-race-bonus': () => { App.ch.race.bonuses.push({ label: '', target: 'skill', skill: '', value: '', text: '', active: true }); changed(true); },
       'apply-race': () => applyRacePreset($('#race-preset').value),
       'add-effect': () => { App.ch.effects.push(M.blankEffect('', 'Untyped (stacks)')); changed(true); },

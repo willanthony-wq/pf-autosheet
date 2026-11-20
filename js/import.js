@@ -150,8 +150,9 @@
     if (!ch.specialty.length) ch.specialty = M.blankCharacter().specialty;
     ch.languages = s(at('AG', 46));
 
-    // ---- Weapons (rows 26-31)
+    // ---- Weapons (rows 26-31); only rows the player actually filled in
     ch.customAttackOptions = [];
+    ch.weapons = [];
     for (let i = 0; i < 6; i++) {
       const r = 26 + i;
       const enhRaw = s(at('D', r));
@@ -166,7 +167,7 @@
       const dmgCell = 'V' + (r + dA);
       if (!s(book.f(MS, dmgCell)) && s(get(dmgCell))) w.dmgOverride = s(get(dmgCell));
       if (w.category && w.formula) ensureAttackOption(book, ch, w, warnings);
-      ch.weapons[i] = w;
+      if (!M.isBlankWeapon(w)) ch.weapons.push(w);
     }
     ch.attackNotes = textBelow(at('J', 33), 'Attack Notes');
 

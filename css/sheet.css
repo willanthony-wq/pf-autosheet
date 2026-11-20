@@ -145,7 +145,7 @@ tr.untrained td { color: var(--muted); }
 .weapon { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; background: var(--panel-2); }
 .weapon + .weapon { margin-top: 10px; }
 .weapon .result { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
-.weapon .atk { font-family: var(--display); font-weight: 700; font-size: 16px; }
+.weapon .atk, .atk-text { font-family: var(--display); font-weight: 700; font-size: 16px; }
 .weapon-grid { display: grid; gap: 6px 8px; grid-template-columns: 2fr repeat(3, 70px) 2fr 3fr; align-items: end; }
 .weapon-grid2 { display: grid; gap: 6px 8px; grid-template-columns: repeat(5, minmax(60px, 1fr)) minmax(90px, 1.4fr); margin-top: 6px; }
 @media (max-width: 760px) { .weapon-grid { grid-template-columns: 1fr 1fr 1fr; } .weapon-grid2 { grid-template-columns: repeat(3, 1fr); } }

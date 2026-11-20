@@ -115,7 +115,7 @@
     const abil = {};
     ABILITIES.forEach(a => { abil[a] = { base: 10, enh: 0, inh: 0, pen: 0 }; });
     return {
-      schema: 1,
+      schema: 2,
       id: uid(),
       info: {
         name: '', alignment: '', race: '', deity: '', player: '', gender: '', ageYears: '', height: '', weight: '',
@@ -146,7 +146,7 @@
         { base: 'Prof:', detail: '', ranks: 0, misc: 0 },
       ],
       languages: '',
-      weapons: Array.from({ length: 6 }, blankWeapon),
+      weapons: [],
       attackNotes: '',
       armor: { name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0 },
       shield: { name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0 },
@@ -187,7 +187,8 @@
     }
     merge(ch, base);
     while (ch.classes.length < 3) ch.classes.push({ name: '', level: 0 });
-    while (ch.weapons.length < 6) ch.weapons.push(blankWeapon());
+    // Schema 1 always kept six weapon slots (like the spreadsheet). Drop the empty ones once.
+    if ((ch.schema || 1) < 2) { ch.weapons = ch.weapons.filter(w => !isBlankWeapon(w)); ch.schema = 2; }
     const have = new Set(ch.toggles.map(t => t.id));
     defaultToggles().forEach(t => { if (!have.has(t.id)) ch.toggles.push(t); });
     ch.effects.forEach(e => { if (!e.id) e.id = uid(); if (!e.v) e.v = {}; });
@@ -221,12 +222,14 @@
     }
   }
 
+  function isBlankWeapon(w) { return !w || (!String(w.name || '').trim() && !w.formula && !String(w.dmgOverride || '').trim()); }
+
   function isPlainObject(o) { return o && typeof o === 'object' && !Array.isArray(o); }
   function uid() { return Math.random().toString(36).slice(2, 10); }
 
   window.PF_MODEL = {
     ABILITIES, ABILITY_NAMES, ABBR_TO_KEY, EFFECT_COLS, BONUS_TYPES, STACKING_TYPES, SIZES, AGE, XP,
     HP_FORMULAS, SKILL_SYSTEMS, SPECIALTY_SKILLS, ITEM_SLOTS, BACKGROUND_QUESTIONS,
-    blankCharacter, blankEffect, blankWeapon, defaultToggles, normalize, uid,
+    blankCharacter, blankEffect, blankWeapon, isBlankWeapon, defaultToggles, normalize, uid,
   };
 })();
