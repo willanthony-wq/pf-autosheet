@@ -93,6 +93,17 @@
   function buildEffectRows(ch, ctx) {
     const rows = [];
     for (const e of ch.effects) if (e.active) rows.push({ src: 'effect', name: e.name, type: e.type, v: e.v || {}, text: e.text || '' });
+    for (const b of ((ch.race && ch.race.bonuses) || [])) {
+      if (b.active === false || !isNum(b.value) || b.target === 'note') continue;
+      const x = n(b.value), v = {};
+      let text = '';
+      if (b.target === 'saves') Object.assign(v, { fort: x, ref: x, will: x });
+      else if (b.target === 'atk') Object.assign(v, { mAtk: x, rAtk: x });
+      else if (b.target === 'init') text = 'Initiative ' + sign(x);
+      else if (b.target === 'skill') { if (!b.skill) continue; text = b.skill.replace(/:$/, '') + ' ' + sign(x); }
+      else v[b.target] = x;
+      rows.push({ src: 'race', name: b.label || 'Racial bonus', type: 'Racial', v, text });
+    }
 
     const pa = Math.floor(ctx.bab / 4) + 1;
     for (const t of ch.toggles) {
@@ -217,8 +228,10 @@
       const enh = n(ab.enh);
       const temp = Math.max(0, fx.pos - enh) + fx.neg + others;
       const age = AGE.mods[a][ageIdx];
-      const score = Math.max(0, n(ab.base) + enh + n(ab.inh) + temp - Math.abs(n(ab.pen)) + age);
-      d.abilities[a] = { score, mod: mod(score), temp, age };
+      const r = ch.race || {};
+      const race = n(r.abilityMods && r.abilityMods[a]) + (r.flex && r.flexAbility === a ? 2 : 0);
+      const score = Math.max(0, n(ab.base) + race + enh + n(ab.inh) + temp - Math.abs(n(ab.pen)) + age);
+      d.abilities[a] = { score, mod: mod(score), temp, age, race };
     }
     d.mods = {};
     for (const a of ABILITIES) d.mods[a] = d.abilities[a].mod;
@@ -404,7 +417,8 @@
       c.ranksPerLevel = per;
       perLevelTotal += per * c.level;
     }
-    const available = perLevelTotal + n(ch.fcb.skills);
+    const raceRanks = n(ch.race && ch.race.skillRanksPerLevel) * d.level;
+    const available = perLevelTotal + n(ch.fcb.skills) + raceRanks;
     const all = d.skills.concat(d.specialty);
     const totalRanks = all.reduce((a, s) => a + s.ranks, 0);
     const bgRanks = all.filter(s => s.background).reduce((a, s) => a + s.ranks, 0);

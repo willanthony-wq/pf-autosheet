@@ -147,7 +147,7 @@
 
   // ---------- Rendering ----------
   const TABS = [
-    ['overview', 'Overview'], ['skills', 'Skills'], ['combat', 'Combat'], ['spells', 'Spells'],
+    ['overview', 'Overview'], ['race', 'Race'], ['skills', 'Skills'], ['combat', 'Combat'], ['spells', 'Spells'],
     ['effects', 'Effects'], ['features', 'Features & Gear'], ['notes', 'Notes'], ['settings', 'Settings'],
   ];
 
@@ -157,7 +157,7 @@
     const main = $('#main');
     if (!App.ch) { main.innerHTML = renderEmpty(); return; }
     const y = window.scrollY;
-    const fn = { overview: renderOverview, skills: renderSkills, combat: renderCombat, spells: renderSpells, effects: renderEffects,
+    const fn = { overview: renderOverview, race: renderRace, skills: renderSkills, combat: renderCombat, spells: renderSpells, effects: renderEffects,
       features: renderFeatures, notes: renderNotes, settings: renderSettings }[App.tab] || renderOverview;
     main.innerHTML = fn();
     updateOutputs();
@@ -231,6 +231,7 @@
     const abilRows = M.ABILITIES.map(a => `<tr>
       <td class="l ability-name">${M.ABILITY_NAMES[a]}</td>
       <td>${out(`abilities/${a}/score`, '', 'calc big')}</td>
+      <td>${out(`abilities/${a}/race`, 'sign')}</td>
       <td>${rollBtn(M.ABILITY_NAMES[a] + ' check', `abilities/${a}/mod`)}</td>
       <td>${inp(`abilities/${a}/base`, { type: 'num', aria: a + ' base' })}</td>
       <td>${inp(`abilities/${a}/enh`, { type: 'num', aria: a + ' enhancement' })}</td>
@@ -239,7 +240,7 @@
       <td>${inp(`abilities/${a}/pen`, { type: 'num', aria: a + ' penalty' })}</td>
       <td>${out(`abilities/${a}/age`, 'sign')}</td></tr>`).join('');
     const abilities = card('Ability Scores', `<div class="scroll-x"><table>
-      <thead><tr><th class="l">Ability</th><th>Score</th><th>Mod</th><th>Base</th><th>Enhance</th><th>Inherent</th><th title="From the Effects tab">Temp</th><th>Penalty</th><th>Age</th></tr></thead>
+      <thead><tr><th class="l">Ability</th><th>Score</th><th title="From the Race tab">Race</th><th>Mod</th><th>Base</th><th>Enhance</th><th>Inherent</th><th title="From the Effects tab">Temp</th><th>Penalty</th><th>Age</th></tr></thead>
       <tbody>${abilRows}</tbody></table></div>`);
 
     const hp = card('Hit Points', `
@@ -285,6 +286,65 @@
       </div>`);
 
     return `<div class="grid two">${identity}${classes}${abilities}${hp}${saves}${defenses}</div>`;
+  }
+
+  // ----- Race
+  function renderRace() {
+    const ch = App.ch, r = ch.race, R = window.PF_RACES;
+    const presetOpts = Object.keys(R.RACES).map(n => `<option value="${esc(n)}"${r.preset === n ? ' selected' : ''}>${esc(n)}</option>`).join('');
+    const main = card('Race', `<div class="fields">
+        ${field('Race', inp('info/race', { ph: 'e.g. Tiefling' }))}
+        <label class="field">Start from a core race<span class="inline" style="flex-wrap:nowrap"><select id="race-preset" aria-label="Core race preset"><option value="">— choose —</option>${presetOpts}</select><button class="btn small" data-action="apply-race">Apply</button></span></label>
+        ${field('Size', sel('info/size', M.SIZES.map(s => s.name), { blank: false }))}
+        ${field('Base speed (ft)', inp('info/speeds/base', { type: 'num' }))}
+        ${field('Senses', inp('race/senses', { ph: 'e.g. darkvision 60 ft.' }))}
+        ${field('Bonus skill ranks per level', inp('race/skillRanksPerLevel', { type: 'num', title: 'Human "Skilled" = 1' }))}
+        ${field('Languages', inp('languages', { ph: 'Common…' }))}
+      </div>
+      <h3 style="margin:14px 0 6px">Racial ability modifiers</h3>
+      <div class="scroll-x"><table><thead><tr>${M.ABILITIES.map(a => `<th>${esc(M.ABILITY_NAMES[a])}</th>`).join('')}</tr></thead>
+        <tbody><tr>${M.ABILITIES.map(a => `<td>${inp(`race/abilityMods/${a}`, { type: 'num', aria: M.ABILITY_NAMES[a] + ' racial modifier' })}</td>`).join('')}</tr></tbody></table></div>
+      <p class="inline" style="margin-top:8px"><label class="inline">${chk('race/flex', { rerender: true })} +2 to one ability score of your choice</label>
+        ${r.flex ? sel('race/flexAbility', M.ABILITIES.map(a => ({ v: a, l: M.ABILITY_NAMES[a] })), { blank: '— pick one —', aria: 'Ability for the +2' }) : ''}</p>
+      <p class="small muted">Racial modifiers add to your scores automatically, so enter your <em>base</em> (rolled or point-buy) scores on the Overview tab. Characters imported from the spreadsheet already have racial modifiers inside their base scores, so leave these at 0 for them.</p>`,
+      { cls: 'span-2' });
+
+    const skillNames = App.d.skills.map(s => s.name).concat(M.SPECIALTY_SKILLS);
+    const rows = r.bonuses.map((b, i) => `<tr class="${b.active === false ? 'inactive' : ''}">
+        <td><input type="checkbox" data-bind="race/bonuses/${i}/active" data-type="bool" data-rerender aria-label="Active"${b.active === false ? '' : ' checked'}></td>
+        <td class="l" style="min-width:140px">${inp(`race/bonuses/${i}/label`, { ph: 'Keen Senses' })}</td>
+        <td style="min-width:150px">${sel(`race/bonuses/${i}/target`, R.BONUS_TARGETS, { blank: false, rerender: true })}</td>
+        <td class="l" style="min-width:160px">${b.target === 'skill' ? sel(`race/bonuses/${i}/skill`, skillNames, { blank: '— skill —' }) : inp(`race/bonuses/${i}/text`, { ph: b.target === 'note' ? 'When it applies' : 'Notes (optional)' })}</td>
+        <td>${inp(`race/bonuses/${i}/value`, { type: 'num', aria: 'Value' })}</td>
+        <td>${removeBtn('race/bonuses', i, 'bonus')}</td></tr>`).join('');
+    const bonuses = card('Racial Bonuses', (rows ? `<div class="scroll-x"><table><thead><tr><th>On</th><th class="l">Name</th><th>Applies to</th><th class="l">Skill / notes</th><th>Value</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+      : '<p class="small muted">No racial bonuses yet. Apply a core race above, or add your own.</p>') +
+      `<p class="small muted">These count as racial bonuses: two racial bonuses to the same thing don't stack, but they stack with every other type. "Situational" entries are reminders only and don't change any numbers.</p>`,
+      { tools: `<button class="btn small" data-action="add-race-bonus">+ Bonus</button>`, cls: 'span-2' });
+
+    const list = ch.racialFeatures.map((x, i) => `<div class="list-row feature-row">${inp(`racialFeatures/${i}/name`, { ph: 'Feature' })}${area(`racialFeatures/${i}/text`, { rows: 1, ph: 'Description' })}${removeBtn('racialFeatures', i)}</div>`).join('') || '<p class="small muted">None yet.</p>';
+    const feats = card('Racial Features', list, { tools: `<button class="btn small" data-action="add" data-list="racialFeatures">+ Feature</button>`, cls: 'span-2' });
+    return `<div class="grid two">${main}${bonuses}${feats}</div>`;
+  }
+  function applyRacePreset(name) {
+    const p = window.PF_RACES.RACES[name];
+    if (!p) { toast('Choose a race first.'); return; }
+    const ch = App.ch, r = ch.race;
+    const hasData = r.bonuses.length || ch.racialFeatures.length || r.flex || Object.values(r.abilityMods || {}).some(x => +x);
+    if (hasData && !confirm(`Replace your racial ability modifiers, bonuses and features with the ${name} defaults?`)) return;
+    r.preset = name;
+    r.abilityMods = Object.assign({ str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 }, p.abilityMods);
+    r.flex = !!p.flex; r.flexAbility = '';
+    r.skillRanksPerLevel = p.skillRanksPerLevel || 0;
+    r.senses = p.senses || '';
+    r.bonuses = p.bonuses.map(b => Object.assign({ active: true, skill: '', text: '' }, b));
+    ch.racialFeatures = p.features.map(([n, t]) => ({ name: n, text: t }));
+    ch.info.race = name; ch.info.size = p.size; ch.info.speeds.base = p.speed;
+    if (p.slowAndSteady) ch.movement.ignoreArmor = 'Slow and Steady (ignore Encumbrance/Heavy/Medium)';
+    else if (String(ch.movement.ignoreArmor || '').startsWith('Slow and Steady')) ch.movement.ignoreArmor = '';
+    if (!ch.languages) ch.languages = p.languages;
+    changed(true);
+    toast(p.flex ? `${name} applied. Pick which ability gets the +2.` : `${name} applied.`);
   }
 
   // ----- Skills
@@ -525,8 +585,6 @@
     const list = (key, cols, add) => ch[key].map((x, i) => `<div class="list-row ${add}">${cols(i)}${removeBtn(key, i)}</div>`).join('') || '<p class="small muted">None yet.</p>';
     const traits = card('Traits & Drawbacks', list('traits', i => `${sel(`traits/${i}/kind`, ['Trait', 'Drawback', 'DB'], { blank: false })}${inp(`traits/${i}/text`, { ph: 'Reactionary: +2 Initiative' })}`, 'trait-row'),
       { tools: `<button class="btn small" data-action="add" data-list="traits">+ Trait</button>` });
-    const racial = card('Racial Features', list('racialFeatures', i => `${inp(`racialFeatures/${i}/name`, { ph: 'Feature' })}${inp(`racialFeatures/${i}/text`, { ph: 'Description' })}`, 'feature-row'),
-      { tools: `<button class="btn small" data-action="add" data-list="racialFeatures">+ Feature</button>` });
     const cf = card('Class Features', list('classFeatures', i => `${inp(`classFeatures/${i}/name`, { ph: 'Channel Energy' })}${area(`classFeatures/${i}/text`, { rows: 1, ph: 'Description' })}`, 'feature-row'),
       { tools: `<button class="btn small" data-action="add" data-list="classFeatures">+ Feature</button>` });
     const feats = card('Feats', list('feats', i => `${inp(`feats/${i}/level`, { ph: 'Lvl', aria: 'Level gained' })}${inp(`feats/${i}/name`, { ph: 'Power Attack' })}${area(`feats/${i}/text`, { rows: 1, ph: 'Description' })}`, 'feat-row'),
@@ -539,7 +597,7 @@
       { tools: `<button class="btn small" data-action="add" data-list="resources">+ Resource</button>` });
     const slots = card('Magic Items Worn', `<table><tbody>${ch.slots.map((s, i) => `<tr><td class="l" style="width:110px">${inp(`slots/${i}/slot`)}</td><td class="l">${inp(`slots/${i}/item`)}</td><td>${removeBtn('slots', i)}</td></tr>`).join('')}</tbody></table>`,
       { tools: `<button class="btn small" data-action="add" data-list="slots">+ Slot</button>` });
-    return `<div class="grid two">${traits}${racial}${cf}${feats}${res}${slots}</div>`;
+    return `<div class="grid two">${traits}${cf}${feats}${res}${slots}</div>`;
   }
 
   // ----- Notes
@@ -635,6 +693,8 @@
       'add-class': () => { App.ch.classes.push({ name: '', level: 0 }); changed(true); },
       'add-specialty': () => { App.ch.specialty.push({ base: 'Craft:', detail: '', ranks: 0, misc: 0 }); changed(true); },
       'add-weapon': () => { App.ch.weapons.push(M.blankWeapon()); changed(true); },
+      'add-race-bonus': () => { App.ch.race.bonuses.push({ label: '', target: 'skill', skill: '', value: '', text: '', active: true }); changed(true); },
+      'apply-race': () => applyRacePreset($('#race-preset').value),
       'add-effect': () => { App.ch.effects.push(M.blankEffect('', 'Untyped (stacks)')); changed(true); },
       'add-spell': () => { App.ch.spellcasting.levels[+el.dataset.l].spells.push({ name: '', prepared: '' }); changed(true); },
       'add-sla': () => { App.ch.spellcasting.sla[+el.dataset.g].items.push({ name: '', uses: '' }); changed(true); },

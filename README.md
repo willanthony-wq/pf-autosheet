@@ -58,6 +58,7 @@ The webhook URL is stored only in this browser. It is never written into exporte
 ## What's automated (same rules as the spreadsheet)
 
 - **Classes:** 213 classes from Class Charts, covering base, hybrid, occult, monstrous, prestige, Eberron prestige, NPC and the third-party sets. HD, BAB, saves, skill ranks and class skills come from them.
+- **Race:** a Race tab with racial ability modifiers (including the flexible +2), size, speed, senses, bonus skill ranks per level, racial bonuses to saves, skills, AC, attacks or initiative, and racial features. One-click presets for the seven core races (Dwarf, Elf, Gnome, Half-Elf, Half-Orc, Halfling, Human), all editable.
 - **HP:** all six HP formulas, Con, favored-class HP, damage/temp/nonlethal tracking and negative levels.
 - **Abilities:** age modifiers, enhancement vs. effect bonuses, inherent bonuses and penalties.
 - **Effect table:** bonuses of the same type don't stack, while penalties and Untyped, Dodge and Circumstance bonuses do. Deflection, Enhancement and Resistance are separate types. Effects reach AC, saves, abilities, attacks, damage, caster level, extra attacks, size, speed and skills. The free-text column applies to named skills and Initiative.

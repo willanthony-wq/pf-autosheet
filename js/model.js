@@ -41,7 +41,7 @@
   ];
 
   const BONUS_TYPES = ['Alchemical', 'Armor', 'Circumstance (stacks)', 'Competence', 'Deflection', 'Dodge (stacks)', 'Enhancement',
-    'Insight', 'Luck', 'Morale', 'Precision Damage', 'Resistance', 'Sacred / Profane', 'Size', 'Untyped (stacks)'];
+    'Insight', 'Luck', 'Morale', 'Precision Damage', 'Racial', 'Resistance', 'Sacred / Profane', 'Size', 'Untyped (stacks)'];
   const STACKING_TYPES = ['Untyped (stacks)', 'Dodge (stacks)', 'Circumstance (stacks)'];
 
   const SIZES = [
@@ -124,6 +124,14 @@
       },
       classes: [{ name: '', level: 0 }, { name: '', level: 0 }, { name: '', level: 0 }],
       fcb: { hp: 0, skills: 0, other: '' },
+      race: {
+        preset: '',
+        abilityMods: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 },
+        flex: false, flexAbility: '',   // "+2 to one ability score of your choice" (Human, Half-Elf, Half-Orc)
+        skillRanksPerLevel: 0,          // e.g. Human "Skilled"
+        senses: '',
+        bonuses: [],                    // { label, target, skill, value, text, active }
+      },
       rolledHp: ['', '', ''],   // per class, e.g. "8, 5, 6"
       abilities: abil,
       hp: { damage: 0, temp: 0, nonlethal: 0, dr: '', sr: '', resist: '' },
