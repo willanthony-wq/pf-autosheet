@@ -42,7 +42,13 @@
     'Haste': [B('ac', 1, 'Dodge (stacks)'), B('atk', 1, 'Untyped (stacks)'), B('ref', 1, 'Dodge (stacks)'), B('note', '', 'Untyped (stacks)', { text: 'One extra attack at full bonus on a full attack; +30 ft. speed' })],
     'Heroism': [B('atk', 2, 'Morale'), B('saves', 2, 'Morale'), B('skills', 2, 'Morale')],
     'Mage Armor': [B('ac', 4, 'Armor')],
-    'Barkskin': [B('nat', 'max(2, min(5, 2 + floor((druid - 3) / 3)))', 'Enhancement', { text: '+2, +1 per 3 caster levels above 3rd (max +5); edit if the caster is not your druid' })],
+    'Barkskin': [B('nat', 'max(2, min(5, 2 + floor((cl - 3) / 3)))', 'Enhancement', { text: '+2, +1 per 3 caster levels above 3rd (max +5); cl = your caster level' })],
+    'Divine Favor': [B('atk', 'max(1, min(3, floor(cl / 3)))', 'Luck'), B('dmg', 'max(1, min(3, floor(cl / 3)))', 'Luck')],
+    'Prayer': [B('atk', 1, 'Luck'), B('dmg', 1, 'Luck'), B('saves', 1, 'Luck'), B('skills', 1, 'Luck'), B('note', '', 'Luck', { text: 'Enemies take -1 on the same rolls' })],
+    'Resistance': [B('saves', 1, 'Resistance')],
+    'Aid': [B('atk', 1, 'Morale'), B('note', '', 'Morale', { text: '+1 morale on saves against fear; temporary HP 1d8 + CL (max +10)' })],
+    'Guidance': [B('note', '', 'Competence', { text: '+1 competence on one attack, save or skill check' })],
+    'Magic Vestment': [B('note', '', 'Enhancement', { text: '+1 enhancement to armor or shield per 4 caster levels (max +5)' })],
     "Bull's Strength": [B('str', 4, 'Enhancement')],
     "Cat's Grace": [B('dex', 4, 'Enhancement')],
     "Bear's Endurance": [B('con', 4, 'Enhancement')],
@@ -138,7 +144,7 @@
       if (a === 'int' && intMin !== null) s = Math.max(s, intMin);
       return s;
     };
-    const vars = mods => Object.assign({ level: hd, bab, C: Object.assign({}, (master && master.formulaVars && master.formulaVars.C) || {}) }, mods);
+    const vars = mods => Object.assign({ level: hd, bab, cl: (master && master.formulaVars && master.formulaVars.cl) || 0, C: Object.assign({}, (master && master.formulaVars && master.formulaVars.C) || {}) }, mods);
     const scoresFrom = rows => {
       const ab = {}, md = {};
       for (const a of ABIL) {

@@ -93,7 +93,7 @@
   // A bonus value is a number or a small formula such as "max(3, level)" or "ranks >= 10 ? 6 : 3".
   // Variables: level, bab, str..cha (modifiers), ranks (in the targeted skill), class1..class3 (levels in each
   // class slot) and any class name as a word, e.g. rogue, cleric, machine_smith (your levels in it; 0 if none).
-  const BASE_VARS = new Set(['level', 'bab', 'str', 'dex', 'con', 'int', 'wis', 'cha', 'ranks']);
+  const BASE_VARS = new Set(['level', 'bab', 'cl', 'str', 'dex', 'con', 'int', 'wis', 'cha', 'ranks']);
   const MATH_FNS = new Set(['max', 'min', 'floor', 'ceil', 'abs']);
   function classSlug(name) { return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''); }
   const CLASS_SLUGS = new Set(D.classes.map(c => classSlug(c.name)).concat(['class1', 'class2', 'class3']));
@@ -111,7 +111,7 @@
         return 'L("' + id + '")';
       });
       try {
-        const fn = new Function('V', 'const {level=0,bab=0,str=0,dex=0,con=0,int=0,wis=0,cha=0,ranks=0}=V; const {max,min,floor,ceil,abs}=Math;' +
+        const fn = new Function('V', 'const {level=0,bab=0,cl=0,str=0,dex=0,con=0,int=0,wis=0,cha=0,ranks=0}=V; const {max,min,floor,ceil,abs}=Math;' +
           ' const C=V.C||{}; const L=k=>Object.prototype.hasOwnProperty.call(C,k)?C[k]:0; return (' + body + ');');
         out = { fn, unknown };
       } catch (e) { out = null; }
@@ -156,7 +156,7 @@
     }
   }
   function abilityVars(d, level, bab) {
-    const V = { level, bab, C: classVars(d) };
+    const V = { level, bab, cl: d.quickCl || 0, C: classVars(d) };
     for (const a of ABILITIES) V[a] = d.mods ? d.mods[a] : 0;
     return V;
   }
@@ -178,6 +178,8 @@
     for (const e of ch.effects) if (e.active) rows.push({ src: 'effect', name: e.name, type: e.type, v: e.v || {}, text: e.text || '' });
     // Bonuses attached to race, traits, feats and class features
     const V = ctx.vars || {};
+    // Effects can also carry bonuses (e.g. created by casting a buff spell)
+    for (const e of ch.effects) if (e.active && e.bonuses && e.bonuses.length) pushBonuses(rows, e.bonuses, 'effect', b => b.label || e.name || 'Effect', 'Untyped (stacks)', V);
     pushBonuses(rows, (ch.race && ch.race.bonuses) || [], 'race', b => b.label || 'Racial bonus', 'Racial', V, true);
     for (const t of ch.traits || []) pushBonuses(rows, t.bonuses || [], 'trait', b => b.label || String(t.text || 'Trait').split(':')[0], 'Trait', V);
     for (const f of ch.feats || []) pushBonuses(rows, f.bonuses || [], 'feat', b => b.label || f.name || 'Feat', 'Untyped (stacks)', V);
@@ -263,7 +265,10 @@
     const ctx = { bab: d.bab, speedBase: { base: n(ch.info.speeds.base), fly: ch.info.speeds.fly, swim: ch.info.speeds.swim, burrow: ch.info.speeds.burrow, climb: ch.info.speeds.climb }, hpMax: 0, hpCurrent: 0 };
     // Bonus formulas can use ability modifiers, so estimate them first, then refine.
     d.mods = null;
-    ctx.vars = abilityVars({ mods: quickMods(ch) }, d.level, d.bab);
+    // Caster level for formulas (before effects; the CL column of effects is added later for spells)
+    { const sc = ch.spellcasting || {}; const cc = d.classes.find(x => x.data && x.name === sc.className);
+      d.quickCl = Math.min(20, (cc ? cc.level : 0) + n(sc.classLevelMisc)) + n(sc.clMisc); }
+    ctx.vars = abilityVars({ mods: quickMods(ch), quickCl: d.quickCl, classes: d.classes }, d.level, d.bab);
     let rows = buildEffectRows(ch, Object.assign({}, ctx, { hpMax: 0 }));
     computeAbilities(ch, d, rows);
     ctx.vars = abilityVars(d, d.level, d.bab);

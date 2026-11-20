@@ -310,3 +310,10 @@ label.choice input { margin-top: 3px; accent-color: var(--accent); }
 .feature-head.comp-evolutions { grid-template-columns: 1fr 64px 28px; }
 .feature-head.comp-feats > input, .feature-head.comp-buffs > input[type=text], .feature-head.comp-evolutions > input:first-child { font-weight: 600; }
 .inactive-item .bonus-list, .inactive-item .feature-head > input[type=text] { opacity: .55; }
+
+/* ---------- Spell setup ---------- */
+.spell-row { grid-template-columns: 40px 1fr auto auto 28px; }
+.spell-sum { grid-column: 2 / -1; font-size: 12px; color: var(--muted); margin-top: -2px; }
+.spell-config { grid-column: 1 / -1; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin: 4px 0 8px; background: var(--panel); }
+.spell-buff { margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.btn.ghost.on { color: var(--accent); }
