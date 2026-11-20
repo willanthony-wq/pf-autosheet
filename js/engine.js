@@ -649,6 +649,13 @@
     d.weapons = ch.weapons.map(w => attackFor(w, v, T, ch.customAttackOptions || [], wRows));
   }
 
+  function defaultDamageExpr(category) {
+    if (/^Off-Hand Ranged/.test(category) || /^Ranged/.test(category)) return 'v.tRangedDamage';
+    if (/^Off-Hand Melee/.test(category)) return 'v.tMeleeDamage+v.tOHDamage';
+    if (/^(Melee|Natural|Monk|Single)/.test(category)) return 'v.tMeleeDamage';
+    return '0';
+  }
+
   function attackFor(w, v, T, custom, wRows) {
     const out = { attacks: [], damageBonus: null, attackText: '', damageText: '', valid: false };
     if (!w.category || !w.formula) return out;
@@ -716,7 +723,11 @@
     }
     out.attacks = atk;
     out.attackText = atk.map(sign).join(' / ');
-    const dmg = evalExpr(opt.dmg, v);
+    // A custom formula copied from a spreadsheet with a blank damage part still gets the usual damage
+    // bonuses for its attack type (Deadly Aim, Power Attack, buffs...).
+    const isCustom = !cat.options.includes(opt);
+    const blankDmg = opt.dmg === null || opt.dmg === undefined ? false : !String(opt.dmg).trim() || String(opt.dmg).trim() === '0';
+    const dmg = evalExpr(isCustom && blankDmg ? defaultDamageExpr(cat.name) : opt.dmg, v);
     if (dmg !== null) {
       out.damageBonus = dmg + enhNum + n(w.mDmg) + wDmg;
       out.damageText = (w.dice ? w.dice + ' ' : '') + (out.damageBonus >= 0 ? '+ ' : '- ') + Math.abs(out.damageBonus);
