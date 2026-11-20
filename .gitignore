@@ -1,0 +1,5 @@
+# Spreadsheets and cell dumps used for testing contain real character data
+*.xlsx
+cells*.json
+*_cells.json
+__pycache__/
