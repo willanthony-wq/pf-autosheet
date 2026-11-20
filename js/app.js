@@ -423,8 +423,7 @@
     const others = D.conditions.filter(c => !ch.conditions.includes(c.name));
     const buffs = card('Buffs & Conditions', `<div class="chips">${shown.map(([t, i]) =>
       `<label class="chip${t.active ? ' on' : ''}">${chk(`toggles/${i}/active`, { rerender: true })}${esc(t.name)}</label>`).join('')}
-      ${ch.effects.map((e, i) => `<label class="chip${e.active ? ' on' : ''}" title="Effect (Effects tab). Click to switch ${e.active ? 'off' : 'on'}."><input type="checkbox" data-bind="effects/${i}/active" data-type="bool" data-rerender${e.active ? ' checked' : ''}>${esc(e.name || 'Effect')}</label>`).join('')}
-      ${ch.magicItems.map((m, i) => [m, i]).filter(([m]) => m.name && E.isNum(m.value)).map(([m, i]) => `<label class="chip${m.active === false ? '' : ' on'}" title="Magic item bonus (Combat tab). Click to switch ${m.active === false ? 'on' : 'off'}."><input type="checkbox" data-bind="magicItems/${i}/active" data-type="bool" data-rerender${m.active === false ? '' : ' checked'}>${esc(m.name)}</label>`).join('')}</div>
+      ${ch.effects.map((e, i) => `<label class="chip${e.active ? ' on' : ''}" title="Effect (Effects tab). Click to switch ${e.active ? 'off' : 'on'}."><input type="checkbox" data-bind="effects/${i}/active" data-type="bool" data-rerender${e.active ? ' checked' : ''}>${esc(e.name || 'Effect')}</label>`).join('')}</div>
       <h3 style="margin:10px 0 6px">Conditions</h3>
       <div class="chips">${ch.conditions.map(n => `<button class="chip cond on" data-action="toggle-condition" data-name="${esc(n)}" title="Click to remove">${esc(n)} ✕</button>`).join('')}
         <select id="add-condition" aria-label="Add a condition" style="width:auto"><option value="">+ Add condition…</option>${others.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('')}</select></div>
@@ -643,17 +642,6 @@
       </div>
       <div style="margin-top:8px">${field('Armor notes', area('armorNotes', { rows: 2 }))}</div>`, { cls: 'span-2' });
 
-    const items = card('Magic Item Bonuses', `<table><thead><tr><th title="Turn this bonus on or off">On</th><th class="l">Item or feature</th><th>Applies to</th><th>Bonus type</th><th>Value</th><th></th></tr></thead><tbody>
-      ${ch.magicItems.map((m, i) => `<tr class="${m.active === false ? 'inactive' : ''}">
-        <td><input type="checkbox" data-bind="magicItems/${i}/active" data-type="bool" data-rerender aria-label="Active"${m.active === false ? '' : ' checked'}></td>
-        <td class="l">${inp(`magicItems/${i}/name`, { ph: 'Cloak of Resistance +1' })}</td>
-        <td>${sel(`magicItems/${i}/target`, ['Saves', 'AC', 'NatAC'], { blank: false })}</td>
-        <td>${sel(`magicItems/${i}/type`, M.BONUS_TYPES, { blank: false })}</td>
-        <td>${inp(`magicItems/${i}/value`, { type: 'num' })}</td>
-        <td>${removeBtn('magicItems', i, 'item')}</td></tr>`).join('')}</tbody></table>
-      <p class="small muted">Untick a row to switch a temporary bonus (like a spell) off. For other bonuses (ability belts, skill items, buffs), add a row on the Effects tab.</p>`,
-      { tools: `<button class="btn small" data-action="add" data-list="magicItems">+ Item</button>` });
-
     const modes = ['fly', 'swim', 'burrow', 'climb'];
     const speedRows = `<tr><td class="l">Land</td><td>${inp('info/speeds/base', { type: 'num' })}</td><td>${out('speed/land', 'ft')}</td><td>${out('speed/charge', 'ft')}</td><td>${out('speed/run', 'ft')}</td></tr>` +
       modes.map(k => `<tr><td class="l">${k[0].toUpperCase() + k.slice(1)}</td><td>${inp('info/speeds/' + k, { type: 'num' })}</td>
@@ -665,7 +653,7 @@
         ${field('Charge bonus distance', inp('movement/chargeBonus', { type: 'num' }))}
       </div>`);
 
-    return `<div class="grid two">${weaponsCard}${toggles}${conds}${armor}${items}${move}</div>`;
+    return `<div class="grid two">${weaponsCard}${toggles}${conds}${armor}${move}</div>`;
   }
 
   // ----- Spells
@@ -767,9 +755,12 @@
       <td style="min-width:180px">${inp(`toggles/${i}/text`)}</td><td></td></tr>`).join('');
     const toggles = card('Combat Toggles', `<div class="scroll-x"><table class="effects-table">${head}<tbody>${togRows}</tbody></table></div>`);
 
-    const active = App.d.rows.filter(r => r.src === 'condition' || r.src === 'item');
-    const applied = card('Also applied', active.length ? `<ul>${active.map(r => `<li><strong>${esc(r.name)}</strong> <span class="muted small">(${esc(r.src === 'item' ? 'Combat tab → Magic Item Bonuses' : 'condition, Combat tab')})</span></li>`).join('')}</ul>`
-      : '<p class="muted small">Conditions and magic item bonuses from the Combat tab show here when active.</p>');
+    const where = { race: 'Race tab', trait: 'trait, Features & Gear tab', feat: 'feat, Features & Gear tab', feature: 'class feature, Features & Gear tab',
+      worn: 'worn item, Features & Gear tab', item: 'magic item', condition: 'condition, Play or Combat tab' };
+    const seen = new Set();
+    const active = App.d.rows.filter(r => where[r.src] && !seen.has(r.src + r.name) && seen.add(r.src + r.name));
+    const applied = card('Also applied (from other tabs)', active.length ? `<ul>${active.map(r => `<li><strong>${esc(r.name)}</strong> <span class="muted small">(${esc(where[r.src])})</span></li>`).join('')}</ul>`
+      : '<p class="muted small">Bonuses from your race, feats, traits, class features, worn items and conditions are listed here when active.</p>');
     return `<div class="grid">${effects}${toggles}${applied}</div>`;
   }
 
@@ -915,8 +906,7 @@
       'add-sla': () => { App.ch.spellcasting.sla[+el.dataset.g].items.push({ name: '', uses: '' }); changed(true); },
       'add': () => {
         const blanks = { traits: { kind: 'Trait', text: '', bonuses: [] }, racialFeatures: { name: '', text: '' }, classFeatures: { name: '', text: '', bonuses: [] },
-          feats: { level: '', name: '', text: '', bonuses: [] }, resources: { name: '', uses: '', max: '' }, slots: { slot: '', item: '', bonuses: [] },
-          magicItems: { name: '', target: 'Saves', type: 'Resistance', value: '', active: true } };
+          feats: { level: '', name: '', text: '', bonuses: [] }, resources: { name: '', uses: '', max: '' }, slots: { slot: '', item: '', bonuses: [] }, };
         App.ch[el.dataset.list].push(blanks[el.dataset.list]); changed(true);
       },
       'remove': () => { const arr = get(el.dataset.list); if (Array.isArray(arr)) { arr.splice(+el.dataset.i, 1); changed(true); } },

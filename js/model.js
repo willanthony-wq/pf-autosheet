@@ -167,7 +167,7 @@
       armor: { name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0 },
       shield: { name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0 },
       armorNotes: '',
-      magicItems: Array.from({ length: 5 }, () => ({ name: '', target: 'Saves', type: 'Resistance', value: '' })),
+      magicItems: [],           // legacy; moved into effects by normalize()
       toggles: defaultToggles(),
       conditions: [],      // names from PF_DATA.conditions
       negativeLevels: 0,
@@ -209,6 +209,7 @@
     defaultToggles().forEach(t => { if (!have.has(t.id)) ch.toggles.push(t); });
     ch.effects.forEach(e => { if (!e.id) e.id = uid(); if (!e.v) e.v = {}; });
     migrateLegacyTypes(ch);
+    magicItemsToEffects(ch);
     for (const k of ['traits', 'feats', 'classFeatures', 'slots']) (ch[k] || []).forEach(x => { if (!Array.isArray(x.bonuses)) x.bonuses = []; });
     while (ch.spellcasting.levels.length < 10) ch.spellcasting.levels.push({ spells: [], used: 0, perDayOverride: '' });
     return ch;
@@ -237,6 +238,20 @@
     for (const m of ch.magicItems) {
       if (m.type === LEGACY || !m.type) m.type = m.target === 'AC' ? 'Deflection' : m.target === 'NatAC' ? 'Enhancement' : 'Resistance';
     }
+  }
+
+  // The spreadsheet had a small "Magic Item or Feature" block (Saves / AC / NatAC). Those are ordinary
+  // effects, so they live on the Effects tab: move any into ch.effects.
+  function magicItemsToEffects(ch) {
+    const keep = [];
+    for (const m of ch.magicItems || []) {
+      const val = typeof m.value === 'number' ? m.value : parseFloat(m.value);
+      if (!m.name && !Number.isFinite(val)) continue;
+      if (!Number.isFinite(val)) { keep.push(m); continue; }
+      const v = m.target === 'AC' ? { ac: val } : m.target === 'NatAC' ? { nat: val } : { fort: val, ref: val, will: val };
+      ch.effects.push({ id: uid(), name: m.name || 'Magic item', type: m.type || 'Resistance', active: m.active !== false, v, text: '' });
+    }
+    ch.magicItems = keep.filter(m => m.name);
   }
 
   function isBlankWeapon(w) { return !w || (!String(w.name || '').trim() && !w.formula && !String(w.dmgOverride || '').trim()); }
