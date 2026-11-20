@@ -73,7 +73,7 @@ The webhook URL is stored only in this browser. It is never written into exporte
 - **Combat toggles:** Power Attack, Combat Expertise and Deadly Aim scale with BAB. Heroism, Haste, Rapid Shot, Studied Target, and three custom toggles.
 - **Conditions:** the sheet's conditions table, plus Unchained wound thresholds.
 - **Defenses:** AC, touch, flat-footed and CMD, with armor and shield tables, special materials, max Dex, armor check penalty, spell failure and encumbrance.
-- **Attacks:** all attack types from Formula References (melee, ranged, off-hand, maneuvers, magic, flurry, natural, bombs, kineticist) with iterative attacks.
+- **Attacks:** all attack types from Formula References (melee, ranged, off-hand, maneuvers, magic, flurry, natural, bombs, kineticist) with iterative attacks, plus INT and CHA to-hit versions with the usual damage choices (STR, STR×1.5, STR×½, the same ability, DEX or none). The Formula dropdown groups options by the ability used to hit.
 - **Skills:** Standard, Background, Consolidated and Psionics skill systems; trained-only, armor check, size, Fly maneuverability, and climb/swim speed bonuses.
 - **Spellcasting:** spells per day from the class tables plus ability bonus spells, spells known, DCs, caster level, concentration, slot tracking and a **Rest** button.
 
@@ -105,6 +105,7 @@ Not ported:
 | `index.html` | Page shell |
 | `css/sheet.css` | Styles (light and dark) |
 | `js/data.js` | Class, skill, armor, condition and attack tables, generated from the spreadsheet |
+| `js/attacks-extra.js` | Extra attack formulas (INT and CHA to hit) added on top of the spreadsheet's list |
 | `js/model.js` | Character data model and defaults |
 | `js/engine.js` | Calculations: a port of the sheet's formulas |
 | `js/import.js` | `.xlsx` importer |

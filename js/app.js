@@ -627,7 +627,10 @@
     const ch = App.ch, d = App.d;
     const cats = D.attackCategories.map(c => ({ v: c.name, l: c.name.replace(/\s*\(.*\)$/, '') }));
     const weapons = ch.weapons.map((w, i) => {
-      const opts = E.attackOptions(ch, w.category).map(o => ({ v: o.label, l: o.label }));
+      // Group formulas by the ability used to hit (STR, DEX, INT…) so long lists stay readable.
+      const order = ['STR to hit', 'DEX to hit', 'CON to hit', 'INT to hit', 'WIS to hit', 'CHA to hit', 'Spellcasting', 'Other'];
+      const opts = E.attackOptions(ch, w.category).map((o, k) => ({ v: o.label, l: o.label, g: window.PF_ATTACK_GROUP(o.label), k }))
+        .sort((a, b) => (order.indexOf(a.g) - order.indexOf(b.g)) || (a.k - b.k));
       return `<div class="weapon">
         <div class="weapon-grid">
           ${field('Weapon', inp(`weapons/${i}/name`, { ph: 'Longsword +1' }))}
