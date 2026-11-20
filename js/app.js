@@ -323,6 +323,9 @@
       if (key === 'feats') {
         head = `${inp(`feats/${i}/level`, { ph: 'Lvl', aria: 'Level gained' })}${inp(`feats/${i}/name`, { ph: 'Power Attack' })}`;
         desc = area(`feats/${i}/text`, { rows: 1, ph: 'Description' }); kind = 'feat';
+      } else if (key === 'slots') {
+        head = `${inp(`slots/${i}/slot`, { ph: 'slot', aria: 'Slot' })}${inp(`slots/${i}/item`, { ph: 'empty', aria: 'Item' }).replace('<input ', '<input data-rerender-blur ')}`;
+        kind = 'item'; defType = 'Enhancement';
       } else if (key === 'traits') {
         head = `${sel(`traits/${i}/kind`, ['Trait', 'Drawback', 'DB'], { blank: false })}${inp(`traits/${i}/text`, { ph: 'Reactionary: +2 Initiative' })}`;
         kind = 'trait'; defType = 'Trait';
@@ -331,14 +334,16 @@
         desc = area(`classFeatures/${i}/text`, { rows: 1, ph: 'Description' });
       }
       const hasBonuses = (x.bonuses || []).length > 0;
+      // An empty item slot doesn't need bonus buttons until something is in it.
+      const emptySlot = key === 'slots' && !String(x.item || '').trim() && !hasBonuses;
       return `<div class="feature-item"><div class="feature-head ${key}">${head}${removeBtn(key, i)}</div>${desc}
         ${bonusEditor(`${key}/${i}/bonuses`, x.bonuses)}
-        ${addBonusButtons(`${key}/${i}/bonuses`, defType, hasBonuses ? null : kind, i, key)}</div>`;
+        ${emptySlot ? '' : addBonusButtons(`${key}/${i}/bonuses`, defType, hasBonuses ? null : kind, i, key)}</div>`;
     }).join('') || '<p class="small muted">None yet.</p>';
   }
   function suggestBonuses(key, i, kind) {
     const item = App.ch[key][i];
-    const name = key === 'traits' ? item.text : item.name;
+    const name = key === 'traits' ? item.text : key === 'slots' ? item.item : item.name;
     const res = window.PF_FEATS.suggest(kind, name, skillNameList());
     if (!res) { toast(`No standard bonuses known for "${name || 'this ' + kind}". Use + Bonus to add your own.`); return; }
     item.bonuses = (item.bonuses || []).concat(res);
@@ -352,6 +357,7 @@
     App.ch.traits.forEach(t => add(String(t.text || 'Trait').split(':')[0], t.bonuses));
     App.ch.feats.forEach(f => add(f.name || 'Feat', f.bonuses));
     App.ch.classFeatures.forEach(f => add(f.name || 'Class feature', f.bonuses));
+    App.ch.slots.forEach(s => add(s.item || s.slot || 'Worn item', s.bonuses));
     return out;
   }
 
@@ -417,13 +423,13 @@
     const others = D.conditions.filter(c => !ch.conditions.includes(c.name));
     const buffs = card('Buffs & Conditions', `<div class="chips">${shown.map(([t, i]) =>
       `<label class="chip${t.active ? ' on' : ''}">${chk(`toggles/${i}/active`, { rerender: true })}${esc(t.name)}</label>`).join('')}
-      ${ch.effects.map((e, i) => `<label class="chip${e.active ? ' on' : ''}" title="Effect from the Effects tab">${chk(`effects/${i}/active`, { rerender: true })}${esc(e.name || 'Effect')}</label>`).join('')}
-      ${ch.magicItems.map((m, i) => [m, i]).filter(([m]) => m.name && E.isNum(m.value)).map(([m, i]) => `<label class="chip${m.active === false ? '' : ' on'}" title="Magic item bonus from the Combat tab"><input type="checkbox" data-bind="magicItems/${i}/active" data-type="bool" data-rerender${m.active === false ? '' : ' checked'}>${esc(m.name)}</label>`).join('')}</div>
+      ${ch.effects.map((e, i) => `<label class="chip${e.active ? ' on' : ''}" title="Effect (Effects tab). Click to switch ${e.active ? 'off' : 'on'}."><input type="checkbox" data-bind="effects/${i}/active" data-type="bool" data-rerender${e.active ? ' checked' : ''}>${esc(e.name || 'Effect')}</label>`).join('')}
+      ${ch.magicItems.map((m, i) => [m, i]).filter(([m]) => m.name && E.isNum(m.value)).map(([m, i]) => `<label class="chip${m.active === false ? '' : ' on'}" title="Magic item bonus (Combat tab). Click to switch ${m.active === false ? 'on' : 'off'}."><input type="checkbox" data-bind="magicItems/${i}/active" data-type="bool" data-rerender${m.active === false ? '' : ' checked'}>${esc(m.name)}</label>`).join('')}</div>
       <h3 style="margin:10px 0 6px">Conditions</h3>
       <div class="chips">${ch.conditions.map(n => `<button class="chip cond on" data-action="toggle-condition" data-name="${esc(n)}" title="Click to remove">${esc(n)} ✕</button>`).join('')}
         <select id="add-condition" aria-label="Add a condition" style="width:auto"><option value="">+ Add condition…</option>${others.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('')}</select></div>
       <div class="inline" style="margin-top:8px"><span class="small">Negative levels</span>${inp('negativeLevels', { type: 'num' })}</div>
-      <p class="small muted" style="margin-bottom:0">Name and fill in your own buffs on the Effects tab; they appear here as switches.</p>`);
+      <p class="small muted" style="margin-bottom:0">Lit = on. These are the same switches as on the Effects and Combat tabs, so changing one changes both. Create new effects on the Effects tab.</p>`);
 
     const filter = App.skillFilter || '';
     const all = d.skills.map((s, i) => ({ s, path: `skills/${i}` })).concat(d.specialty.map((s, i) => ({ s, path: `specialty/${i}` })));
@@ -453,7 +459,7 @@
       <div class="play-res"><span><strong>Hero points</strong></span><span class="counter"><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="-1">−</button><strong>${esc(ch.heroPoints.current)}</strong><span class="muted">/ ${esc(ch.heroPoints.max)}</span><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="1">+</button></span></div>`);
 
     const groups = {};
-    const label = { race: 'Race', trait: 'Traits', feat: 'Feats', feature: 'Class features', effect: 'Effects', toggle: 'Toggles', item: 'Magic items', condition: 'Conditions' };
+    const label = { race: 'Race', trait: 'Traits', feat: 'Feats', feature: 'Class features', worn: 'Worn items', effect: 'Effects', toggle: 'Toggles', item: 'Magic items', condition: 'Conditions' };
     for (const r of d.rows) (groups[r.src] = groups[r.src] || new Set()).add(r.name);
     const notes = situationalNotes();
     const active = card('Active Bonuses', `${Object.keys(label).filter(k => groups[k]).map(k => `<p class="small"><strong>${label[k]}:</strong> ${[...groups[k]].map(esc).join(', ')}</p>`).join('') || '<p class="small muted">Nothing active.</p>'}
@@ -782,10 +788,10 @@
       <div class="inline" style="margin-top:10px"><strong>Hero points</strong>
         <span class="counter"><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="-1">−</button>${inp('heroPoints/current', { type: 'num' })}<span class="muted">/</span>${inp('heroPoints/max', { type: 'num' })}<button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="1">+</button></span></div>`,
       { tools: `<button class="btn small" data-action="add" data-list="resources">+ Resource</button>` });
-    const slots = card('Magic Items Worn', `<table><tbody>${ch.slots.map((s, i) => `<tr><td class="l" style="width:110px">${inp(`slots/${i}/slot`)}</td><td class="l">${inp(`slots/${i}/item`)}</td><td>${removeBtn('slots', i)}</td></tr>`).join('')}</tbody></table>`,
+    const slots = card('Magic Items Worn', featureList('slots'),
       { tools: `<button class="btn small" data-action="add" data-list="slots">+ Slot</button>` });
-    const help = `<p class="small muted span-2" style="margin:0">Give a feat, trait or class feature a <strong>bonus</strong> and it changes your numbers: pick what it applies to and a value. Values can be formulas such as <span class="kbd">max(3, level)</span> (Toughness), <span class="kbd">floor(level/2)</span> or <span class="kbd">ranks >= 10 ? 6 : 3</span> (Skill Focus). <strong>Add standard bonuses</strong> fills them in for common feats and traits.</p>`;
-    return `<div class="grid two">${help}${feats}${traits}${cf}${res}${slots}</div>`;
+    const help = `<p class="small muted span-2" style="margin:0">Give a feat, trait, class feature or worn item a <strong>bonus</strong> and it changes your numbers: pick what it applies to and a value. Values can be formulas such as <span class="kbd">max(3, level)</span> (Toughness), <span class="kbd">floor(level/2)</span> or <span class="kbd">ranks >= 10 ? 6 : 3</span> (Skill Focus). <strong>Add standard bonuses</strong> fills them in for common feats, traits and magic items (belts, headbands, cloaks, rings, amulets…).</p>`;
+    return `<div class="grid two">${help}${feats}${slots}${traits}${cf}${res}</div>`;
   }
 
   // ----- Notes
@@ -867,6 +873,8 @@
   document.addEventListener('change', e => {
     const el = e.target;
     if (el.id === 'add-condition' && el.value) { App.ch.conditions.push(el.value); changed(true); return; }
+    // Typing an item into an empty slot: show its bonus buttons once the field is left
+    if (el.dataset && el.dataset.rerenderBlur !== undefined) { render(); return; }
     if (!el.dataset || !el.dataset.bind) return;
     if (!(el.tagName === 'SELECT' || el.type === 'checkbox')) return;
     applyBind(el);
@@ -907,7 +915,7 @@
       'add-sla': () => { App.ch.spellcasting.sla[+el.dataset.g].items.push({ name: '', uses: '' }); changed(true); },
       'add': () => {
         const blanks = { traits: { kind: 'Trait', text: '', bonuses: [] }, racialFeatures: { name: '', text: '' }, classFeatures: { name: '', text: '', bonuses: [] },
-          feats: { level: '', name: '', text: '', bonuses: [] }, resources: { name: '', uses: '', max: '' }, slots: { slot: '', item: '' },
+          feats: { level: '', name: '', text: '', bonuses: [] }, resources: { name: '', uses: '', max: '' }, slots: { slot: '', item: '', bonuses: [] },
           magicItems: { name: '', target: 'Saves', type: 'Resistance', value: '', active: true } };
         App.ch[el.dataset.list].push(blanks[el.dataset.list]); changed(true);
       },

@@ -45,6 +45,8 @@
 
   // What a bonus on a race, trait, feat or class feature can apply to.
   const BONUS_TARGETS = [
+    { v: 'str', l: 'Strength' }, { v: 'dex', l: 'Dexterity' }, { v: 'con', l: 'Constitution' },
+    { v: 'int', l: 'Intelligence' }, { v: 'wis', l: 'Wisdom' }, { v: 'cha', l: 'Charisma' },
     { v: 'skill', l: 'One skill…' }, { v: 'skills', l: 'All skills' },
     { v: 'saves', l: 'All saving throws' }, { v: 'fort', l: 'Fortitude' }, { v: 'ref', l: 'Reflex' }, { v: 'will', l: 'Will' },
     { v: 'ac', l: 'Armor Class' }, { v: 'nat', l: 'Natural armor' }, { v: 'cmd', l: 'CMD' },
@@ -181,7 +183,7 @@
       traits: [], racialFeatures: [], classFeatures: [], feats: [],
       notes: '',
       resources: [], heroPoints: { current: 0, max: 3 },
-      slots: ITEM_SLOTS.map(s => ({ slot: s, item: '' })),
+      slots: ITEM_SLOTS.map(s => ({ slot: s, item: '', bonuses: [] })),
       background: BACKGROUND_QUESTIONS.map(q => ({ q, a: '' })),
       settings: { skillSystem: 'Standard Skills', woundThresholds: false, minSkillRanks: false },
       customClasses: [],        // classes copied from an imported workbook's Class Charts
@@ -207,7 +209,7 @@
     defaultToggles().forEach(t => { if (!have.has(t.id)) ch.toggles.push(t); });
     ch.effects.forEach(e => { if (!e.id) e.id = uid(); if (!e.v) e.v = {}; });
     migrateLegacyTypes(ch);
-    for (const k of ['traits', 'feats', 'classFeatures']) (ch[k] || []).forEach(x => { if (!Array.isArray(x.bonuses)) x.bonuses = []; });
+    for (const k of ['traits', 'feats', 'classFeatures', 'slots']) (ch[k] || []).forEach(x => { if (!Array.isArray(x.bonuses)) x.bonuses = []; });
     while (ch.spellcasting.levels.length < 10) ch.spellcasting.levels.push({ spells: [], used: 0, perDayOverride: '' });
     return ch;
   }

@@ -242,6 +242,7 @@ input.bad { outline: 2px solid var(--bad); }
 .feature-head { display: grid; gap: 6px; align-items: center; }
 .feature-head.feats { grid-template-columns: 56px 1fr 28px; }
 .feature-head.traits { grid-template-columns: 110px 1fr 28px; }
+.feature-head.slots { grid-template-columns: 100px 1fr 28px; }
 .feature-head.classFeatures { grid-template-columns: 1fr 28px; }
 .feature-head > input:not(:first-child), .feature-head.classFeatures > input { font-weight: 600; }
 .feature-item textarea { min-height: 34px; }

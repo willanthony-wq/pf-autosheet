@@ -156,6 +156,7 @@
     for (const t of ch.traits || []) pushBonuses(rows, t.bonuses || [], 'trait', b => b.label || String(t.text || 'Trait').split(':')[0], 'Trait', V);
     for (const f of ch.feats || []) pushBonuses(rows, f.bonuses || [], 'feat', b => b.label || f.name || 'Feat', 'Untyped (stacks)', V);
     for (const f of ch.classFeatures || []) pushBonuses(rows, f.bonuses || [], 'feature', b => b.label || f.name || 'Class feature', 'Untyped (stacks)', V);
+    for (const s of ch.slots || []) pushBonuses(rows, s.bonuses || [], 'worn', b => b.label || s.item || s.slot || 'Worn item', 'Enhancement', V);
 
     const pa = Math.floor(ctx.bab / 4) + 1;
     for (const t of ch.toggles) {

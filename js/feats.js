@@ -67,6 +67,32 @@
     ['courageous', () => note('+2 trait bonus on saves against fear')],
   ];
 
+  // Magic items. "+N" in the name sets the bonus.
+  const plus = (name, def) => { const m = String(name).match(/\+\s*(\d+)/); return m ? parseInt(m[1], 10) : def; };
+  const E = 'Enhancement', C = 'Competence';
+  const ab = (keys) => n => keys.map(k => ({ target: k, value: plus(n, 2), type: E }));
+  const sk = (skills, val) => () => skills.map(s => ({ target: 'skill', skill: s, value: val, type: C }));
+  const ITEMS = [
+    ['belt of giant strength', ab(['str'])], ['belt of incredible dexterity', ab(['dex'])], ['belt of mighty constitution', ab(['con'])],
+    ['belt of physical perfection', ab(['str', 'dex', 'con'])],
+    ['belt of physical might', n => [{ target: 'str', value: plus(n, 2), type: E, text: 'Pick two of Str, Dex, Con' }, { target: 'con', value: plus(n, 2), type: E }]],
+    ['headband of vast intelligence', ab(['int'])], ['headband of inspired wisdom', ab(['wis'])], ['headband of alluring charisma', ab(['cha'])],
+    ['headband of mental superiority', ab(['int', 'wis', 'cha'])],
+    ['headband of mental prowess', n => [{ target: 'int', value: plus(n, 2), type: E, text: 'Pick two of Int, Wis, Cha' }, { target: 'wis', value: plus(n, 2), type: E }]],
+    ['cloak of resistance', n => [{ target: 'saves', value: plus(n, 1), type: 'Resistance' }]],
+    ['ring of protection', n => [{ target: 'ac', value: plus(n, 1), type: 'Deflection' }]],
+    ['amulet of natural armor', n => [{ target: 'nat', value: plus(n, 1), type: E }]],
+    ['bracers of armor', n => [{ target: 'ac', value: plus(n, 1), type: 'Armor', text: "Doesn't stack with worn armor's armor bonus" }]],
+    ['cloak of elvenkind', sk(['Stealth'], 5)], ['boots of elvenkind', sk(['Acrobatics'], 5)],
+    ['eyes of the eagle', sk(['Perception'], 5)], ['goggles of minute seeing', sk(['Disable Device'], 5)],
+    ['gloves of swimming and climbing', sk(['Swim', 'Climb'], 5)],
+    ['vest of escape', () => [{ target: 'skill', skill: 'Disable Device', value: 4, type: C }, { target: 'skill', skill: 'Escape Artist', value: 6, type: C }]],
+    ['boots of striding and springing', () => [{ target: 'speed', value: 10, type: E }, { target: 'note', value: '', type: C, text: '+5 competence bonus on Acrobatics checks to jump' }]],
+    ['boots of speed', () => note('Haste as a free action for 10 rounds/day: use the Haste toggle')],
+    ['circlet of persuasion', () => note('+3 competence bonus on Charisma-based checks')],
+    ['headband of ninjitsu', () => note('+2 competence bonus on Stealth; ki pool benefits')],
+  ];
+
   let skillNames = [];
   function matchSkill(text) {
     const t = String(text || '').toLowerCase();
@@ -83,7 +109,7 @@
   // Returns an array of bonuses for a feat/trait name, or null if unknown.
   function suggest(kind, name, skills) {
     skillNames = skills || [];
-    const fn = lookup(kind === 'trait' ? TRAITS : FEATS, name);
+    const fn = lookup(kind === 'trait' ? TRAITS : kind === 'item' ? ITEMS : FEATS, name);
     if (!fn) return null;
     return fn(name).map(b => Object.assign({ label: '', skill: '', weapon: '', text: '', active: true }, b));
   }
