@@ -73,7 +73,7 @@
       saveMisc: { fort: 0, ref: 0, will: 0 }, initMisc: 0, atkMisc: 0,
       baseForm: 'Biped', evolutions: [],   // Eidolon only
       multiattack: false, powerAttack: false, speed: '', senses: '', dr: '',
-      resources: [], buffs: [], gear: [], conditions: [],
+      resources: [], buffs: [], gear: [], conditions: [], spells: [],
       attacks: [], skills: [], feats: [], tricks: '', special: '', notes: '',
     };
   }
@@ -83,6 +83,7 @@
     for (const a of ABIL) if (!c.abilities[a]) c.abilities[a] = b.abilities[a];
     if (!c.id) c.id = M.uid();
     for (const k of ['feats', 'gear', 'evolutions', 'buffs']) (c[k] || []).forEach(x => { if (!Array.isArray(x.bonuses)) x.bonuses = []; });
+    (c.spells || []).forEach(x => { if (!x.id) x.id = M.uid(); });
     return c;
   }
 
@@ -267,6 +268,9 @@
       return { name: s.name, ranks, ability: info.ability, isClass, temp, total };
     });
     out.featsAllowed = Math.ceil(hd / 2);
+    // Touch attacks for the companion's spells and abilities
+    out.touchRanged = bab + m.dex + size.atk + T('rAtk');
+    out.touchMelee = bab + m.str + size.atk + T('mAtk');
     return out;
   }
 

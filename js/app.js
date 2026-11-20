@@ -697,11 +697,24 @@
     const resRows = c.resources.map((r, i) => `<div class="list-row res-row">${inp(`${p}/resources/${i}/name`, { ph: 'Overdrive rounds' })}
         <span class="counter"><button class="btn small" data-action="bump" data-path="${p}/resources/${i}/uses" data-d="-1" aria-label="Use one">−</button>${inp(`${p}/resources/${i}/uses`, { type: 'num', aria: 'Uses' })}<span class="muted">/</span>${inp(`${p}/resources/${i}/max`, { type: 'num', aria: 'Max' })}<button class="btn small" data-action="bump" data-path="${p}/resources/${i}/uses" data-d="1" aria-label="Add one">+</button></span>
         ${removeBtn(`${p}/resources`, i)}</div>`).join('');
+    const spRows = (c.spells || []).map((it, i) => {
+      const sp = `${p}/spells/${i}`, open = App.openSpells && App.openSpells.has(it.id), sum = spellSummary(it);
+      return `<div class="spell-row sla-row">
+        ${inp(`${sp}/uses`, { ph: 'uses', aria: 'Uses left', title: 'Uses left (blank = unlimited); counts down when used' })}${inp(`${sp}/name`, { ph: 'Spell or ability', aria: 'Name' })}
+        <button class="btn small" data-action="comp-cast" data-c="${ci}" data-i="${i}" title="Use: counts down uses, rolls configured dice, switches on its buff (Shift-click: private)">Use</button>
+        <button class="btn small ghost${open ? ' on' : ''}" data-action="spell-config" data-id="${esc(it.id)}" title="Set up damage, attack roll or buff" aria-label="Ability setup">⚙</button>
+        ${removeBtn(`${p}/spells`, i, 'ability')}
+        ${sum ? `<span class="spell-sum">${esc(sum)}</span>` : ''}
+        ${open ? spellConfigAt(sp, it, true, { varsPath: dp, firstTarget: 'c:' + c.id, clPh: 'HD (' + dc.hd + ')', clTitle: "Blank = the companion's Hit Dice. Use a formula such as druid or level if its ability uses another caster level" }) : ''}</div>`;
+    }).join('');
+    const spellsCard = card('Spells & Abilities', `${spRows || '<p class="small muted">Spell-like abilities, eidolon or familiar abilities, a cohort\'s spells… Each can roll dice, make a touch attack or switch on a buff.</p>'}
+      <button class="btn small" data-action="comp-add-list" data-c="${ci}" data-list="spells">+ Spell / ability</button>
+      <p class="small muted">Formulas use the companion's numbers: <code>level</code> is its HD, <code>cha</code> its Charisma modifier; class names are your levels.</p>`, { cls: 'span-2' });
     const resources = card('Resources & Notes', `${resRows || '<p class="small muted">Track rounds per day, charges and so on.</p>'}
       <button class="btn small" data-action="comp-add-list" data-c="${ci}" data-list="resources">+ Resource</button>
       <div style="margin-top:10px">${field('Notes', area(`${p}/notes`, { rows: 4 }))}</div>`);
 
-    return `<div class="grid two">${top}${basics}${abil}${defense}${buffs}${attacks}${skills}${feats}${gear}${evolutions}${abilities}${active}${resources}</div>`;
+    return `<div class="grid two">${top}${basics}${abil}${defense}${buffs}${attacks}${skills}${feats}${gear}${evolutions}${spellsCard}${abilities}${active}${resources}</div>`;
   }
 
   // Play tab: one card per companion
@@ -736,6 +749,7 @@
             ${res}</div>
           <div>${atk || '<p class="small muted">No attacks yet.</p>'}
             ${c.attacks.length > 1 ? `<button class="btn small primary" data-action="comp-attack" data-c="${ci}" data-i="all" data-mode="full" style="margin-top:6px">Full attack (all)</button>` : ''}
+            ${(c.spells || []).filter(x => x.name).length ? `<div class="spell-names" style="margin-top:8px">${c.spells.map((x, si) => x.name ? `<button class="btn small spell-btn" data-action="comp-cast" data-c="${ci}" data-i="${si}" title="Use (Shift-click: private)">${esc(x.name)}${x.uses !== '' && x.uses !== undefined ? ` <span class="sub">${esc(x.uses)} left</span>` : ''}${spellSummary(x) ? ` <span class="sub">· ${esc(spellSummary(x))}</span>` : ''}</button>` : '').join('')}</div>` : ''}
             ${skills ? `<div class="skill-grid" style="margin-top:8px">${skills}</div>` : ''}</div>
         </div></section>`;
     }).join('');
@@ -1277,7 +1291,7 @@
       'comp-add-skill': () => { App.ch.companions[+el.dataset.c].skills.push({ name: '', ranks: 0, misc: 0 }); changed(true); },
       'comp-add-list': () => {
         const blanks = { feats: { name: '', text: '', bonuses: [] }, evolutions: { name: '', cost: 1, bonuses: [] }, resources: { name: '', uses: '', max: '' },
-          gear: { slot: '', item: '', bonuses: [] } };
+          gear: { slot: '', item: '', bonuses: [] }, spells: { id: M.uid(), name: '', uses: '' } };
         App.ch.companions[+el.dataset.c][el.dataset.list].push(blanks[el.dataset.list]); changed(true);
       },
       'comp-hp': () => {
@@ -1289,6 +1303,7 @@
         changed(true);
       },
       'comp-attack': () => rollCompAttack(+el.dataset.c, el.dataset.i, el.dataset.mode, priv),
+      'comp-cast': () => castCompSpell(+el.dataset.c, +el.dataset.i, priv),
       'comp-add-buff': () => {
         const ci = +el.dataset.c, name = $('#comp-buff-preset').value;
         const preset = window.PF_COMPANION.BUFF_PRESETS[name];
@@ -1470,21 +1485,25 @@
     const c = App.ch.companions.find(x => 'c:' + x.id === t);
     return c ? (c.name || c.species || c.kind) : 'missing companion';
   }
-  function formulaCell(path, ph, title) {
-    return `<span class="val-cell">${inp(path, { ph, cls: 'bonus-value', title: title || 'A number or a formula; cl = caster level. Click ? for help.' })}<span class="bonus-result"></span>${formulaHelp()}</span>`;
+  function formulaCell(path, ph, title, varsPath) {
+    const el = inp(path, { ph, cls: 'bonus-value', title: title || 'A number or a formula; cl = caster level. Click ? for help.' });
+    return `<span class="val-cell">${varsPath ? el.replace('<input ', `<input data-vars="${esc(varsPath)}" `) : el}<span class="bonus-result"></span>${formulaHelp(!!varsPath)}</span>`;
   }
   function spellConfig(L, i) { return spellConfigAt(`spellcasting/levels/${L}/spells/${i}`, App.ch.spellcasting.levels[L].spells[i]); }
   // Setup panel shared by spells and spell-like abilities (sla adds caster level and DC fields).
-  function spellConfigAt(p, s, sla) {
+  function spellConfigAt(p, s, sla, opts = {}) {
+    const fc = (path, ph, title) => formulaCell(path, ph, title, opts.varsPath);
     const targets = [{ v: 'self', l: (App.ch.info.name || 'Me') + ' (self)' }].concat(App.ch.companions.map(c => ({ v: 'c:' + c.id, l: (c.name || c.species || c.kind) + ' (companion)' })));
+    // A companion's own spells list that companion first, so it is the default buff target
+    if (opts.firstTarget) targets.sort((a, b) => (b.v === opts.firstTarget) - (a.v === opts.firstTarget));
     const buff = s.buff || {};
     return `<div class="spell-config">
       <div class="fields">
-        ${sla ? field('Caster level', formulaCell(`${p}/cl`, 'yours (' + App.d.spells.cl + ')', 'Blank = your caster level. Racial abilities often use your character level: type level')) + field('Save DC', formulaCell(`${p}/dc`, 'e.g. 10 + 2 + cha', 'Usually 10 + spell level + Cha modifier; blank = no DC')) : ''}
+        ${sla ? field('Caster level', fc(`${p}/cl`, (opts.clPh || 'yours (' + App.d.spells.cl + ')'), (opts.clTitle || 'Blank = your caster level. Racial abilities often use your character level: type level'))) + field('Save DC', fc(`${p}/dc`, 'e.g. 10 + 2 + cha', 'Usually 10 + spell level + Cha modifier; blank = no DC')) : ''}
         ${field('Attack roll', sel(`${p}/attack`, [{ v: 'rtouch', l: 'Ranged touch' }, { v: 'mtouch', l: 'Melee touch' }], { blank: 'None', rerender: true }))}
-        ${field('Dice count', formulaCell(`${p}/dmgCount`, 'e.g. min(cl, 5)'))}
+        ${field('Dice count', fc(`${p}/dmgCount`, 'e.g. min(cl, 5)'))}
         ${field('Die', sel(`${p}/dmgDie`, [4, 6, 8, 10, 12, 20].map(x => ({ v: x, l: 'd' + x })), { blank: 'no dice', type: 'num', rerender: true }))}
-        ${field('Bonus', formulaCell(`${p}/dmgBonus`, 'e.g. min(cl, 5)'))}
+        ${field('Bonus', fc(`${p}/dmgBonus`, 'e.g. min(cl, 5)'))}
         ${field('Damage type', inp(`${p}/dmgType`, { ph: 'fire, positive…' }))}
         ${field('Saving throw', inp(`${p}/save`, { ph: 'Reflex half' }))}
         ${field('Duration', inp(`${p}/duration`, { ph: '1 min/level' }))}
@@ -1493,7 +1512,7 @@
       <div class="spell-buff">
         <label class="inline"><input type="checkbox" data-bind="${p}/buff/on" data-type="bool" data-rerender${buff.on ? ' checked' : ''}> <strong>Buff:</strong> casting switches on an effect with these bonuses</label>
         ${buff.on ? `<div class="fields" style="margin-top:6px">${field('Target', sel(`${p}/buff/target`, targets, { blank: false }))}</div>
-          ${bonusEditor(`${p}/buff/bonuses`, buff.bonuses || [])}
+          ${bonusEditor(`${p}/buff/bonuses`, buff.bonuses || [], { varsPath: opts.varsPath })}
           <div class="inline small bonus-tools"><button class="btn small ghost" data-action="add-bonus" data-list="${p}/buff/bonuses" data-type="Untyped (stacks)">+ Bonus</button>
             <button class="btn small ghost" data-action="spell-presets" data-path="${p}">Add standard bonuses</button></div>
           <p class="small muted" style="margin:4px 0 0">The effect appears on the Effects and Play tabs (or as a companion buff) named after the spell. Switch it off when the spell ends; casting again switches it back on.</p>` : ''}
@@ -1507,9 +1526,9 @@
     return key ? JSON.parse(JSON.stringify(P[key])) : null;
   }
   // Switch on (or create) the effect for a buff spell, on the caster or a companion.
-  function applySpellBuff(s) {
+  function applySpellBuff(s, defaultTarget) {
     const bonuses = JSON.parse(JSON.stringify((s.buff && s.buff.bonuses) || []));
-    const t = (s.buff && s.buff.target) || 'self';
+    const t = (s.buff && s.buff.target) || defaultTarget || 'self';
     if (t === 'self') {
       let e = App.ch.effects.find(x => x.spellId === s.id);
       if (!e) { e = M.blankEffect(s.name, 'Untyped (stacks)'); e.spellId = s.id; App.ch.effects.push(e); }
@@ -1535,13 +1554,15 @@
     emit({ title: `${who()} casts ${s.name}`, total: r.total, kind: r.total === null ? 'info' : undefined, lines: r.lines, crit: r.crit, fumble: r.fumble }, priv);
   }
   // Rolls a spell's or spell-like ability's configured attack and dice and switches on its buff.
-  function resolveCast(s, cl, dcv, header) {
+  function resolveCast(s, cl, dcv, header, ctx = {}) {
     const d = App.d;
-    const V = Object.assign({}, d.formulaVars, { cl });
+    const V = Object.assign({}, ctx.vars || d.formulaVars, { cl });
     const lines = [header];
     let total = null, crit = false, fumble = false, threat = false;
     if (s.attack) {
-      const b = s.attack === 'rtouch' ? d.bab + d.mods.dex + d.size.atk + d.effectTotals.rAtk : d.bab + d.mods.str + d.size.atk + d.effectTotals.mAtk;
+      const b = s.attack === 'rtouch'
+        ? (ctx.touchRanged !== undefined ? ctx.touchRanged : d.bab + d.mods.dex + d.size.atk + d.effectTotals.rAtk)
+        : (ctx.touchMelee !== undefined ? ctx.touchMelee : d.bab + d.mods.str + d.size.atk + d.effectTotals.mAtk);
       const r = DICE.check(b);
       let line = `**${s.attack === 'rtouch' ? 'Ranged' : 'Melee'} touch: ${r.total}** (d20 ${r.nat} ${DICE.signed(b)})`;
       if (r.nat === 1) { line += ' natural 1, miss'; fumble = true; }
@@ -1560,11 +1581,25 @@
     if (s.save) lines.push(`Save: ${s.save}${dcv !== null && dcv !== undefined ? ', DC ' + dcv : ''}`);
     if (s.duration) lines.push(`Duration: ${s.duration}`);
     if (s.buff && s.buff.on) {
-      const tn = applySpellBuff(s);
+      const tn = applySpellBuff(s, ctx.defaultTarget);
       lines.push(tn ? `Buff on: ${tn}` : 'Buff target companion not found; pick a target in the spell setup.');
     }
     if (s.notes) lines.push(s.notes);
     return { lines, total, crit, fumble };
+  }
+  // A companion's spell or ability: its HD as caster level unless set, its own touch attack and modifiers.
+  function castCompSpell(ci, i, priv) {
+    const c = App.ch.companions[ci], it = c.spells[i], dc = App.d.companions[ci];
+    if (!it || !it.name) { toast('Name the ability first.'); return; }
+    const empty = /^\d+$/.test(String(it.uses)) && +it.uses === 0;
+    if (/^\d+$/.test(String(it.uses)) && +it.uses > 0) it.uses = String(+it.uses - 1);
+    const cl = String(it.cl || '').trim() ? (E.evalBonus(it.cl, dc.formulaVars) ?? dc.hd) : dc.hd;
+    const vars = Object.assign({}, dc.formulaVars, { cl });
+    const dcv = String(it.dc || '').trim() ? E.evalBonus(it.dc, vars) : null;
+    const r = resolveCast(it, cl, dcv, `CL ${cl}${dcv !== null ? ' · DC ' + dcv : ''}${empty ? ' · no uses left' : ''}`,
+      { vars: dc.formulaVars, touchRanged: dc.touchRanged, touchMelee: dc.touchMelee, defaultTarget: 'c:' + c.id });
+    changed(true);
+    emit({ title: `${compWho(ci)} uses ${it.name}`, total: r.total, kind: r.total === null ? 'info' : undefined, lines: r.lines, crit: r.crit, fumble: r.fumble }, priv);
   }
   function castSla(g, i, priv) {
     const it = App.ch.spellcasting.sla[g].items[i];
