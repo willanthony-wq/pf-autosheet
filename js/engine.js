@@ -103,7 +103,7 @@
     }
 
     for (const it of ch.magicItems) {
-      if (!isNum(it.value)) continue;
+      if (!isNum(it.value) || it.active === false) continue;
       const v = {};
       if (it.target === 'Saves') Object.assign(v, { fort: n(it.value), ref: n(it.value), will: n(it.value) });
       else if (it.target === 'AC') v.ac = n(it.value);

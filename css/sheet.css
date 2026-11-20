@@ -161,7 +161,7 @@ tr.untrained td { color: var(--muted); }
 .effects-table input.n { width: 40px; padding: 3px 2px; }
 .effects-table td, .effects-table th { padding: 2px; }
 .effects-table tr.totals td { font-weight: 700; background: var(--calc); }
-.effects-table tr.inactive td { opacity: .55; }
+.effects-table tr.inactive td, tr.inactive td { opacity: .55; }
 .effects-table .group-row th { border-bottom: 1px solid var(--line); color: var(--accent); }
 
 /* Lists */

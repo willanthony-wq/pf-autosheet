@@ -3,3 +3,5 @@
 cells*.json
 *_cells.json
 __pycache__/
+_test/
+*.pfsheet.json
