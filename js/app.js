@@ -69,6 +69,8 @@
     if (f === 'sign') return sign(v);
     if (f === 'pct') return Math.round(v * 100) + '%';
     if (f === 'ft') return v + ' ft';
+    if (f === 'lb') return v + ' lb';
+    if (f === 'gp') return (Math.round(v * 100) / 100).toLocaleString() + ' gp';
     if (f === 'cs') return v ? '●' : '';
     return String(v);
   }
@@ -165,8 +167,11 @@
     const fn = { play: renderPlay, character: renderOverview, overview: renderOverview, race: renderRace, skills: renderSkills, combat: renderCombat, companion: renderCompanion, spells: renderSpells, effects: renderEffects,
       features: renderFeatures, notes: renderNotes, settings: renderSettings }[App.tab] || renderOverview;
     const wnames = App.ch.weapons.map(w => w.name).concat(...(App.ch.companions || []).map(c => (c.attacks || []).map(a => a.name))).filter(Boolean);
+    const focusBind = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.bind : null;
     main.innerHTML = fn() + `<datalist id="weapon-names">${[...new Set(wnames)].map(w => `<option value="${esc(w)}">`).join('')}</datalist>`;
     updateOutputs();
+    srdDatalists(App.tab);
+    if (focusBind) { const f = main.querySelector(`[data-bind="${CSS.escape(focusBind)}"]`); if (f) f.focus({ preventScroll: true }); }
     window.scrollTo(0, y);
     renderDiscordState();
   }
@@ -370,13 +375,13 @@
     return ch[key].map((x, i) => {
       let head, desc = '', kind = null, defType = 'Untyped (stacks)';
       if (key === 'feats') {
-        head = `${inp(`feats/${i}/level`, { ph: 'Lvl', aria: 'Level gained' })}${inp(`feats/${i}/name`, { ph: 'Power Attack' })}`;
+        head = `${inp(`feats/${i}/level`, { ph: 'Lvl', aria: 'Level gained' })}${inp(`feats/${i}/name`, { ph: 'Power Attack', list: 'srd-feats' })}`;
         desc = area(`feats/${i}/text`, { rows: 1, ph: 'Description' }); kind = 'feat';
       } else if (key === 'slots') {
-        head = `${inp(`slots/${i}/slot`, { ph: 'slot', aria: 'Slot' })}${inp(`slots/${i}/item`, { ph: 'empty', aria: 'Item' }).replace('<input ', '<input data-rerender-blur ')}`;
+        head = `${inp(`slots/${i}/slot`, { ph: 'slot', aria: 'Slot' })}${inp(`slots/${i}/item`, { ph: 'empty', aria: 'Item', list: 'srd-worn' }).replace('<input ', '<input data-rerender-blur ')}`;
         kind = 'item'; defType = 'Enhancement';
       } else if (key === 'traits') {
-        head = `${sel(`traits/${i}/kind`, ['Trait', 'Drawback', 'DB'], { blank: false })}${inp(`traits/${i}/text`, { ph: 'Reactionary: +2 Initiative' })}`;
+        head = `${sel(`traits/${i}/kind`, ['Trait', 'Drawback', 'DB'], { blank: false })}${inp(`traits/${i}/text`, { ph: 'Reactionary: +2 Initiative', list: 'srd-traits' })}`;
         kind = 'trait'; defType = 'Trait';
       } else {
         head = `${inp(`classFeatures/${i}/name`, { ph: 'Channel Energy' })}`;
@@ -449,6 +454,7 @@
         ${tile('AC', out('ac/total', '', ''))}${tile('Touch', out('ac/touch', '', ''))}${tile('Flat-footed', out('ac/flat', '', ''))}${tile('CMD', out('cmd', '', ''))}
         ${tile('Initiative', rollBtn('Initiative', 'initiative/total'))}${tile('CMB', rollBtn('Combat maneuver', 'cmb'))}
         ${tile('Speed', out('speed/land', 'ft', ''))}${tile('BAB', out('bab', 'sign', ''))}
+        ${tile('Load', `<span title="Carrying ${esc(d.gear.total)} of ${esc(d.gear.heavy)} lb (light up to ${esc(d.gear.light)}, medium up to ${esc(d.gear.medium)})">${out('armor/encumbrance', '', '')}</span><span class="tile-sub">${out('gear/total', 'lb', '')}</span>`)}
       </div></section>`;
 
     const saveBtn = (k, label) => `<div class="save-btn"><span class="label">${label}</span>${rollBtn(label + ' save', `saves/${k}/total`, { big: true })}</div>`;
@@ -532,7 +538,7 @@
       if (key === 'buffs') {
         head = `<input type="checkbox" data-bind="${p}/active" data-type="bool" data-rerender aria-label="Buff on"${x.active ? ' checked' : ''}>${inp(`${p}/name`, { ph: 'Buff' })}`;
       } else if (key === 'feats') {
-        head = inp(`${p}/name`, { ph: 'Weapon Focus (Bite)' }); desc = area(`${p}/text`, { rows: 1, ph: 'Description' }); kind = 'feat';
+        head = inp(`${p}/name`, { ph: 'Weapon Focus (Bite)', list: 'srd-feats' }); desc = area(`${p}/text`, { rows: 1, ph: 'Description' }); kind = 'feat';
       } else if (key === 'gear') {
         head = `${inp(`${p}/slot`, { ph: 'slot', aria: 'Slot' })}${inp(`${p}/item`, { ph: 'Amulet of Natural Armor +1', aria: 'Item' })}`; kind = 'item'; defType = 'Enhancement';
       } else {
@@ -700,7 +706,7 @@
     const spRows = (c.spells || []).map((it, i) => {
       const sp = `${p}/spells/${i}`, open = App.openSpells && App.openSpells.has(it.id), sum = spellSummary(it);
       return `<div class="spell-row sla-row">
-        ${inp(`${sp}/uses`, { ph: 'uses', aria: 'Uses left', title: 'Uses left (blank = unlimited); counts down when used' })}${inp(`${sp}/name`, { ph: 'Spell or ability', aria: 'Name' })}
+        ${inp(`${sp}/uses`, { ph: 'uses', aria: 'Uses left', title: 'Uses left (blank = unlimited); counts down when used' })}${inp(`${sp}/name`, { ph: 'Spell or ability', aria: 'Name', list: 'srd-spells' })}
         <button class="btn small" data-action="comp-cast" data-c="${ci}" data-i="${i}" title="Use: counts down uses, rolls configured dice, switches on its buff (Shift-click: private)">Use</button>
         <button class="btn small ghost${open ? ' on' : ''}" data-action="spell-config" data-id="${esc(it.id)}" title="Set up damage, attack roll or buff" aria-label="Ability setup">⚙</button>
         ${removeBtn(`${p}/spells`, i, 'ability')}
@@ -897,6 +903,7 @@
 
   // ----- Combat
   function enhOptions() { return [{ v: '0', l: '+0' }, { v: 'Masterwork', l: 'Masterwork' }].concat([1, 2, 3, 4, 5].map(x => ({ v: String(x), l: '+' + x }))); }
+  const ENC_OPTIONS = [{ v: 'Auto', l: 'Auto (from gear)' }, 'Light', 'Medium', 'Heavy', 'Overloaded'];
   function renderCombat() {
     const ch = App.ch, d = App.d;
     const cats = D.attackCategories.map(c => ({ v: c.name, l: c.name.replace(/\s*\(.*\)$/, '') }));
@@ -907,7 +914,7 @@
         .sort((a, b) => (order.indexOf(a.g) - order.indexOf(b.g)) || (a.k - b.k));
       return `<div class="weapon">
         <div class="weapon-grid">
-          ${field('Weapon', inp(`weapons/${i}/name`, { ph: 'Longsword +1' }))}
+          ${field('Weapon', inp(`weapons/${i}/name`, { ph: 'Longsword +1', list: 'srd-weapons', title: 'Pick a weapon from the list to fill in its dice, crit, range, type and weight' }))}
           ${field('Enh.', sel(`weapons/${i}/enh`, enhOptions(), { blank: false }))}
           ${field('Misc atk', inp(`weapons/${i}/mAtk`, { type: 'num' }))}
           ${field('Misc dmg', inp(`weapons/${i}/mDmg`, { type: 'num' }))}
@@ -918,6 +925,8 @@
           ${field('Damage dice', inp(`weapons/${i}/dice`, { ph: '1d8' }))}${field('Crit range', inp(`weapons/${i}/crit`, { ph: '19-20' }))}
           ${field('Multiplier', inp(`weapons/${i}/mult`, { ph: 'x2' }))}${field('Range', inp(`weapons/${i}/range`))}${field('Type', inp(`weapons/${i}/type`, { ph: 'S, P, B' }))}
           ${field('Damage override', inp(`weapons/${i}/dmgOverride`, { ph: 'e.g. 2d6+5', title: 'Replaces the calculated damage' }))}
+          ${field('Weight', inp(`weapons/${i}/weight`, { type: 'num', ph: 'lb', title: 'Counts toward your load while carried' }))}
+          <label class="field">Carried<input type="checkbox" data-bind="weapons/${i}/carried" data-type="bool"${w.carried !== false ? ' checked' : ''} title="Uncheck for weapons left behind (they stop counting toward your load)"></label>
         </div>
         <div class="result">
           <span class="atk" data-out="weapons/${i}/attackText" data-fmt="">${esc(fmt(d.weapons[i] && d.weapons[i].attackText))}</span>
@@ -950,13 +959,14 @@
         <td>${sel(`${k}/material`, mats, { blank: '—' })}</td>
         <td>${sel(`${k}/enh`, [{ v: 0, l: '+0' }, { v: 'Mwk', l: 'Mwk' }, 1, 2, 3, 4, 5].map(x => typeof x === 'object' ? x : { v: x, l: '+' + x }), { blank: false, type: 'numOrText' })}</td>
         <td>${inp(`${k}/mSkill`, { type: 'num', aria: 'Misc skill' })}</td><td>${inp(`${k}/mDex`, { type: 'num', aria: 'Misc max dex' })}</td>
-        <td>${out(p + '/ac', 'sign')}</td><td>${out(p + '/acp')}</td><td>${out(p + '/maxDex')}</td><td>${out(p + '/asf', 'pct')}</td></tr>`;
+        <td>${out(p + '/ac', 'sign')}</td><td>${out(p + '/acp')}</td><td>${out(p + '/maxDex')}</td><td>${out(p + '/asf', 'pct')}</td>
+        <td>${inp(`${k}/weight`, { type: 'num', ph: (() => { const w = d.gear[k + 'Default']; return w === null ? '?' : String(w); })(), aria: 'Weight', title: 'Weight in lb. Blank uses the standard weight shown' })}</td></tr>`;
     };
     const armor = card('Armor & Shield', `<div class="scroll-x"><table>
-      <thead><tr><th class="l">Name</th><th>Item</th><th>Material</th><th>Enh.</th><th title="Misc skill penalty adjustment">mSkill</th><th title="Misc max Dex adjustment">mDex</th><th>AC</th><th>ACP</th><th>Max Dex</th><th>ASF</th></tr></thead>
+      <thead><tr><th class="l">Name</th><th>Item</th><th>Material</th><th>Enh.</th><th title="Misc skill penalty adjustment">mSkill</th><th title="Misc max Dex adjustment">mDex</th><th>AC</th><th>ACP</th><th>Max Dex</th><th>ASF</th><th title="Weight in lb.">Wt</th></tr></thead>
       <tbody>${armorRow('armor', 'armor', 'Armor')}${armorRow('shield', 'shields', 'Shield')}</tbody></table></div>
       <div class="fields" style="margin-top:8px">
-        ${field('Encumbrance', sel('movement/encumbrance', ['Light', 'Medium', 'Heavy', 'Overloaded'], { blank: false }))}
+        ${field('Encumbrance', sel('movement/encumbrance', ENC_OPTIONS, { blank: false, rerender: true }))}${field('Load now', out('armor/encumbrance'))}
         ${field('Ignore armor for speed', sel('movement/ignoreArmor', ['Slow and Steady (ignore Encumbrance/Heavy/Medium)', 'Armor Training II (ignore Heavy/Medium)', 'Armor Training I (ignore Medium)'], { blank: 'No' }))}
         ${field('Armor category', out('armor/armorCat'))}${field('Total ACP', out('armor/acp'))}${field('Spell failure', out('armor/asf', 'pct'))}
       </div>
@@ -1009,7 +1019,7 @@
         const sum = spellSummary(s);
         return `<div class="spell-row">
           ${inp(`spellcasting/levels/${L}/spells/${i}/prepared`, { ph: 'x', aria: 'Prepared marks', title: 'Prepared count, e.g. x or xx' })}
-          ${inp(`spellcasting/levels/${L}/spells/${i}/name`, { ph: 'Spell name', aria: 'Spell' })}
+          ${inp(`spellcasting/levels/${L}/spells/${i}/name`, { ph: 'Spell name', aria: 'Spell', list: 'srd-spells' })}
           <button class="btn small" data-action="cast" data-l="${L}" data-i="${i}" title="Cast: uses a slot, rolls configured dice, switches on its buff (Shift-click: private)">Cast</button>
           <button class="btn small ghost${open ? ' on' : ''}" data-action="spell-config" data-id="${esc(s.id)}" title="Set up damage, attack roll or buff for this spell" aria-label="Spell setup">⚙</button>
           ${removeBtn(`spellcasting/levels/${L}/spells`, i, 'spell')}
@@ -1033,7 +1043,7 @@
       ${g.items.map((it, i) => {
         const p = `spellcasting/sla/${gi}/items/${i}`, open = App.openSpells && App.openSpells.has(it.id), sum = spellSummary(it);
         return `<div class="spell-row sla-row">
-        ${inp(`${p}/uses`, { ph: 'uses', aria: 'Uses left', title: 'Uses left; counts down when you click Use' })}${inp(`${p}/name`, { ph: 'Ability', aria: 'Name' })}
+        ${inp(`${p}/uses`, { ph: 'uses', aria: 'Uses left', title: 'Uses left; counts down when you click Use' })}${inp(`${p}/name`, { ph: 'Ability', aria: 'Name', list: 'srd-spells' })}
         <button class="btn small" data-action="cast-sla" data-g="${gi}" data-i="${i}" title="Use: counts down uses, rolls configured dice, switches on its buff (Shift-click: private)">Use</button>
         <button class="btn small ghost${open ? ' on' : ''}" data-action="spell-config" data-id="${esc(it.id)}" title="Set up damage, attack roll or buff" aria-label="Ability setup">⚙</button>
         ${removeBtn(`spellcasting/sla/${gi}/items`, i, 'ability')}
@@ -1104,7 +1114,7 @@
     const traits = card('Traits & Drawbacks', featureList('traits'),
       { tools: `<button class="btn small" data-action="add" data-list="traits">+ Trait</button>` });
     const cf = card('Class Features', featureList('classFeatures'),
-      { tools: `<button class="btn small" data-action="add" data-list="classFeatures">+ Feature</button>` });
+      { tools: `<button class="btn small ghost" data-action="srd-class-features" title="Adds the features your classes get up to your level (Core, APG, ACG and other Paizo base classes), with their rules text">Add for my level</button><button class="btn small" data-action="add" data-list="classFeatures">+ Feature</button>` });
     const feats = card('Feats', featureList('feats'),
       { tools: `<button class="btn small" data-action="add" data-list="feats">+ Feat</button>` });
     const res = card('Resources', `${ch.resources.map((r, i) => `<div class="list-row res-row">${inp(`resources/${i}/name`, { ph: 'Wand of CLW, Rage rounds…' })}
@@ -1116,7 +1126,48 @@
     const slots = card('Magic Items Worn', featureList('slots'),
       { tools: `<button class="btn small" data-action="add" data-list="slots">+ Slot</button>` });
     const help = `<p class="small muted span-2" style="margin:0">Give a feat, trait, class feature or worn item a <strong>bonus</strong> and it changes your numbers: pick what it applies to and a value. Values can be formulas such as <span class="kbd">max(3, level)</span> (Toughness), <span class="kbd">max(1, floor(rogue/2))</span> (Trapfinding: half your rogue levels, at least 1) or <span class="kbd">ranks >= 10 ? 6 : 3</span> (Skill Focus). Click the <strong>?</strong> next to any value for the full list of variables, and the result appears beside it. <strong>Add standard bonuses</strong> fills them in for common feats, traits and magic items (belts, headbands, cloaks, rings, amulets…).</p>`;
-    return `<div class="grid two">${help}${feats}${slots}${traits}${cf}${res}</div>`;
+    return `<div class="grid two">${help}${inventoryCard()}${feats}${slots}${traits}${cf}${res}</div>`;
+  }
+
+  // ----- Inventory, coins and carrying capacity
+  function inventoryCard() {
+    const ch = App.ch, g = App.d.gear;
+    const rows = ch.inventory.map((x, i) => `<tr>
+      <td class="l">${inp(`inventory/${i}/name`, { ph: 'Backpack', list: 'srd-gear', aria: 'Item' })}</td>
+      <td>${inp(`inventory/${i}/qty`, { type: 'num', ph: '1', aria: 'Quantity' })}</td>
+      <td>${inp(`inventory/${i}/weight`, { type: 'num', aria: 'Weight each (lb.)' })}</td>
+      <td>${inp(`inventory/${i}/value`, { type: 'num', aria: 'Value each (gp)' })}</td>
+      <td><input type="checkbox" data-bind="inventory/${i}/carried" data-type="bool"${x.carried !== false ? ' checked' : ''} aria-label="Carried" title="Uncheck for things stored elsewhere (on a mount, at home): they stop counting toward your load"></td>
+      <td class="l">${inp(`inventory/${i}/notes`, { ph: 'notes', aria: 'Notes' })}</td>
+      <td>${removeBtn('inventory', i, 'item')}</td></tr>`).join('');
+    const coin = k => `<label class="field coin">${k}${inp('money/' + k, { type: 'num', aria: k + ' coins' })}</label>`;
+    const auto = ch.movement.encumbrance === 'Auto';
+    return card('Inventory & Encumbrance', `
+      <div class="coins">${['pp', 'gp', 'sp', 'cp'].map(coin).join('')}
+        <label class="inline small">${chk('carry/coins')} Coins have weight (50 = 1 lb)</label>
+        <span class="small muted">Worth ${out('gear/money', 'gp', '')} · gear ${out('gear/itemValue', 'gp', '')}</span></div>
+      <div class="scroll-x"><table class="inventory">
+        <thead><tr><th class="l">Item</th><th>Qty</th><th title="Weight of one, in lb.">Wt (each)</th><th title="Value of one, in gp">Value (gp)</th><th title="Counts toward your load">Carried</th><th class="l">Notes</th><th></th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="7" class="l small muted">Nothing yet. Add items, or pick one from the list as you type to fill in its weight and price.</td></tr>'}</tbody></table></div>
+      <div class="load-grid">
+        <div><div class="label">Carrying</div><table class="mini">
+          <tr><td class="l">Items</td><td>${out('gear/items', 'lb')}</td></tr><tr><td class="l">Weapons</td><td>${out('gear/weapons', 'lb')}</td></tr>
+          <tr><td class="l">Armor</td><td>${out('gear/armor', 'lb')}</td></tr><tr><td class="l">Shield</td><td>${out('gear/shield', 'lb')}</td></tr>
+          <tr><td class="l">Coins</td><td>${out('gear/coins', 'lb')}</td></tr><tr class="total"><td class="l">Total</td><td>${out('gear/total', 'lb')}</td></tr></table></div>
+        <div><div class="label">Capacity (Str ${out('gear/str', '', '')})</div><table class="mini">
+          <tr><td class="l">Light</td><td>up to ${out('gear/light', 'lb', '')}</td></tr><tr><td class="l">Medium</td><td>up to ${out('gear/medium', 'lb', '')}</td></tr>
+          <tr><td class="l">Heavy</td><td>up to ${out('gear/heavy', 'lb', '')}</td></tr><tr><td class="l">Lift off ground</td><td>${out('gear/liftOffGround', 'lb', '')}</td></tr>
+          <tr><td class="l">Push or drag</td><td>${out('gear/push', 'lb', '')}</td></tr></table></div>
+        <div><div class="label">Load</div><div class="load-now">${out('armor/encumbrance', '', '')}</div>
+          ${field('Encumbrance', sel('movement/encumbrance', ENC_OPTIONS, { blank: false, rerender: true }))}
+          <p class="small muted" style="margin:4px 0 0">${auto ? 'Medium and heavy loads limit max Dex, add an armor check penalty and slow you, like armor.' : 'Set by hand. Choose Auto to take it from what you carry.'}</p></div>
+      </div>
+      <div class="fields" style="margin-top:8px">
+        ${field('Str for carrying', inp('carry/strBonus', { type: 'num', title: 'Added to Strength for carrying capacity only, e.g. 8 for muleback cords' }))}
+        ${field('Capacity ×', inp('carry/mult', { type: 'num', ph: '1', title: 'Multiplies carrying capacity, e.g. 3 for ant haul' }))}
+        <label class="field">Quadruped${chk('carry/quadruped', { title: 'Four-legged creatures carry more' })}</label>
+      </div>`,
+      { tools: `<button class="btn small" data-action="add" data-list="inventory">+ Item</button>`, cls: 'span-2' });
   }
 
   // ----- Notes
@@ -1199,6 +1250,13 @@
     const el = e.target;
     if (el.id === 'add-condition' && el.value) { App.ch.conditions.push(el.value); changed(true); return; }
     if (el.classList && el.classList.contains('comp-add-condition') && el.value) { App.ch.companions[+el.dataset.c].conditions.push(el.value); changed(true); return; }
+    // Typing a known name fills in the blanks from the Pathfinder Reference Document
+    if (el.dataset && el.dataset.bind && el.tagName !== 'SELECT' && el.type !== 'checkbox' && srdRule(el.dataset.bind)) {
+      const blurRender = el.dataset.rerenderBlur !== undefined;
+      // Wait for focus to move to the next field so the re-render can keep it there
+      srdAutofill(el.dataset.bind).then(filled => setTimeout(() => { if (filled) changed(true); else if (blurRender) render(); }, 0));
+      return;
+    }
     // Typing an item into an empty slot: show its bonus buttons once the field is left
     if (el.dataset && el.dataset.rerenderBlur !== undefined) { render(); return; }
     if (!el.dataset || !el.dataset.bind) return;
@@ -1256,9 +1314,11 @@
       'add-sla': () => { App.ch.spellcasting.sla[+el.dataset.g].items.push({ id: M.uid(), name: '', uses: '' }); changed(true); },
       'add': () => {
         const blanks = { traits: { kind: 'Trait', text: '', bonuses: [] }, racialFeatures: { name: '', text: '' }, classFeatures: { name: '', text: '', bonuses: [] },
-          feats: { level: '', name: '', text: '', bonuses: [] }, resources: { name: '', uses: '', max: '' }, slots: { slot: '', item: '', bonuses: [] }, };
+          feats: { level: '', name: '', text: '', bonuses: [] }, resources: { name: '', uses: '', max: '' }, slots: { slot: '', item: '', bonuses: [] },
+          inventory: { name: '', qty: 1, weight: '', value: '', carried: true, notes: '' } };
         App.ch[el.dataset.list].push(blanks[el.dataset.list]); changed(true);
       },
+      'srd-class-features': () => addClassFeatures(),
       'remove': () => { const arr = get(el.dataset.list); if (Array.isArray(arr)) { arr.splice(+el.dataset.i, 1); changed(true); } },
       'toggle-condition': () => {
         const n = el.dataset.name, c = App.ch.conditions, i = c.indexOf(n);
@@ -1670,6 +1730,122 @@
 
   // ---------- Misc UI ----------
   let toastTimer = null;
+  // ----- SRD autofill: picking a known name fills in fields you left blank (it never overwrites)
+  const SRD = window.PF_SRD;
+  function srdDatalists(tab) {
+    if (!SRD) return;
+    const want = {
+      features: [['srd-feats', ['feats']], ['srd-traits', ['traits']], ['srd-worn', ['items'], x => x.slot && x.slot !== 'none'], ['srd-gear', ['gear', 'weapons', 'armor', 'items']]],
+      combat: [['srd-weapons', ['weapons']]],
+      spells: [['srd-spells', ['spells']]],
+      companion: [['srd-feats', ['feats']], ['srd-spells', ['spells']]],
+    }[tab] || [];
+    want.forEach(([id, kinds, filter]) => SRD.datalist(id, kinds, filter));
+  }
+  const blankish = v => v === undefined || v === null || String(v).trim() === '';
+  const SRD_RULES = [
+    { re: /^(companions\/\d+\/)?feats\/\d+\/name$/, kinds: ['feats'], fill: (o, it, f) => f('text', (it.p ? `Prerequisites: ${it.p}\n` : '') + (it.b || it.d)) },
+    { re: /^traits\/\d+\/text$/, kinds: ['traits'], fill: (o, it) => {
+      if (String(o.text).includes(':')) return 0;
+      o.text = `${it.n}: ${it.d}`; return 1;
+    } },
+    { re: /^classFeatures\/\d+\/name$/, kinds: ['classes'], lookup: name => {
+      const t = SRD.classFeatureText(name, App.d.classes.filter(c => c.name).map(c => c.name));
+      return t ? { n: name, d: t } : null;
+    }, fill: (o, it, f) => f('text', it.d) },
+    { re: /^slots\/\d+\/item$/, kinds: ['items'], fill: (o, it, f) => (it.slot && it.slot !== 'none' ? f('slot', it.slot) : 0) },
+    { re: /^inventory\/\d+\/name$/, kinds: ['gear', 'weapons', 'armor', 'items'], fill: (o, it, f) => f('weight', it.w || 0) + f('value', SRD.priceOf(it, o.name)) },
+    { re: /^weapons\/\d+\/name$/, kinds: ['weapons'], fill: fillWeapon },
+    { re: /^(spellcasting\/levels\/\d+\/spells|spellcasting\/sla\/\d+\/items|companions\/\d+\/spells)\/\d+\/name$/, kinds: ['spells'], fill: fillSpell },
+  ];
+  function srdRule(path) { return SRD ? SRD_RULES.find(r => r.re.test(path)) : null; }
+  async function srdAutofill(path) {
+    const rule = srdRule(path);
+    if (!rule) return 0;
+    const parts = path.split('/'); const field = parts.pop();
+    const obj = pathGet(App.ch, parts.join('/'));
+    const name = obj && obj[field];
+    if (!obj || blankish(name)) return 0;
+    await SRD.ensure(rule.kinds);
+    const it = rule.lookup ? rule.lookup(name) : (SRD.findAny(rule.kinds, field === 'text' ? String(name).split(':')[0] : name) || {}).item;
+    if (!it) return 0;
+    const filled = [];
+    const f = (k, v) => {
+      if (v === undefined || v === null || v === '' || !blankish(obj[k])) return 0;
+      obj[k] = v; filled.push(k); return 1;
+    };
+    const nFilled = rule.fill(obj, it, f, path) || 0;
+    if (nFilled) toast(`Filled in from the SRD: ${it.n}${it.s ? ' (' + it.s + ')' : ''}.`);
+    return nFilled;
+  }
+  function fillWeapon(w, it, f) {
+    if (!blankish(w.dice)) return 0;                // already set up by hand
+    const small = ['Fine', 'Diminutive', 'Tiny', 'Small'].includes(App.d.size.name);
+    let c = f('dice', small ? it.ds : it.dm);
+    const crit = it.cr || '20';
+    if (w.crit !== crit) { w.crit = crit; c++; }
+    if (w.mult !== it.x) { w.mult = it.x; c++; }
+    c += f('range', it.rg ? it.rg + ' ft' : '') + f('type', it.ty) + f('weight', it.w);
+    const plus = SRD.enhOf(w.name);
+    if (plus && (!w.enh || String(w.enh) === '0')) { w.enh = String(plus); c++; }
+    else if (/\b(masterwork|mwk)\b/i.test(w.name) && (!w.enh || String(w.enh) === '0')) { w.enh = 'Mwk'; c++; }
+    if (!w.category && it.k !== 'ammo') {
+      const cat = D.attackCategories.find(x => x.name.startsWith(it.k === 'ranged' ? 'Ranged Attack' : 'Melee Attack'));
+      if (cat) {
+        w.category = cat.name; c++;
+        const want = it.k === 'ranged' ? (/composite|sling/i.test(it.n) ? 'STR to Damage' : 'DEX to hit (') : it.k === 'two' ? 'Two-Handed Melee' : 'Standard Melee';
+        const opt = cat.options.find(o => o.label.includes(want));
+        if (opt && !w.formula) w.formula = opt.label;
+      }
+    }
+    return c;
+  }
+  function fillSpell(s, it, f, path) {
+    let c = 0;
+    if (it.sv && !/^none$/i.test(it.sv)) c += f('save', it.sv);
+    c += f('duration', it.du);
+    c += f('notes', [it.d, it.r ? `Range ${it.r.replace(/\.$/, '')}.` : '', it.sr && /^yes/i.test(it.sr) ? 'SR applies.' : ''].filter(Boolean).join(' '));
+    if (it.atk) c += f('attack', it.atk);
+    if (it.dmg && blankish(s.dmgDie)) {
+      s.dmgDie = it.dmg.d; s.dmgCount = it.dmg.c; c += 2;
+      c += f('dmgBonus', it.dmg.b) + f('dmgType', it.dmg.t);
+      if (it.heal && !s.healing) { s.healing = true; c++; }
+    }
+    const preset = spellPresetFor(it.n);
+    if (preset && !(s.buff && (s.buff.bonuses || []).length)) {
+      const m = path.match(/^companions\/(\d+)\//);
+      s.buff = { on: true, target: m ? 'c:' + App.ch.companions[+m[1]].id : 'self', bonuses: preset };
+      c++;
+    }
+    return c;
+  }
+  // Class features for the character's current levels, from the SRD class tables.
+  async function addClassFeatures() {
+    await SRD.load('classes');
+    const classes = App.d.classes.filter(c => c.name && c.level > 0);
+    if (!classes.length) { toast('Set your classes and levels on the Character tab first.'); return; }
+    const baseOf = name => String(name || '').toLowerCase().replace(/\s*\(×\d+\)$/, '').replace(/\s*[+\u2212-]?\d+(d\d+)?(\/day|st|nd|rd|th)?\b.*$/i, '').replace(/\s*\(.*\)$/, '').trim();
+    let added = 0, updated = 0;
+    const missing = [];
+    for (const c of classes) {
+      const r = SRD.classFeatures(c.name, c.level);
+      if (!r) { missing.push(c.name); continue; }
+      for (const feat of r.features) {
+        const b = feat.base.toLowerCase();
+        const have = App.ch.classFeatures.find(x => baseOf(x.name) === b);
+        if (have) {
+          if (have.name.toLowerCase() !== feat.name.toLowerCase() && /\d/.test(feat.name)) { have.name = feat.name.charAt(0).toUpperCase() + feat.name.slice(1); updated++; }
+          continue;
+        }
+        App.ch.classFeatures.push({ name: feat.name.charAt(0).toUpperCase() + feat.name.slice(1), text: feat.text, bonuses: [] });
+        added++;
+      }
+    }
+    if (added || updated) changed(true);
+    const msg = [added ? `Added ${added} class feature${added === 1 ? '' : 's'}` : '', updated ? `${added ? 'updated' : 'Updated'} ${updated} to your level` : ''].filter(Boolean).join(', ');
+    toast((msg || 'Your class features are already listed') + (missing.length ? `. Not in the SRD tables: ${missing.join(', ')}.` : '.'));
+  }
+
   function toast(msg) {
     let el = $('#toast');
     if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }

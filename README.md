@@ -16,7 +16,7 @@ Then open <http://localhost:8000>. To share it with your group, put the folder o
 
 Opening `index.html` straight from disk mostly works, but browsers treat `file://` pages oddly. Serve it if Discord posting or import gives you trouble.
 
-Internet access is needed for two things: the spreadsheet reader used by `.xlsx` import (SheetJS, from jsDelivr) and the heading font.
+Internet access is needed for two things: the spreadsheet reader used by `.xlsx` import (SheetJS, from jsDelivr) and the heading font. The rules data for autofill (`data/srd/`) ships with the site and loads only when a tab needs it.
 
 ## Importing a character from Google Sheets
 
@@ -61,7 +61,22 @@ The webhook URL is stored only in this browser. It is never written into exporte
 - **Play:** everything you need at the table on one page: HP with damage/heal buttons, AC/touch/flat-footed/CMD, initiative, saves, ability checks, attacks, buffs and conditions, all skills (with a filter), spells with slot tracking and cast buttons, resources, and a list of active bonuses and situational reminders.
 - **Character:** identity, classes, ability scores, HP settings, and the full save and AC breakdowns.
 - **Companion:** animal companions, eidolons, familiars and other creatures (cohorts, constructs, mounts). Each one also gets a card on the Play tab with HP, defenses, saves, attacks, skills and resources; its rolls post under its own name.
-- **Race, Skills, Combat, Spells, Effects, Features & Gear, Notes, Settings:** the detailed editors.
+- **Features & Gear:** inventory, coins and encumbrance, plus feats, worn magic items, traits, class features and resources.
+- **Race, Skills, Combat, Spells, Effects, Notes, Settings:** the detailed editors.
+
+## Autofill from the Pathfinder Reference Document
+
+Name fields suggest entries as you type. Pick one (or type its exact name) and the sheet fills in the fields you left blank. It never overwrites anything you typed.
+
+- **Feats** (yours and companions'): prerequisites and benefit text.
+- **Traits:** the trait's text after its name.
+- **Class features:** the rules text. **Add for my level** on the Class Features card lists everything your classes get up to your current level. Run it again after leveling up and numbered features update (Sneak attack +3d6 becomes +4d6).
+- **Spells and spell-like abilities** (yours and companions'): save, duration, range and a short description; damage or healing dice that scale with caster level (Fireball becomes `min(cl, 10)` d6 fire); ranged or melee touch attacks; buff bonuses for common buffs such as Bless, Shield of Faith or Haste.
+- **Weapons:** damage dice for your size (Small or Medium), crit range and multiplier, range, damage type, weight, and an attack type and formula if none is set (composite bows add Str to damage). A name like `+1 longsword` also sets the enhancement.
+- **Inventory:** weight and price. Magic items with several strengths use the one in the name (`Cloak of Resistance +2` costs 4,000 gp).
+- **Worn magic items:** the slot.
+
+The data covers the Core Rulebook, Advanced Player's Guide, Ultimate Magic, Ultimate Combat, Advanced Race Guide, Advanced Class Guide, Ultimate Campaign and Ultimate Equipment: about 1,050 feats, 230 traits, 1,500 spells, 2,500 magic items, 350 goods, 200 weapons, 28 armors and 49 classes. Bestiary content, such as monster feats, isn't included.
 
 ## What's automated (same rules as the spreadsheet)
 
@@ -75,6 +90,7 @@ The webhook URL is stored only in this browser. It is never written into exporte
 - **Combat toggles:** Power Attack, Combat Expertise and Deadly Aim scale with BAB. Heroism, Haste, Rapid Shot, Studied Target, and three custom toggles.
 - **Conditions:** the sheet's conditions table, plus Unchained wound thresholds.
 - **Defenses:** AC, touch, flat-footed and CMD, with armor and shield tables, special materials, max Dex, armor check penalty, spell failure and encumbrance.
+- **Gear and encumbrance:** an inventory with quantity, weight, value and a Carried box (uncheck things left on a mount or at home), coins (50 coins weigh 1 lb, which you can switch off), and weights for weapons, armor and shields (armor and shields fill in their standard weight; mithral halves it). Carrying capacity follows the Core Rulebook table from your Strength and size, with a Str adjustment for carrying (muleback cords), a capacity multiplier (ant haul) and a quadruped option. With encumbrance set to **Auto (from gear)**, the default for new and imported characters, a medium or heavy load limits max Dex, adds an armor check penalty and reduces speed, just like armor. The Play tab shows your load. Characters saved before this keep the encumbrance they had; choose Auto on the Combat tab or the inventory card to switch.
 - **Attacks:** all attack types from Formula References (melee, ranged, off-hand, maneuvers, magic, flurry, natural, bombs, kineticist) with iterative attacks, plus INT and CHA to-hit versions with the usual damage choices (STR, STR×1.5, STR×½, the same ability, DEX or none). The Formula dropdown groups options by the ability used to hit.
 - **Skills:** Standard, Background, Consolidated and Psionics skill systems; trained-only, armor check, size, Fly maneuverability, and climb/swim speed bonuses.
 - **Spellcasting:** spells per day from the class tables plus ability bonus spells, spells known, DCs, caster level, concentration, slot tracking and a **Rest** button.
@@ -115,9 +131,13 @@ Not ported:
 | `js/import.js` | `.xlsx` importer |
 | `js/dice.js` | Dice expressions, checks, crits |
 | `js/discord.js` | Webhook posting |
+| `js/srd.js` | Loads the rules data and looks up names for autofill |
 | `js/app.js` | Interface, saving, rolling |
+| `data/srd/*.json` | Rules data for autofill, generated from the Pathfinder Reference Document |
+| `OGL.txt` | Open Game License for the rules data |
 | `tools/extract.py` | Regenerates `js/data.js` from an Autosheet `.xlsx` |
 | `tools/dump_cells.py`, `tools/verify.js` | Compares the web sheet's math with a real character's spreadsheet |
+| `tools/build_srd.py` | Regenerates `data/srd/` from the PSRD-Data book databases |
 
 Before pushing an update, run `python tools/stamp.py`. It adds a version to the CSS and JS links in `index.html` so browsers load the new files instead of cached ones (GitHub Pages lets browsers cache for 10 minutes).
 
@@ -137,6 +157,12 @@ python tools/dump_cells.py Character.xlsx cells.json
 node tools/verify.js cells.json
 ```
 
+To regenerate the rules data, download the `book-*.db` files from the `release` branch of [PSRD-Data](https://github.com/devonjones/PSRD-Data) into a folder, then:
+
+```powershell
+python tools/build_srd.py path\to\folder data/srd
+```
+
 ## Possible next steps
 
 - **Discord bot:** slash commands like `/roll stealth` that read the character. This needs a small always-on host. The character JSON is ready for it.
@@ -145,3 +171,5 @@ node tools/verify.js cells.json
 ## Credits
 
 Based on the Pathfinder Autosheet v6.2.1 by /u/darthmarth28. That sheet is free for non-commercial use and may not be rehosted as someone else's work, so keep this credit if you share the web version.
+
+The rules data in `data/srd/` is Open Game Content from the Pathfinder Roleplaying Game Reference Document by Paizo, used under the Open Game License 1.0a (see `OGL.txt`), converted from Devon Jones's [PSRD-Data](https://github.com/devonjones/PSRD-Data). This project uses no Paizo trademarks or Product Identity and isn't published, endorsed or approved by Paizo.

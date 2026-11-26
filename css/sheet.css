@@ -319,3 +319,16 @@ label.choice input { margin-top: 3px; accent-color: var(--accent); }
 .btn.ghost.on { color: var(--accent); }
 
 .spell-row.sla-row { grid-template-columns: 60px 1fr auto auto 28px; }
+
+/* Inventory & encumbrance */
+.tile .tile-sub { display: block; font-family: inherit; font-size: 12px; font-weight: 400; color: var(--muted); }
+.coins { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 12px; margin-bottom: 8px; }
+.coins .field.coin { width: 84px; }
+table.inventory td input[type="text"] { min-width: 90px; }
+table.inventory td.l:first-child input { min-width: 170px; }
+.load-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-top: 10px; }
+.load-grid .label { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 4px; }
+.load-now { font-family: var(--display); font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+table.mini { width: 100%; }
+table.mini td { padding: 2px 4px; }
+table.mini tr.total td { border-top: 1px solid var(--line); font-weight: 700; }

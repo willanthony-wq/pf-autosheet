@@ -123,7 +123,7 @@
   }
 
   function blankWeapon() {
-    return { name: '', mAtk: 0, mDmg: 0, enh: '0', category: '', formula: '', dice: '', crit: '20', mult: 'x2', range: '', type: '', dmgOverride: '' };
+    return { name: '', mAtk: 0, mDmg: 0, enh: '0', category: '', formula: '', dice: '', crit: '20', mult: 'x2', range: '', type: '', dmgOverride: '', weight: '', carried: true };
   }
 
   function blankCharacter() {
@@ -154,7 +154,7 @@
       saves: { fort: { misc: 0 }, ref: { misc: 0 }, will: { misc: 0 }, notes: '' },
       ac: { misc: 0, notes: '' },
       initiative: { misc: 0 },
-      movement: { ignoreArmor: '', flight: 'Average', runMult: '', chargeBonus: 0, encumbrance: 'Light' },
+      movement: { ignoreArmor: '', flight: 'Average', runMult: '', chargeBonus: 0, encumbrance: 'Auto' },
       skills: {},          // name -> { ranks, misc }
       specialty: [         // Craft/Lore/Perform/Prof/Artistry rows
         { base: 'Craft:', detail: '', ranks: 0, misc: 0 },
@@ -164,8 +164,11 @@
       languages: '',
       weapons: [],
       attackNotes: '',
-      armor: { name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0 },
-      shield: { name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0 },
+      armor: { name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0, weight: '' },
+      shield: { name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0, weight: '' },
+      inventory: [],            // { name, qty, weight (each), value (gp each), carried, notes }
+      money: { pp: 0, gp: 0, sp: 0, cp: 0 },
+      carry: { strBonus: 0, mult: '', quadruped: false, coins: true },   // Muleback Cords: strBonus 8; Ant Haul: mult 3
       armorNotes: '',
       magicItems: [],           // legacy; moved into effects by normalize()
       toggles: defaultToggles(),

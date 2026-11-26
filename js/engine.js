@@ -18,6 +18,64 @@
     'Kn. History', 'Kn. Nobility', 'Linguistics', 'Lore:', 'Perform:', 'Prof:', 'Sleight of Hand']);
   const FLIGHT = { Clumsy: -8, Poor: -4, Average: 0, Good: 4, Perfect: 8 };
   const LOAD_RANK = { Unarmored: 0, Light: 1, Medium: 2, Heavy: 3, Overloaded: 4 };
+  // Carrying capacity (Core Rulebook Table 7-4): heavy load by Strength score 0-29; +10 Str multiplies by 4.
+  const HEAVY_LOAD = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 115, 130, 150, 175, 200, 230, 260, 300, 350, 400, 460, 520, 600, 700, 800, 920, 1040, 1200, 1400];
+  // Size multipliers [bipeds, quadrupeds].
+  const SIZE_CARRY = { Fine: [1 / 8, 1 / 4], Diminutive: [1 / 4, 1 / 2], Tiny: [1 / 2, 3 / 4], Small: [3 / 4, 1], Medium: [1, 1.5], Large: [2, 3], Huge: [4, 6], Gargantuan: [8, 12], Colossal: [16, 24] };
+  // Weights (lb.) of the sheet's armor and shields for Medium characters, from the Core Rulebook, Ultimate Combat and Ultimate Equipment.
+  const ARMOR_WEIGHT = {
+    'Mage Armor (Spell)': 0, 'Bracers of Armor (Wondrous Item)': 1, 'Clothing': 0, 'Haramaki': 1, 'Padded Cloth': 10, 'Quilted Cloth': 15,
+    'Silken Ceremonial Armor': 4, 'Lamellar Cuirass': 8, 'Leather': 15, 'Parade Armor': 20, 'Studded Leather': 20, 'Wooden': 25, 'Chain Shirt': 25,
+    'Leather Lamellar': 25, 'Armored Coat': 20, 'Hide': 25, 'Do-Maru': 30, 'Horn Lamellar': 30, 'Kikko Armor': 25, 'Scale Mail': 30,
+    'Agile Breastplate': 25, 'Breastplate': 30, 'Chainmail': 40, 'Four-Mirror Armor': 45, 'Mountain Pattern Armor': 40, 'Steel Lamellar': 35,
+    'Banded Mail': 35, 'Iron Lamellar': 50, 'Kusari Gusoku': 45, 'Splint Mail': 45, 'Tatami-Do': 45, 'Agile Half-Plate': 55, 'Half-Plate': 50,
+    'O-Yoroi': 45, 'Stone Coat': 45, 'Full Plate': 50,
+  };
+  const SHIELD_WEIGHT = { 'Buckler': 5, 'Klar': 6, 'Madu': 5, 'Light Shield': 6, 'Heavy Shield': 15, '(Spell) Shield': 0, 'Tower Shield': 45 };
+  function heavyLoad(str) {
+    if (str <= 0) return 0;
+    let mult = 1;
+    while (str > 29) { str -= 10; mult *= 4; }
+    return HEAVY_LOAD[Math.floor(str)] * mult;
+  }
+  // Default weight of a worn armor or shield: from the table, halved for mithral (and darkwood shields).
+  function armorDefaultWeight(p, kind) {
+    if (!p || !p.item) return 0;
+    const base = (kind === 'shield' ? SHIELD_WEIGHT : ARMOR_WEIGHT)[p.item];
+    if (base === undefined) return null;
+    const half = /mithral/i.test(p.material || '') || (kind === 'shield' && /darkwood/i.test(p.material || ''));
+    return half ? base / 2 : base;
+  }
+  const round2 = x => Math.round(x * 100) / 100;
+  function computeGear(ch, d) {
+    const c = ch.carry || {};
+    const str = d.abilities.str.score + n(c.strBonus);
+    const sz = SIZE_CARRY[d.size.name] || SIZE_CARRY.Medium;
+    const mult = (isNum(c.mult) && n(c.mult) > 0 ? n(c.mult) : 1) * sz[c.quadruped ? 1 : 0];
+    const heavy = Math.floor(heavyLoad(str) * mult);
+    const light = Math.floor(heavy / 3), medium = Math.floor(heavy * 2 / 3);
+    const qty = x => (x.qty === '' || x.qty === undefined || x.qty === null ? 1 : n(x.qty));
+    let items = 0, value = 0;
+    for (const x of ch.inventory || []) {
+      value += qty(x) * n(x.value);
+      if (x.carried !== false) items += qty(x) * n(x.weight);
+    }
+    const weapons = (ch.weapons || []).reduce((t, w) => t + (w.carried === false ? 0 : n(w.weight)), 0);
+    const wt = (p, kind) => (isNum(p.weight) ? n(p.weight) : (armorDefaultWeight(p, kind) || 0));
+    const armor = wt(ch.armor || {}, 'armor'), shield = wt(ch.shield || {}, 'shield');
+    const m = ch.money || {};
+    const coinCount = n(m.pp) + n(m.gp) + n(m.sp) + n(m.cp);
+    const coins = c.coins === false ? 0 : coinCount / 50;
+    const total = round2(items + weapons + armor + shield + coins);
+    const load = total <= light ? 'Light' : total <= medium ? 'Medium' : total <= heavy ? 'Heavy' : 'Overloaded';
+    const money = n(m.pp) * 10 + n(m.gp) + n(m.sp) / 10 + n(m.cp) / 100;
+    d.gear = {
+      str, light, medium, heavy, liftOverHead: heavy, liftOffGround: heavy * 2, push: heavy * 5,
+      items: round2(items), weapons: round2(weapons), armor: round2(armor), shield: round2(shield), coins: round2(coins), total, load,
+      armorDefault: armorDefaultWeight(ch.armor, 'armor'), shieldDefault: armorDefaultWeight(ch.shield, 'shield'),
+      money: round2(money), itemValue: round2(value), wealth: round2(money + value),
+    };
+  }
   const ENCUMBRANCE = { Light: { maxDex: null, acp: 0 }, Medium: { maxDex: 3, acp: -3 }, Heavy: { maxDex: 1, acp: -6 }, Overloaded: { maxDex: 0, acp: -6 } };
 
   function n(x) {
@@ -301,6 +359,7 @@
     d.xpNextLevel = d.level >= 1 && d.level < 20 ? xpTable[d.level] : null;
     d.xpToNext = d.xpNextLevel !== null ? Math.max(0, d.xpNextLevel - n(ch.info.xp)) : null;
 
+    computeGear(ch, d);
     computeArmor(ch, d);
     computeDefenses(ch, d, rows);
     computeSkills(ch, d, rows);
@@ -427,12 +486,14 @@
       return { ac, base, enh: enhNum, acp, maxDex, asf, weight, note: mat && mat.note ? mat.note : '' };
     }
     const a = piece(ch.armor, D.armor), s = piece(ch.shield, D.shields);
-    const enc = ENCUMBRANCE[ch.movement.encumbrance] || ENCUMBRANCE.Light;
+    // "Auto" takes the load from what you carry (inventory, weapons, armor, coins).
+    const encName = ch.movement.encumbrance === 'Auto' ? (d.gear ? d.gear.load : 'Light') : (ch.movement.encumbrance || 'Light');
+    const enc = ENCUMBRANCE[encName] || ENCUMBRANCE.Light;
     const maxDexes = [a.maxDex, s.maxDex, enc.maxDex].filter(x => x !== null);
     const armorCat = ['Unarmored', 'Light', 'Medium', 'Heavy'][Math.max(0, Math.min(3, a.weight))];
-    const loadCat = LOAD_RANK[ch.movement.encumbrance] > LOAD_RANK[armorCat] ? ch.movement.encumbrance : armorCat;
+    const loadCat = LOAD_RANK[encName] > LOAD_RANK[armorCat] ? encName : armorCat;
     d.armor = {
-      armor: a, shield: s, armorCat, loadCat,
+      armor: a, shield: s, armorCat, loadCat, encumbrance: encName,
       maxDex: maxDexes.length ? Math.min(...maxDexes) : null,
       acp: Math.min(a.acp + s.acp, enc.acp),
       asf: a.asf + s.asf,
@@ -743,5 +804,5 @@
     return out;
   }
 
-  window.PF_ENGINE = { compute, evalBonus, isValidBonus, classSlug, pushBonuses, posNeg, findOverlaps, getClass, attackOptions, evalExpr, stack, typeTotal, sign, n, isNum, firstNumber, classByName };
+  window.PF_ENGINE = { compute, heavyLoad, armorDefaultWeight, evalBonus, isValidBonus, classSlug, pushBonuses, posNeg, findOverlaps, getClass, attackOptions, evalExpr, stack, typeTotal, sign, n, isNum, firstNumber, classByName };
 })();
