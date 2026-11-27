@@ -1118,8 +1118,8 @@
       <div class="inline" style="margin-top:10px"><strong>Hero points</strong>
         <span class="counter"><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="-1">−</button>${inp('heroPoints/current', { type: 'num' })}<span class="muted">/</span>${inp('heroPoints/max', { type: 'num' })}<button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="1">+</button></span></div>`,
       { tools: `<button class="btn small" data-action="add" data-list="resources">+ Resource</button>` });
-    const slots = card('Magic Items Worn', featureList('slots'),
-      { tools: `<button class="btn small" data-action="add" data-list="slots">+ Slot</button>` });
+    const slots = card('Magic Items Worn', `<p class="small muted" style="margin-top:0">Type or pick an item in any row and it moves to its slot (a cloak to shoulders, a belt to waist). <strong>Sort to slots</strong> does the same for items already listed.</p>` + featureList('slots'),
+      { tools: `<button class="btn small ghost" data-action="sort-worn" title="Move every item the SRD knows to its body slot">Sort to slots</button><button class="btn small" data-action="add" data-list="slots">+ Slot</button>` });
     const help = `<p class="small muted span-2" style="margin:0">Give a feat, trait, class feature or worn item a <strong>bonus</strong> and it changes your numbers: pick what it applies to and a value. Values can be formulas such as <span class="kbd">max(3, level)</span> (Toughness), <span class="kbd">max(1, floor(rogue/2))</span> (Trapfinding: half your rogue levels, at least 1) or <span class="kbd">ranks >= 10 ? 6 : 3</span> (Skill Focus). Click the <strong>?</strong> next to any value for the full list of variables, and the result appears beside it. <strong>Add standard bonuses</strong> fills them in for common feats, traits and magic items (belts, headbands, cloaks, rings, amulets…).</p>`;
     return `<div class="grid two">${help}${inventoryCard()}${feats}${slots}${traits}${cf}${res}</div>`;
   }
@@ -1271,7 +1271,12 @@
     if (el.dataset && el.dataset.bind && el.tagName !== 'SELECT' && el.type !== 'checkbox' && srdRule(el.dataset.bind)) {
       const blurRender = el.dataset.rerenderBlur !== undefined;
       // Wait for focus to move to the next field so the re-render can keep it there
-      srdAutofill(el.dataset.bind).then(filled => setTimeout(() => { if (filled) changed(true); else if (blurRender) render(); }, 0));
+      const bind = el.dataset.bind;
+      srdAutofill(bind).then(filled => {
+        const m = bind.match(/^slots\/(\d+)\/item$/);
+        const moved = m ? placeWorn(+m[1]) : false;
+        setTimeout(() => { if (filled || moved) changed(true); else if (blurRender) render(); }, 0);
+      });
       return;
     }
     // Typing an item into an empty slot: show its bonus buttons once the field is left
@@ -1340,6 +1345,7 @@
         App.ch[el.dataset.list].push(blanks[el.dataset.list]); changed(true);
       },
       'srd-class-features': () => addClassFeatures(),
+      'sort-worn': () => sortWornItems(),
       'remove': () => { const arr = get(el.dataset.list); if (Array.isArray(arr)) { arr.splice(+el.dataset.i, 1); changed(true); } },
       'toggle-condition': () => {
         const n = el.dataset.name, c = App.ch.conditions, i = c.indexOf(n);
@@ -1816,7 +1822,8 @@
       const t = SRD.classFeatureText(name, App.d.classes.filter(c => c.name).map(c => c.name));
       return t ? { n: name, d: t } : null;
     }, fill: (o, it, f) => f('text', it.d) },
-    { re: /^slots\/\d+\/item$/, kinds: ['items'], fill: (o, it, f) => (it.slot && it.slot !== 'none' ? f('slot', it.slot) : 0) },
+    // Worn items: placeWorn() moves the item to its slot's row after this lookup
+    { re: /^slots\/\d+\/item$/, kinds: ['items'], fill: () => 0 },
     { re: /^inventory\/\d+\/name$/, kinds: ['gear', 'weapons', 'armor', 'items'], fill: (o, it, f) => f('weight', it.w || 0) + f('value', SRD.priceOf(it, o.name)) },
     { re: /^weapons\/\d+\/name$/, kinds: ['weapons'], fill: fillWeapon },
     { re: /^(spellcasting\/levels\/\d+\/spells|spellcasting\/sla\/\d+\/items|companions\/\d+\/spells)\/\d+\/name$/, kinds: ['spells'], fill: fillSpell },
@@ -1949,6 +1956,58 @@
     if (added || updated) changed(true);
     const msg = [added ? `Added ${added} class feature${added === 1 ? '' : 's'}` : '', updated ? `${added ? 'updated' : 'Updated'} ${updated} to your level` : ''].filter(Boolean).join(', ');
     toast((msg || 'Your class features are already listed') + (missing.length ? `. Not in the SRD tables: ${missing.join(', ')}.` : '.'));
+  }
+
+  // ----- Worn magic items: put each item in its body slot's row
+  const SLOT_MAP = { head: 'head', headband: 'headband', eyes: 'face/eyes', face: 'face/eyes', neck: 'throat', throat: 'throat', shoulders: 'shoulders',
+    body: 'body', chest: 'torso', torso: 'torso', wrists: 'arms', wrist: 'arms', arms: 'arms', hands: 'hands', belt: 'waist', waist: 'waist', feet: 'feet', ring: 'ring' };
+  function wornSlotOf(name) {
+    const it = SRD && SRD.find('items', name);
+    if (!it || !it.slot) return null;
+    const k = String(it.slot).toLowerCase().replace(/<.*$/, '').trim().split(/[\s(;,]/)[0];
+    return SLOT_MAP[k] || null;
+  }
+  const isEmptySlot = x => !String(x.item || '').trim() && !(x.bonuses || []).length;
+  // Default slots first in body order, extra rows after their slot, custom slots at the end
+  function sortSlots() {
+    const order = M.ITEM_SLOTS, idx = x => { const k = order.indexOf(x.slot); return k < 0 ? order.length : k; };
+    App.ch.slots = App.ch.slots.map((x, k) => [x, k]).sort((a, b) => idx(a[0]) - idx(b[0]) || a[1] - b[1]).map(x => x[0]);
+  }
+  // Moves the item in row i to an empty row of its slot (adding one if they're all taken). Returns true if it moved.
+  function placeWorn(i, quiet) {
+    const slots = App.ch.slots, row = slots[i];
+    if (!row || row.srdCustom || !String(row.item || '').trim()) return false;
+    const want = wornSlotOf(row.item);
+    if (!want || row.slot === want) return false;
+    let j = slots.findIndex((x, k) => k !== i && x.slot === want && isEmptySlot(x));
+    // A row added with + Slot and no slot name: use the empty slot row if there is one, else just name this row's slot
+    if (!String(row.slot || '').trim()) {
+      if (j < 0) row.slot = want;
+      else { const dest = slots[j]; dest.item = row.item; dest.bonuses = row.bonuses || []; if (row.srdFill) dest.srdFill = row.srdFill; slots.splice(i, 1); }
+      sortSlots();
+      if (!quiet) toast(`Moved ${row.item} to the ${want} slot.`);
+      return true;
+    }
+    if (j < 0) { slots.push({ slot: want, item: '', bonuses: [] }); j = slots.length - 1; }
+    const dest = slots[j];
+    dest.item = row.item; dest.bonuses = row.bonuses || [];
+    if (row.srdFill) dest.srdFill = row.srdFill;
+    row.item = ''; row.bonuses = []; delete row.srdFill;
+    sortSlots();
+    if (!quiet) toast(`Moved ${dest.item} to the ${want} slot.`);
+    return true;
+  }
+  async function sortWornItems() {
+    if (!SRD) return;
+    await SRD.load('items');
+    let moved = 0;
+    for (const row of App.ch.slots.slice()) {
+      const i = App.ch.slots.indexOf(row);
+      if (i >= 0 && placeWorn(i, true)) moved++;
+    }
+    sortSlots();
+    changed(true);
+    toast(moved ? `Moved ${moved} item${moved === 1 ? '' : 's'} to ${moved === 1 ? 'its slot' : 'their slots'}.` : 'Every item the SRD knows is already in its slot.');
   }
 
   function toast(msg) {
