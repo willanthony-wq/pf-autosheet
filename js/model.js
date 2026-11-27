@@ -207,7 +207,7 @@
       traits: [], racialFeatures: [], classFeatures: [], feats: [],
       notes: '',
       resources: [], heroPoints: { current: 0, max: 3 },
-      slots: ITEM_SLOTS.map(s => ({ slot: s, item: '', bonuses: [] })),
+      slots: ITEM_SLOTS.map(s => ({ slot: s, item: '', text: '', bonuses: [] })),
       background: BACKGROUND_QUESTIONS.map(q => ({ q, a: '' })),
       settings: { skillSystem: 'Standard Skills', woundThresholds: false, minSkillRanks: false },
       companions: [],           // animal companions, eidolons, familiars, others (see companion.js)

@@ -396,6 +396,8 @@
         desc = area(`feats/${i}/text`, { rows: 3, ph: 'Description' }); kind = 'feat';
       } else if (key === 'slots') {
         head = `${inp(`slots/${i}/slot`, { ph: 'slot', aria: 'Slot' })}${inp(`slots/${i}/item`, { ph: 'empty', aria: 'Item', list: 'srd-worn' }).replace('<input ', '<input data-rerender-blur ')}`;
+        // Empty slots stay one line; a slot with an item gets a description box like a feat
+        if (String(x.item || '').trim() || String(x.text || '').trim()) desc = area(`slots/${i}/text`, { rows: 3, ph: 'Description' });
         kind = 'item'; defType = 'Enhancement';
       } else if (key === 'traits') {
         head = `${sel(`traits/${i}/kind`, ['Trait', 'Drawback', 'DB'], { blank: false })}${inp(`traits/${i}/text`, { ph: 'Reactionary: +2 Initiative', list: 'srd-traits' })}`;
@@ -1351,7 +1353,7 @@
       'add-sla': () => { App.ch.spellcasting.sla[+el.dataset.g].items.push({ id: M.uid(), name: '', uses: '' }); changed(true); },
       'add': () => {
         const blanks = { traits: { kind: 'Trait', text: '', bonuses: [] }, racialFeatures: { name: '', text: '' }, classFeatures: { name: '', text: '', bonuses: [] },
-          feats: { level: '', name: '', text: '', bonuses: [] }, resources: { name: '', uses: '', max: '' }, slots: { slot: '', item: '', bonuses: [] },
+          feats: { level: '', name: '', text: '', bonuses: [] }, resources: { name: '', uses: '', max: '' }, slots: { slot: '', item: '', text: '', bonuses: [] },
           inventory: { name: '', qty: 1, weight: '', value: '', carried: true, notes: '' } };
         App.ch[el.dataset.list].push(blanks[el.dataset.list]); changed(true);
       },
@@ -1834,8 +1836,8 @@
       const t = SRD.classFeatureText(name, App.d.classes.filter(c => c.name).map(c => c.name));
       return t ? { n: name, d: t } : null;
     }, fill: (o, it, f) => f('text', it.d) },
-    // Worn items: placeWorn() moves the item to its slot's row after this lookup
-    { re: /^slots\/\d+\/item$/, kinds: ['items'], fill: () => 0 },
+    // Worn items: description and usual bonuses; placeWorn() then moves the item to its slot's row
+    { re: /^slots\/\d+\/item$/, kinds: ['items'], fill: (o, it, f) => f('text', it.d) + standardBonuses(o, 'item', o.item) },
     { re: /^inventory\/\d+\/name$/, kinds: ['gear', 'weapons', 'armor', 'items'], fill: (o, it, f) => f('weight', it.w || 0) + f('value', SRD.priceOf(it, o.name)) },
     { re: /^weapons\/\d+\/name$/, kinds: ['weapons'], fill: fillWeapon },
     { re: /^(spellcasting\/levels\/\d+\/spells|spellcasting\/sla\/\d+\/items|companions\/\d+\/spells)\/\d+\/name$/, kinds: ['spells'], fill: fillSpell },
@@ -1979,7 +1981,7 @@
     const k = String(it.slot).toLowerCase().replace(/<.*$/, '').trim().split(/[\s(;,]/)[0];
     return SLOT_MAP[k] || null;
   }
-  const isEmptySlot = x => !String(x.item || '').trim() && !(x.bonuses || []).length;
+  const isEmptySlot = x => !String(x.item || '').trim() && !String(x.text || '').trim() && !(x.bonuses || []).length;
   // Default slots first in body order, extra rows after their slot, custom slots at the end
   function sortSlots() {
     const order = M.ITEM_SLOTS, idx = x => { const k = order.indexOf(x.slot); return k < 0 ? order.length : k; };
@@ -1995,16 +1997,16 @@
     // A row added with + Slot and no slot name: use the empty slot row if there is one, else just name this row's slot
     if (!String(row.slot || '').trim()) {
       if (j < 0) row.slot = want;
-      else { const dest = slots[j]; dest.item = row.item; dest.bonuses = row.bonuses || []; if (row.srdFill) dest.srdFill = row.srdFill; slots.splice(i, 1); }
+      else { const dest = slots[j]; dest.item = row.item; dest.text = row.text || ''; dest.bonuses = row.bonuses || []; if (row.srdFill) dest.srdFill = row.srdFill; slots.splice(i, 1); }
       sortSlots();
       if (!quiet) toast(`Moved ${row.item} to the ${want} slot.`);
       return true;
     }
     if (j < 0) { slots.push({ slot: want, item: '', bonuses: [] }); j = slots.length - 1; }
     const dest = slots[j];
-    dest.item = row.item; dest.bonuses = row.bonuses || [];
+    dest.item = row.item; dest.text = row.text || ''; dest.bonuses = row.bonuses || [];
     if (row.srdFill) dest.srdFill = row.srdFill;
-    row.item = ''; row.bonuses = []; delete row.srdFill;
+    row.item = ''; row.text = ''; row.bonuses = []; delete row.srdFill;
     sortSlots();
     if (!quiet) toast(`Moved ${dest.item} to the ${want} slot.`);
     return true;
