@@ -118,6 +118,8 @@ The data covers the Core Rulebook, Advanced Player's Guide, Ultimate Magic, Ulti
 
 These are small fixes, chosen to follow the Core Rulebook where the sheet's formulas fell short:
 
+- **Conditions:** Stunned also loses your Dex bonus to AC; Grappled also takes −2 on attacks (and so on CMB) and can't move; **Flat-Footed** (no Dex or dodge bonus to AC and CMD), **Helpless** (Dex 0) and **Unconscious** (helpless, can't move) are added. The encumbrance conditions (Light/Medium/Heavy Encumbrance, Overencumbered) now set your load, using whichever is heavier: the condition or the load from your gear or the Combat tab.
+- **Movement:** over your heavy load you can move only 5 ft (Slow and Steady still ignores it), and you run at ×4 with a medium load or medium armor; only heavy armor or a heavy load drops running to ×3.
 - The sheet's single "Deflect/Enhance/Resist" type is split into **Deflection**, **Enhancement** and **Resistance**, which stack with each other. An Enhancement bonus on AC (such as Magic Vestment) replaces the armor's own enhancement if it's higher. Imported and older saved characters are converted automatically: AC becomes Deflection, saves become Resistance, and anything else becomes Enhancement.
 
 - Negative levels also apply to Fortitude saves. The sheet left Fort out.

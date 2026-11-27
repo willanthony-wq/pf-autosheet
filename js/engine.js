@@ -18,6 +18,23 @@
     'Kn. History', 'Kn. Nobility', 'Linguistics', 'Lore:', 'Perform:', 'Prof:', 'Sleight of Hand']);
   const FLIGHT = { Clumsy: -8, Poor: -4, Average: 0, Good: 4, Perfect: 8 };
   const LOAD_RANK = { Unarmored: 0, Light: 1, Medium: 2, Heavy: 3, Overloaded: 4 };
+
+  // ---- Condition fixes on top of the spreadsheet's table (data.js is generated, so they live here).
+  // Core Rulebook: Stunned loses Dex to AC; Grappled takes -2 on attacks (and so CMB) and can't move.
+  // (The table already stops running and charging for Fatigued, Exhausted, Entangled, Grappled and Nauseated.)
+  // Plus conditions the spreadsheet didn't list.
+  (function fixConditions() {
+    const C = D.conditions, byName = nm => C.find(c => c.name === nm);
+    const set = (nm, fields) => { const c = byName(nm); if (c) Object.assign(c, fields); };
+    set('Stunned', { ac: 'LOSEDEX-2' });
+    set('Grappled', { mAtk: -2, rAtk: -2, speedMult: 0 });   // (CMB already takes melee attack penalties)
+    const add = c => { if (!byName(c.name)) C.splice(C.findIndex(x => /Encumbrance|Overencumbered/.test(x.name)), 0, c); };
+    add({ name: 'Flat-Footed', ac: 'LOSEDEX' });                 // no Dex (or dodge) bonus to AC or CMD
+    add({ name: 'Helpless', dex: -999, ac: 'LOSEDEX' });         // Dex 0; melee attackers get +4, coup de grace
+    add({ name: 'Unconscious', dex: -999, ac: 'LOSEDEX', speedMult: 0, chargeMult: 0, runMult: 0 });   // helpless
+  })();
+  // Encumbrance picked as a condition sets the load (the heavier of it and your gear's or Combat tab's load)
+  const ENC_CONDITIONS = { 'Light Encumbrance': 'Light', 'Medium Encumbrance': 'Medium', 'Heavy Encumbrance': 'Heavy', 'Overencumbered': 'Overloaded' };
   // Carrying capacity (Core Rulebook Table 7-4): heavy load by Strength score 0-29; +10 Str multiplies by 4.
   const HEAVY_LOAD = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 115, 130, 150, 175, 200, 230, 260, 300, 350, 400, 460, 520, 600, 700, 800, 920, 1040, 1200, 1400];
   // Size multipliers [bipeds, quadrupeds].
@@ -282,7 +299,7 @@
       const c = condMap.get(name);
       if (!c) continue;
       const v = {};
-      for (const k of ['str', 'dex', 'con', 'int', 'wis', 'cha', 'fort', 'ref', 'will', 'mAtk', 'mDmg', 'rAtk', 'rDmg', 'skills', 'cl']) {
+      for (const k of ['str', 'dex', 'con', 'int', 'wis', 'cha', 'fort', 'ref', 'will', 'mAtk', 'mDmg', 'rAtk', 'rDmg', 'skills', 'cl', 'cmb']) {
         if (isNum(c[k])) v[k] = n(c[k]);
       }
       if (typeof c.ac === 'string' && c.ac.startsWith('LOSEDEX')) { ctx.loseDex = true; v.ac = n(c.ac.slice(7)); }
@@ -496,7 +513,8 @@
     }
     const a = piece(ch.armor, D.armor), s = piece(ch.shield, D.shields);
     // "Auto" takes the load from what you carry (inventory, weapons, armor, coins).
-    const encName = ch.movement.encumbrance === 'Auto' ? (d.gear ? d.gear.load : 'Light') : (ch.movement.encumbrance || 'Light');
+    let encName = ch.movement.encumbrance === 'Auto' ? (d.gear ? d.gear.load : 'Light') : (ch.movement.encumbrance || 'Light');
+    for (const cn of ch.conditions || []) { const L = ENC_CONDITIONS[cn]; if (L && (LOAD_RANK[L] || 0) > (LOAD_RANK[encName] || 0)) encName = L; }
     const enc = ENCUMBRANCE[encName] || ENCUMBRANCE.Light;
     const maxDexes = [a.maxDex, s.maxDex, enc.maxDex].filter(x => x !== null);
     const armorCat = ['Unarmored', 'Light', 'Medium', 'Heavy'][Math.max(0, Math.min(3, a.weight))];
@@ -657,21 +675,24 @@
       }
       return s;
     };
-    const medHeavy = ['Medium', 'Heavy', 'Overloaded'].includes(d.armor.loadCat);
+    // Running: x4, or x3 in heavy armor or with a heavy load (Core Rulebook)
+    const heavy = ['Heavy', 'Overloaded'].includes(d.armor.loadCat);
+    // Over your heavy load you can only move 5 feet, as a full-round action (Slow and Steady doesn't help here)
+    const overloaded = d.armor.loadCat === 'Overloaded' && !(ch.movement.ignoreArmor || '').includes('Encumbrance');
     const mult = multipliers(rows, 'speed');
     const sp = ch.info.speeds;
     const landRaw = (n(sp.base) + stack(rows, 'speed')) * mult;
-    const land = reduce(landRaw);
+    const cap = s => (overloaded ? Math.min(s, 5) : s);
+    const land = cap(reduce(landRaw));
     const bonus = n(ch.movement.chargeBonus);
-    const runMult = isNum(ch.movement.runMult) ? n(ch.movement.runMult) : (medHeavy ? 3 : 4);
-    d.speed = {
-      land, charge: (land + bonus) * 2 * ctx.chargeMult, run: runMult * (land + bonus) * ctx.runMult, modes: {},
-    };
+    const runMult = isNum(ch.movement.runMult) ? n(ch.movement.runMult) : (heavy ? 3 : 4);
+    const move = s => ({ charge: overloaded || !s ? 0 : (s + bonus) * 2 * ctx.chargeMult, run: overloaded || !s ? 0 : runMult * (s + bonus) * ctx.runMult });
+    d.speed = Object.assign({ land, modes: {}, overloaded }, move(land));
     for (const k of ['fly', 'swim', 'burrow', 'climb']) {
       const fx = stack(rows, k);
       if (!isNum(sp[k]) && !fx) { d.speed.modes[k] = null; continue; }
-      const s = reduce((n(sp[k]) + fx) * mult);
-      d.speed.modes[k] = { move: s, charge: (s + bonus) * 2 * ctx.chargeMult, run: runMult * (s + bonus) * ctx.runMult };
+      const s = cap(reduce((n(sp[k]) + fx) * mult));
+      d.speed.modes[k] = Object.assign({ move: s }, move(s));
     }
   }
 

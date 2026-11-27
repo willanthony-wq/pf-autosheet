@@ -289,7 +289,7 @@
       const cd = condMap.get(name);
       if (!cd) continue;
       const v = {};
-      for (const k of ['str', 'dex', 'con', 'int', 'wis', 'cha', 'fort', 'ref', 'will', 'mAtk', 'mDmg', 'rAtk', 'rDmg', 'skills']) if (isNum(cd[k])) v[k] = n(cd[k]);
+      for (const k of ['str', 'dex', 'con', 'int', 'wis', 'cha', 'fort', 'ref', 'will', 'mAtk', 'mDmg', 'rAtk', 'rDmg', 'skills', 'cmb']) if (isNum(cd[k])) v[k] = n(cd[k]);
       if (typeof cd.ac === 'string' && cd.ac.startsWith('LOSEDEX')) { ctx.loseDex = true; v.ac = n(cd.ac.slice(7)); }
       else if (isNum(cd.ac)) v.ac = n(cd.ac);
       rows.push({ src: 'condition', name, type: 'Untyped (stacks)', v, text: cd.skillText || '' });
