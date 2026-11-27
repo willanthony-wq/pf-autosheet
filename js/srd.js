@@ -39,6 +39,8 @@
     if (words.length === 2) out.push(`${words[1]}, ${words[0]}`);
     if (words.length === 3) out.push(`${words[1]} ${words[2]}, ${words[0]}`, `${words[2]}, ${words[0]} ${words[1]}`);
     if (/s$/.test(base)) out.push(base.replace(/s$/, ''));
+    // Hero Lab spellings: "Rope, hempen (50 ft.)" -> "Rope, hemp (50 ft.)"
+    if (/\bhempen\b/.test(base)) out.push(base.replace(/\bhempen\b/, 'hemp'));
     out.push(base + ' (empty)');
     // "Skill Focus (Stealth)", "Weapon Focus (longsword)" -> the feat itself
     const noDetail = base.replace(/\s*\([^)]*\)$/, '').trim();

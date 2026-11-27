@@ -62,6 +62,7 @@
   const TRAITS = [
     ['reactionary', () => [{ target: 'init', value: 2, type: 'Trait' }]],
     ['resilient', () => [{ target: 'fort', value: 1, type: 'Trait' }]],
+    ['deft dodger', () => [{ target: 'ref', value: 1, type: 'Trait' }]],
     ['indomitable faith', () => [{ target: 'will', value: 1, type: 'Trait' }]],
     ['dangerously curious', () => [{ target: 'skill', skill: 'Use Magic Device', value: 1, type: 'Trait', text: 'Also a class skill: tick it on the Skills tab' }]],
     ['focused mind', () => note('+2 on concentration checks')],

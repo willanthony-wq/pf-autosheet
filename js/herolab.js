@@ -291,12 +291,17 @@
     if (at(hero, 'enabled') === 'yes') ch.heroPoints.current = num(at(hero, 'total'));
     if (all(kid(C, 'minions'), 'character').length) warnings.push('Companions (animal companions, familiars, eidolons) aren\'t imported. Add them on the Companion tab.');
 
-    calibrate(ch, C, { hpTarget, target, wTargets }, warnings);
+    const saveT = {};
+    for (const sv of kids(kid(C, 'saves'), 'save')) { const k = lc(at(sv, 'abbr')); if (['fort', 'ref', 'will'].includes(k)) saveT[k] = firstNum(at(sv, 'save')); }
+    calibrate(ch, {
+      hpTarget, target, wTargets, saves: saveT, init: firstNum(at(kid(C, 'initiative'), 'total')), ac: num(at(kid(C, 'armorclass'), 'ac')) || null,
+      cmb: firstNum(at(kid(C, 'maneuvers'), 'cmb')), cmd: firstNum(at(kid(C, 'maneuvers'), 'cmd')),
+    }, warnings);
     return { character: ch, warnings };
   }
 
   // ---------- compare with Hero Lab's totals and adjust what doesn't match
-  function calibrate(ch, C, t, warnings) {
+  function calibrate(ch, t, warnings) {
     const E = window.PF_ENGINE;
     const sign = x => (x >= 0 ? '+' : '') + x;
     let d = E.compute(ch);
@@ -322,20 +327,18 @@
     d = E.compute(ch);
 
     // Saves
-    const saves = kids(kid(C, 'saves'), 'save');
-    for (const s of saves) {
-      const k = { fort: 'fort', ref: 'ref', will: 'will' }[lc(at(s, 'abbr'))];
-      if (!k) continue;
-      const want = firstNum(at(s, 'save')), diff = want - d.saves[k].total;
-      if (diff) { ch.saves[k].misc = Number(ch.saves[k].misc || 0) + diff; warnings.push(`${at(s, 'abbr')} save: misc ${sign(diff)} to match Hero Lab (${sign(want)}).`); }
+    for (const [k, want] of Object.entries(t.saves || {})) {
+      if (want === null || want === undefined) continue;
+      const diff = want - d.saves[k].total;
+      if (diff) { ch.saves[k].misc = Number(ch.saves[k].misc || 0) + diff; warnings.push(`${k[0].toUpperCase() + k.slice(1)} save: misc ${sign(diff)} to match Hero Lab (${sign(want)}).`); }
     }
     // Initiative
-    const initWant = firstNum(at(kid(C, 'initiative'), 'total'));
+    const initWant = t.init;
     d = E.compute(ch);
     if (initWant !== null && initWant !== d.initiative.total) { const diff = initWant - d.initiative.total; ch.initiative.misc = Number(ch.initiative.misc || 0) + diff; warnings.push(`Initiative: misc ${sign(diff)} to match Hero Lab (${sign(initWant)}).`); }
     // AC
     d = E.compute(ch);
-    const acWant = num(at(kid(C, 'armorclass'), 'ac'));
+    const acWant = t.ac;
     if (acWant && acWant !== d.ac.total) { const diff = acWant - d.ac.total; ch.ac.misc = Number(ch.ac.misc || 0) + diff; warnings.push(`AC: misc ${sign(diff)} to match Hero Lab (${acWant}). Look for a natural armor or other bonus the sheet doesn't have yet.`); }
 
     // Weapons
@@ -360,8 +363,8 @@
     const fixed = [];
     for (const [name, s] of Object.entries(ch.skills)) {
       const got = d.skills.find(x => x.name === name);
-      if (s._hl !== undefined && got && got.total !== null && s.ranks > 0) { const diff = s._hl - got.total; if (diff) { s.misc = Number(s.misc || 0) + diff; fixed.push(`${name} ${sign(diff)}`); } }
-      delete s._hl;
+      if (s._hl !== undefined && got && got.total !== null && (s.ranks > 0 || s._listed)) { const diff = s._hl - got.total; if (diff) { s.misc = Number(s.misc || 0) + diff; fixed.push(`${name} ${sign(diff)}`); } }
+      delete s._hl; delete s._listed;
     }
     ch.specialty.forEach((r, i) => {
       const got = d.specialty[i];
@@ -372,13 +375,250 @@
 
     // Final check of the headline numbers
     d = E.compute(ch);
-    const cmbWant = firstNum(at(kid(C, 'maneuvers'), 'cmb')), cmdWant = firstNum(at(kid(C, 'maneuvers'), 'cmd'));
+    const cmbWant = t.cmb, cmdWant = t.cmd;
     const off = [];
     if (cmbWant !== null && cmbWant !== d.cmb) off.push(`CMB is ${sign(d.cmb)} here, ${sign(cmbWant)} in Hero Lab`);
     if (cmdWant !== null && cmdWant !== d.cmd) off.push(`CMD is ${d.cmd} here, ${cmdWant} in Hero Lab`);
     if (t.hpTarget && d.hp.max !== t.hpTarget) off.push(`HP is ${d.hp.max} here, ${t.hpTarget} in Hero Lab`);
     if (off.length) warnings.push(off.join('; ') + '.');
+    if (t.speed && d.speed.land !== t.speed) warnings.push(`Speed is ${d.speed.land} ft here, ${t.speed} ft in Hero Lab. Check armor and gear weights (the load affects speed).`);
     warnings.unshift(`Matched Hero Lab: AC ${d.ac.total}, HP ${d.hp.max}, Fort ${sign(d.saves.fort.total)}, Ref ${sign(d.saves.ref.total)}, Will ${sign(d.saves.will.total)}, CMB ${sign(d.cmb)}, CMD ${d.cmd}, Initiative ${sign(d.initiative.total)}.`);
+  }
+
+  // ---------- older portfolios (Hero Lab 4/5): plain XML with a text statblock plus Hero Lab's internal records
+  // Internal skill ids -> sheet skill names (ranks are stored on these as skUser)
+  const SKILL_IDS = { skAcrobat: 'Acrobatics', skAppraise: 'Appraise', skBluff: 'Bluff', skClimb: 'Climb', skDiplo: 'Diplomacy', skDisable: 'Disable Device',
+    skDisguise: 'Disguise', skEscape: 'Escape Artist', skFly: 'Fly', skHandleAn: 'Handle Animal', skHeal: 'Heal', skIntim: 'Intimidate', skKnowArc: 'Kn. Arcana',
+    skKnowDun: 'Kn. Dungeoneering', skKnowEng: 'Kn. Engineering', skKnowGeo: 'Kn. Geography', skKnowHist: 'Kn. History', skKnowHis: 'Kn. History', skKnowLoc: 'Kn. Local',
+    skKnowNat: 'Kn. Nature', skKnowNob: 'Kn. Nobility', skKnowPla: 'Kn. Planes', skKnowRel: 'Kn. Religion', skLinguist: 'Linguistics', skPercep: 'Perception',
+    skRide: 'Ride', skSenseMot: 'Sense Motive', skSleight: 'Sleight of Hand', skSpellcr: 'Spellcraft', skStealth: 'Stealth', skSurvival: 'Survival', skSwim: 'Swim', skUseMagic: 'Use Magic Device' };
+  // Split "A, B (x, y), C" at top-level commas
+  function splitList(t) {
+    const out = []; let depth = 0, cur = '';
+    for (const c of String(t || '')) {
+      if (c === '(') depth++; else if (c === ')') depth = Math.max(0, depth - 1);
+      if (c === ',' && !depth) { out.push(cur.trim()); cur = ''; } else cur += c;
+    }
+    if (cur.trim()) out.push(cur.trim());
+    return out.filter(Boolean);
+  }
+  // Reads the "Name +4/-1 (1d6+2/18-20/x2)" entries of a Melee or Ranged line
+  function attacksFrom(text) {
+    const out = [];
+    const re = /([A-Za-z][^,()+]*?)\s+([+-]\d+(?:\/[+-]\d+)*)\s+\(([^)]*)\)/g;
+    let m;
+    while ((m = re.exec(text.replace(/×/g, 'x')))) {
+      const name = m[1].replace(/^(and|or)\s+/i, '').replace(/\s+(and|or)$/i, '').trim();
+      const parts = m[3].split('/');
+      const dmg = parts[0] || '';
+      const cr = crit(parts.slice(1).join('/'));
+      out.push({ name, atk: firstNum(m[2]), dice: (dmg.match(/\d+d\d+/) || [''])[0], dmg: firstNum(dmg.replace(/^\d+d\d+/, '')) || 0, hasDmg: /\d+d\d+/.test(dmg), crit: cr.crit, mult: cr.mult });
+    }
+    return out;
+  }
+  function convertStatblock(text, extra, opts) {
+    const lines = String(text || '').replace(/\r/g, '').split('\n').map(l => l.replace(/\s+$/, ''));
+    const ch = M.normalize(M.blankCharacter());
+    const warnings = [];
+    ch.source = 'herolab';
+    const look = (opts && opts.lookupItem) || (() => null);
+    // Sections split by the "--------" rules; the header comes first
+    const sect = { head: [] }; let cur = 'head';
+    for (let i = 0; i < lines.length; i++) {
+      if (/^-{5,}$/.test(lines[i])) { const nm = (lines[i + 1] || '').trim().toLowerCase(); if (nm && /^-{5,}$/.test(lines[i + 2] || '')) { cur = nm; sect[cur] = []; i += 2; continue; } }
+      (sect[cur] = sect[cur] || []).push(lines[i]);
+    }
+    // Lines that wrap ("   spiked gauntlet ...") join onto the previous one
+    const joined = key => (sect[key] || []).reduce((acc, l) => { if (/^\s{2,}\S/.test(l) && acc.length) acc[acc.length - 1] += ' ' + l.trim(); else if (l.trim()) acc.push(l.trim()); return acc; }, []);
+    const head = joined('head'), def = joined('defense'), off = joined('offense'), stats = joined('statistics');
+    const field = (arr, label) => { const l = arr.find(x => x.startsWith(label + ' ')); return l ? l.slice(label.length + 1).trim() : ''; };
+
+    // Identity: "Male Human (Varisian) Paladin (Hospitaler) 1"
+    ch.info.name = head[0] || extra.name || 'Hero Lab character';
+    ch.info.player = extra.player || '';
+    const id = head[1] || '';
+    const g = id.match(/^(Male|Female)\s+/i);
+    if (g) ch.info.gender = g[1];
+    let rest = g ? id.slice(g[0].length) : id;
+    const classRe = new RegExp('\\b(' + D.classes.map(c => c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).sort((x, y) => y.length - x.length).join('|') + ')\\b(\\s*\\([^)]*\\))?\\s+(\\d+)', 'gi');
+    const found = []; let mm, firstAt = -1;
+    while ((mm = classRe.exec(rest))) { if (firstAt < 0) firstAt = mm.index; found.push({ name: findClass(mm[1]).name, level: +mm[3], archetype: (mm[2] || '').replace(/[()]/g, '').trim() }); }
+    if (firstAt > 0) ch.info.race = rest.slice(0, firstAt).trim();
+    ch.classes = found.map(f => ({ name: f.name, level: f.level }));
+    while (ch.classes.length < 3) ch.classes.push({ name: '', level: 0 });
+    if (!found.length) warnings.push(`Couldn't read the class from "${id}". Set it on the Character tab.`);
+    const arch = found.filter(f => f.archetype).map(f => `${f.name}: ${f.archetype}`);
+    const al = (head[2] || '').match(/^(LG|NG|CG|LN|N|CN|LE|NE|CE)\b\s*(\w+)?/);
+    if (al) { ch.info.alignment = al[1]; if (M.SIZES.some(z => z.name === al[2])) ch.info.size = al[2]; }
+
+    // Abilities: the statblock's scores are final; they become the base (race modifiers stay 0)
+    const ab = field(stats, 'Str') ? 'Str ' + field(stats, 'Str') : stats.find(l => /^Str \d/.test(l)) || '';
+    const target = {};
+    for (const [k, short] of [['str', 'Str'], ['dex', 'Dex'], ['con', 'Con'], ['int', 'Int'], ['wis', 'Wis'], ['cha', 'Cha']]) {
+      const m2 = ab.match(new RegExp(short + '\\s+(\\d+|—|-)'));
+      if (m2 && /\d/.test(m2[1])) { ch.abilities[k].base = +m2[1]; target[k] = +m2[1]; }
+    }
+
+    // Defense
+    const acLine = field(def, 'AC');
+    const acM = acLine.match(/^(\d+),\s*touch\s+(\d+),\s*flat-footed\s+(\d+)/);
+    const hpM = field(def, 'hp').match(/^(\d+)/);
+    const sv = def.find(l => /^Fort /.test(l)) || '';
+    const saves = { fort: firstNum((sv.match(/Fort\s+([+-]\d+)/) || [])[1]), ref: firstNum((sv.match(/Ref\s+([+-]\d+)/) || [])[1]), will: firstNum((sv.match(/Will\s+([+-]\d+)/) || [])[1]) };
+    const drM = def.join(' ').match(/DR\s+([^;]+)/);
+    if (drM) ch.hp.dr = 'DR ' + drM[1].trim();
+
+    // Gear list (Combat Gear ...; Other Gear ...), joining names that contain commas ("Rope, hempen (50 ft.)")
+    const gearText = stats.filter(l => /^(Combat Gear|Other Gear|Gear)\b/.test(l)).join('; ');
+    const gearItems = [];
+    for (const part of gearText.split(';')) {
+      const toks = splitList(part.trim().replace(/^(Combat Gear|Other Gear|Gear)\s*/, ''));
+      for (let i = 0; i < toks.length; i++) {
+        let t = toks[i];
+        while (i + 1 < toks.length && (/^[a-z0-9]/.test(toks[i + 1]) || look(`${t}, ${toks[i + 1]}`))) t += ', ' + toks[++i];
+        const money = t.match(/^([\d,]+)\s*(pp|gp|sp|cp)$/i);
+        if (money) { ch.money[money[2].toLowerCase()] += num(money[1]); continue; }
+        const q = t.match(/\s*\((\d+)\)$/);
+        gearItems.push({ name: q ? t.slice(0, q.index).trim() : t, qty: q ? +q[1] : 1 });
+      }
+    }
+    // Equipped armor and shield, from the AC breakdown "(+5 armor, +2 shield ...)"
+    const acParts = (acLine.match(/\(([^)]*)\)/) || [])[1] || '';
+    const used = new Set();
+    for (const [kind, table, slot] of [['armor', D.armor, ch.armor], ['shield', D.shields, ch.shield]]) {
+      if (!new RegExp('\\+\\d+\\s+' + kind).test(acParts)) continue;
+      const it = gearItems.find(x => !used.has(x) && findArmor(table, x.name));
+      if (!it) { warnings.push(`The statblock shows ${kind} on, but no ${kind} was found in the gear list. Set it on the Combat tab.`); continue; }
+      used.add(it);
+      const hit = findArmor(table, it.name);
+      Object.assign(slot, { name: it.name, item: hit.name, enh: enhOf(it.name) === 'Mwk' ? 'Mwk' : num(enhOf(it.name)) });
+      const L = look(it.name); if (L && L.w) slot.weight = L.w;
+    }
+
+    // Weapons from the Melee and Ranged lines
+    const catM = D.attackCategories.find(c => c.name.startsWith('Melee Attack')), catR = D.attackCategories.find(c => c.name.startsWith('Ranged Attack'));
+    const wTargets = [];
+    for (const [label, isRanged] of [['Melee', false], ['Ranged', true]]) {
+      for (const a of attacksFrom(field(off, label))) {
+        const L = look(a.name);
+        const enh = enhOf(a.name);
+        const w = Object.assign(M.blankWeapon(), { name: a.name, enh, dice: a.dice, crit: a.crit, mult: a.mult, carried: true });
+        if (L) { w.weight = L.w || ''; if (L.ty) w.type = L.ty; if (L.rg) w.range = L.rg + ' ft'; }
+        if (isRanged) {
+          const thrown = L && L.k && L.k !== 'ranged';
+          w.category = catR.name;
+          w.formula = opt(catR, thrown || (/composite|sling/i.test(a.name) && a.dmg > num(enh)) ? 'STR to Damage' : 'DEX to hit (').label;
+        } else {
+          w.category = catM.name;
+          w.formula = opt(catM, L && L.k === 'two' ? 'Two-Handed Melee' : 'Standard Melee').label;
+        }
+        ch.weapons.push(w);
+        wTargets.push({ atk: a.atk, dmg: a.dmg, hasDmg: a.hasDmg });
+        const inGear = gearItems.find(x => !used.has(x) && stripItem(x.name) === stripItem(a.name));
+        if (inGear) used.add(inGear);
+      }
+    }
+    // Everything else is inventory
+    for (const it of gearItems) {
+      if (used.has(it)) continue;
+      const L = look(it.name);
+      ch.inventory.push({ name: it.name, qty: it.qty, weight: L && L.w ? L.w : '', value: L && L.cost ? L.cost : '', carried: true, notes: '' });
+    }
+
+    // Feats, traits, skills, languages
+    const featNames = splitList(field(stats, 'Feats')).map(f => f.replace(/\s+[-+]\/?[-+]?\d+(\/[-+]\d+)?$/, '').replace(/\s+\+\/-\d+$/, ''));
+    const traitNames = splitList(field(stats, 'Traits'));
+    const suggest = (kind, name) => (window.PF_FEATS ? window.PF_FEATS.suggest(kind, name, Object.keys(D.skillMeta)) || [] : []);
+    for (const f of featNames) ch.feats.push({ level: '', name: f, text: '', bonuses: suggest('feat', f) });
+    for (const t of traitNames) ch.traits.push({ kind: 'Trait', text: t, bonuses: suggest('trait', t) });
+    ch.languages = field(stats, 'Languages');
+    for (const sk of splitList(field(stats, 'Skills'))) {
+      const m2 = sk.match(/^(.+?)\s+([+-]\d+)/);
+      if (!m2) continue;
+      const sp = m2[1].match(/^(Craft|Perform|Profession|Artistry|Lore)\s*\((.+)\)$/i);
+      if (sp) { const row = { base: SPECIALTY[lc(sp[1])], detail: sp[2], ranks: (extra.special || {})[lc(m2[1])] || 0, misc: 0, _hl: +m2[2] }; const empty = ch.specialty.find(r => r.base === row.base && !r.detail); if (empty) Object.assign(empty, row); else ch.specialty.push(row); continue; }
+      const name = skillName(m2[1]);
+      if (!D.skillMeta[name]) continue;
+      ch.skills[name] = Object.assign(ch.skills[name] || { ranks: 0, misc: 0 }, { _hl: +m2[2], _listed: true });
+    }
+    for (const [name, r] of Object.entries(extra.ranks || {})) ch.skills[name] = Object.assign(ch.skills[name] || { misc: 0 }, { ranks: r });
+
+    // Special abilities: descriptions go onto the matching feat or trait; the rest are class features
+    const known = featNames.concat(traitNames);
+    const sla = splitList(field(off, 'Spell-Like Abilities'));
+    for (const l of joined('special abilities')) {
+      if (/^Hero Lab|^Pathfinder®/.test(l)) continue;
+      const k = known.filter(n => l.toLowerCase().startsWith(n.toLowerCase())).sort((x, y) => y.length - x.length)[0];
+      let name, desc;
+      if (k) { name = k; desc = l.slice(k.length).replace(/^\s*[-+]?[+/\-\d]*\s*/, '').trim(); }
+      else {
+        const m3 = l.match(/^(.+?\((?:Ex|Su|Sp)\))\s*(.*)$/);
+        if (m3) { name = m3[1]; desc = m3[2]; } else { const m4 = l.match(/^((?:[A-Z][\w'’-]*|of|the|and|\+?\d+\S*)(?:\s+(?:[A-Z][\w'’-]*|of|the|and|\(.*?\)|[+-]?\d+\S*))*)\s+(.*)$/); name = m4 ? m4[1] : l; desc = m4 ? m4[2] : ''; }
+      }
+      const clean = name.replace(/\s*\((Ex|Su|Sp)\)$/, '');
+      const feat = ch.feats.find(f => lc(f.name) === lc(clean));
+      const trait = ch.traits.find(t => lc(t.text) === lc(clean));
+      if (feat) { feat.text = desc; continue; }
+      if (trait) { trait.text = `${trait.text}: ${desc}`; continue; }
+      if (/\(Sp\)$/.test(name) || sla.some(s2 => lc(s2).startsWith(lc(clean).split(' (')[0]))) continue;
+      ch.classFeatures.push({ name: clean, text: desc, bonuses: [] });
+    }
+    for (const s2 of sla) {
+      const grp = /at will/i.test(s2) ? 2 : /constant/i.test(s2) ? 3 : /(\d+)\/day/i.test(s2) ? (/\b1\/day/i.test(s2) ? 0 : 1) : 2;
+      ch.spellcasting.sla[grp].items.push({ id: M.uid(), name: s2.replace(/\s*\((at will|constant|\d+\/day)\)/i, ''), uses: '' });
+    }
+    for (const sq of splitList(field(stats, 'SQ')).concat(splitList(field(off, 'Special Attacks')), splitList(field(def, 'Defensive Abilities').split(';')[0]))) {
+      const base = sq.replace(/\s*\(.*\)$/, '');
+      if (!ch.classFeatures.some(f => lc(f.name).startsWith(lc(base)))) ch.classFeatures.push({ name: sq, text: '', bonuses: [] });
+    }
+    // Feats and traits the statblock doesn't describe get their rules text
+    const lookText = (opts && opts.lookupText) || (() => '');
+    for (const f of ch.feats) if (!f.text) f.text = lookText('feats', f.name) || '';
+    for (const t of ch.traits) if (!t.text.includes(':')) { const d2 = lookText('traits', t.text); if (d2) t.text = `${t.text}: ${d2}`; }
+    if (arch.length) ch.notes = `Archetype: ${arch.join('; ')}`;
+
+    // Spells: "1st—bless, cure light wounds (2)"
+    const casting = found.find(f => { const c = findClass(f.name); return c && c.stat; });
+    if (casting) { ch.spellcasting.className = casting.name; ch.spellcasting.ability = findClass(casting.name).stat.toLowerCase(); }
+    for (const l of off) {
+      const m5 = l.match(/^(\d)(?:st|nd|rd|th)?\s*(?:\([^)]*\))?\s*[—–-]\s*(.+)$/);
+      if (!m5) continue;
+      const L = +m5[1];
+      for (const sp of splitList(m5[2])) { const nm = sp.replace(/\s*\(\d+\)$/, '').replace(/\s*\(DC \d+\)/i, '').replace(/[ᴰˢ*]+$/, '').trim(); if (nm && !ch.spellcasting.levels[L].spells.some(x => x.name === nm)) ch.spellcasting.levels[L].spells.push({ id: M.uid(), name: nm.charAt(0).toUpperCase() + nm.slice(1), prepared: '' }); }
+    }
+
+    // Speed: Hero Lab's speed already reflects armor and load; start from the race's 30 ft unless the statblock is faster
+    const spd = firstNum(field(off, 'Speed'));
+    if (spd && spd > 30) ch.info.speeds.base = spd;
+    ch.notes = [ch.notes, txtNotes(sect)].filter(Boolean).join('\n\n');
+
+    calibrate(ch, {
+      hpTarget: hpM ? +hpM[1] : 0, target, wTargets, saves, init: firstNum(field(head, 'Init')) ?? firstNum((head.find(l => /^Init /.test(l)) || '').slice(5)),
+      ac: acM ? +acM[1] : null, cmb: firstNum((stats.join(' ').match(/CMB\s+([+-]\d+)/) || [])[1]), cmd: firstNum((stats.join(' ').match(/CMD\s+(\d+)/) || [])[1]), speed: spd,
+    }, warnings);
+    if (arch.length) warnings.push(`Archetype: ${arch.join('; ')}. The sheet uses the base class; check any class features the archetype changes.`);
+    warnings.push('This is an older Hero Lab portfolio, so details come from its text statblock. Feat and ability text is what the statblock shows (often shortened).');
+    return { character: ch, warnings };
+  }
+  // Any text after the special abilities that isn't a trademark line (often the character's description)
+  function txtNotes(sect) {
+    const sa = sect['special abilities'] || [];
+    const tail = sa.join('\n').split(/\n\s*\n/).slice(1).join('\n\n').split('\n').filter(l => l.trim() && !/^Hero Lab|^Pathfinder®/.test(l));
+    return tail.join('\n').trim();
+  }
+  function convertLegacy(text, opts) {
+    const doc = parseXml(text);
+    const heroes = all(doc, 'hero');
+    if (!heroes.length) throw new Error('No characters found in this portfolio.');
+    return heroes.map(h => {
+      const sb = kid(h, 'statblock');
+      const ranks = {}, special = {};
+      for (const p of all(h, 'pick')) {
+        const id = at(p, 'thing'), f = p.kids.find(k => k.tag === 'field' && at(k, 'id') === 'skUser');
+        if (f && SKILL_IDS[id]) ranks[SKILL_IDS[id]] = num(at(f, 'user'));
+      }
+      return convertStatblock(sb ? sb.text : '', { name: at(h, 'heroname'), player: at(h, 'playername'), ranks, special }, opts);
+    });
   }
 
   // ---------- files
@@ -392,10 +632,18 @@
     if (!files.length) throw new Error('No characters found in this portfolio. In Hero Lab, save the portfolio (.por) and try again.');
     return files.map(x => utf8(x.f.content));
   }
-  function importHeroLab(buf, fileName) {
-    const xmls = /\.por$/i.test(fileName) ? readPortfolio(buf) : [utf8(new Uint8Array(buf))];
-    return xmls.map(convert);
+  // opts.lookupItem(name) -> { w, cost, k, ty, rg } from the rules data, used for weights and weapon details in older portfolios
+  function importHeroLab(buf, fileName, opts) {
+    const bytes = new Uint8Array(buf);
+    const isZip = bytes[0] === 0x50 && bytes[1] === 0x4b;   // "PK"
+    if (/\.por$/i.test(fileName) && isZip) return readPortfolio(buf).map(convert);
+    // Older portfolios and XML exports are plain XML; read the declared encoding
+    const headText = new TextDecoder('latin1').decode(bytes.slice(0, 200));
+    const enc = (headText.match(/encoding="([^"]+)"/i) || [])[1] || 'utf-8';
+    const text = new TextDecoder(/8859-1|latin|1252/i.test(enc) ? 'windows-1252' : 'utf-8').decode(bytes);
+    if (/<document[^>]*signature="Hero Lab Portfolio"/.test(text.slice(0, 500))) return convertLegacy(text, opts);
+    return [convert(text)];
   }
 
-  window.PF_HEROLAB = { parseXml, convert, importHeroLab };
+  window.PF_HEROLAB = { parseXml, convert, convertStatblock, importHeroLab };
 })();

@@ -1466,7 +1466,12 @@
       if (/\.(por|xml)$/i.test(file.name)) {
         // Hero Lab: a portfolio can hold several characters; each becomes its own character here
         if (!window.PF_HEROLAB) throw new Error('The Hero Lab importer did not load. Reload the page.');
-        const results = window.PF_HEROLAB.importHeroLab(await file.arrayBuffer(), file.name);
+        // Rules data fills in weights, prices, weapon details and feat/trait text the file doesn't carry
+        const S = window.PF_SRD;
+        if (S) await S.ensure(['gear', 'weapons', 'armor', 'items', 'feats', 'traits']);
+        const lookupItem = name => { const hit = S && S.findAny(['weapons', 'armor', 'gear', 'items'], name); if (!hit) return null; const it = hit.item; return { w: it.w, cost: S.priceOf(it, name), k: it.k, ty: it.ty, rg: it.rg }; };
+        const lookupText = (kind, name) => { const it = S && S.find(kind, name); return it ? (kind === 'feats' ? (it.b || it.d) : it.d) : ''; };
+        const results = window.PF_HEROLAB.importHeroLab(await file.arrayBuffer(), file.name, { lookupItem, lookupText });
         if (App.ch) saveNow();
         App.tab = 'play';
         for (const r of results) {

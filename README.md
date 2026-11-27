@@ -47,7 +47,7 @@ Tested against three real character sheets, including one with a custom class an
 
 ## Importing from Hero Lab
 
-Click **Import** (or drag the file onto the page) and choose a Hero Lab portfolio (`.por`, in *Documents/Hero Lab/portfolios/pathfinder*) or a Hero Lab XML export. Every character in the portfolio is imported.
+Click **Import** (or drag the file onto the page) and choose a Hero Lab portfolio (`.por`, in *Documents/Hero Lab/portfolios/pathfinder*) or a Hero Lab XML export. Every character in the portfolio is imported. Older portfolios (Hero Lab 4 and 5, saved as plain XML) work too: their details come from the text statblock and Hero Lab's skill-rank records, and the rules data fills in gear weights, prices and feat and trait text the statblock leaves out.
 
 It brings over identity, classes, ability scores, skills (ranks and class skills), feats with their text, class abilities with their text, traits, weapons (dice, crit, range, attack type), armor and shield, worn magic items in their slots with their bonuses, other gear with weights and prices, money, tracked resources, damage reduction, languages and the character's description. A barbarian also gets a **Rage** effect to switch on.
 
