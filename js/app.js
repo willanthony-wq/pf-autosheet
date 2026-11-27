@@ -854,8 +854,11 @@
       <td>${l.value === null ? '' : (l.label === 'Base' || l.label === 'Base speed' ? esc(l.value) : esc(sg(l.value)))}</td></tr>`).join('');
     return `<div class="explain-head"><strong>${esc(x.title)}</strong><span class="explain-total">${esc(x.total)}</span></div><table class="explain-table">${rows}</table>${x.foot ? `<p class="small muted" style="margin:6px 0 0">${esc(x.foot)}</p>` : ''}`;
   }
-  // One popover for the whole page. Hover shows it; a click (or Enter) pins it until you click elsewhere.
-  let explainPinned = null;
+  // One popover for the whole page. Resting the mouse on a number for 3 seconds shows it; a click on the ⓘ
+  // (or the tile, or Enter) shows it at once and pins it until you click elsewhere.
+  let explainPinned = null, explainTimer = null;
+  const EXPLAIN_DELAY = 3000;
+  const cancelExplainTimer = () => { clearTimeout(explainTimer); explainTimer = null; };
   function showExplain(el, pin) {
     const html = explainHtml(el.dataset.explain);
     if (!html) return;
@@ -878,16 +881,18 @@
   }
   document.addEventListener('mouseover', e => {
     const el = e.target.closest && e.target.closest('[data-explain]');
-    if (el && !explainPinned) showExplain(el, false);
+    if (!el || explainPinned || (e.relatedTarget && el.contains(e.relatedTarget))) return;
+    cancelExplainTimer();
+    explainTimer = setTimeout(() => { explainTimer = null; if (!explainPinned && el.isConnected && el.matches(':hover')) showExplain(el, false); }, EXPLAIN_DELAY);
   });
   document.addEventListener('mouseout', e => {
     const el = e.target.closest && e.target.closest('[data-explain]');
-    if (el && !(e.relatedTarget && el.contains(e.relatedTarget))) hideExplain(false);
+    if (el && !(e.relatedTarget && el.contains(e.relatedTarget))) { cancelExplainTimer(); hideExplain(false); }
   });
   document.addEventListener('click', e => {
     const el = e.target.closest && e.target.closest('[data-explain]');
     // Clicking a roll button inside the tile still rolls; anywhere else on the tile pins the breakdown
-    if (el && !e.target.closest('button')) { if (explainPinned === el.dataset.explain) hideExplain(true); else showExplain(el, true); return; }
+    if (el && !e.target.closest('button')) { cancelExplainTimer(); if (explainPinned === el.dataset.explain) hideExplain(true); else showExplain(el, true); return; }
     if (!(e.target.closest && e.target.closest('#explain-pop'))) hideExplain(true);
   });
   document.addEventListener('keydown', e => {
@@ -895,7 +900,7 @@
     if (e.key === 'Escape') hideExplain(true);
     else if (el && e.target === el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); showExplain(el, true); }
   });
-  window.addEventListener('scroll', () => hideExplain(true), { passive: true });
+  window.addEventListener('scroll', () => { cancelExplainTimer(); hideExplain(true); }, { passive: true });
 
   // ----- Active Bonuses: in the sidebar under Dice, so it shows on every tab
   function activeBonusesHtml() {

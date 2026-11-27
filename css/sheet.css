@@ -257,7 +257,8 @@ select.class-select { min-width: 190px; }
 /* What makes a number: Play tiles show their breakdown on hover or click */
 .explain { cursor: help; }
 .explain:hover, .explain:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
-.explain-i { font-size: 10px; color: var(--muted); }
+.explain-i { font-size: 12px; color: var(--muted); cursor: pointer; padding: 0 2px; }
+.explain-i:hover { color: var(--accent); }
 .explain-pop { position: absolute; z-index: 50; background: var(--panel); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 10px 12px; font-size: 13px; }
 .explain-pop[hidden] { display: none; }
 .explain-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
