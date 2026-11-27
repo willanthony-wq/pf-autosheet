@@ -660,10 +660,16 @@
         { tools: `<button class="btn small ghost" data-action="rest">Rest</button><button class="btn small ghost" data-action="tab" data-tab="spells">Edit</button>` });
     }
 
-    const miscCharges = (ch.miscItems || []).map((x, i) => (x.max !== '' && x.max !== undefined && x.max !== null) ? `<div class="play-res"><span>${esc(x.name || 'Magic item')}</span>
-        <span class="counter"><button class="btn small" data-action="bump" data-path="miscItems/${i}/uses" data-d="-1" aria-label="Use one charge">−</button><strong>${esc(x.uses === '' || x.uses === undefined ? 0 : x.uses)}</strong><span class="muted">/ ${esc(x.max)}</span><button class="btn small" data-action="bump" data-path="miscItems/${i}/uses" data-d="1" aria-label="Add one charge">+</button></span></div>` : '').join('');
-    const res = card('Resources', `${ch.resources.map((r, i) => `<div class="play-res"><span>${esc(r.name || 'Resource')}</span>
-        <span class="counter"><button class="btn small" data-action="bump" data-path="resources/${i}/uses" data-d="-1" aria-label="Use one">−</button><strong>${esc(r.uses === '' || r.uses === undefined ? 0 : r.uses)}</strong>${r.max !== '' && r.max !== undefined ? `<span class="muted">/ ${esc(r.max)}</span>` : ''}<button class="btn small" data-action="bump" data-path="resources/${i}/uses" data-d="1" aria-label="Add one">+</button></span></div>`).join('') || '<p class="small muted">No resources. Add them on the Gear tab.</p>'}${miscCharges}
+    // Resources and magic item charges, each with a star: starred ones are highlighted and listed first
+    const resRow = (path, name, x, title) => {
+      const fav = !!x.fav;
+      return { fav, html: `<div class="play-res${fav ? ' fav' : ''}"><span class="res-name"><button class="star-btn${fav ? ' on' : ''}" data-action="toggle-fav" data-path="${path}" aria-pressed="${fav}" title="${fav ? 'Unstar' : 'Star this to highlight it and keep it at the top'}">${fav ? '★' : '☆'}</button>${esc(name)}</span>
+        <span class="counter"><button class="btn small" data-action="bump" data-path="${path}/uses" data-d="-1" aria-label="Use one${title}">−</button><strong>${esc(x.uses === '' || x.uses === undefined ? 0 : x.uses)}</strong>${x.max !== '' && x.max !== undefined && x.max !== null ? `<span class="muted">/ ${esc(x.max)}</span>` : ''}<button class="btn small" data-action="bump" data-path="${path}/uses" data-d="1" aria-label="Add one${title}">+</button></span></div>` };
+    };
+    const resRows = ch.resources.map((r, i) => resRow(`resources/${i}`, r.name || 'Resource', r, ''))
+      .concat((ch.miscItems || []).map((x, i) => (x.max !== '' && x.max !== undefined && x.max !== null) ? resRow(`miscItems/${i}`, x.name || 'Magic item', x, ' charge') : null).filter(Boolean));
+    const resList = resRows.filter(r => r.fav).concat(resRows.filter(r => !r.fav)).map(r => r.html).join('');
+    const res = card('Resources', `${resList || '<p class="small muted">No resources. Add them on the Gear tab.</p>'}
       <div class="play-res"><span><strong>Hero points</strong></span><span class="counter"><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="-1">−</button><strong>${esc(ch.heroPoints.current)}</strong><span class="muted">/ ${esc(ch.heroPoints.max)}</span><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="1">+</button></span></div>`);
 
     // Buffs, Skills and Spells share one column, in that order; Resources sits beside them.
@@ -1824,6 +1830,7 @@
       'remove-choice': () => { const c = App.ch.classes[+el.dataset.i]; const gone = (c.choices || []).splice(+el.dataset.k, 1)[0]; if (gone) c.choices = c.choices.filter(x => x.parent !== gone.n); changed(true); autoSyncClassFeatures(); },
       'remove-archetype': () => { const c = App.ch.classes[+el.dataset.i]; (c.archetypes || []).splice(+el.dataset.k, 1); changed(true); autoSyncClassFeatures(); },
       'sort-worn': () => sortWornItems(),
+      'toggle-fav': () => { const x = get(el.dataset.path); if (!x) return; if (x.fav) delete x.fav; else x.fav = true; changed(true); },
       'fold': () => {
         const k = el.dataset.key;
         App.settings.folded = App.settings.folded || {};

@@ -337,6 +337,12 @@ label.choice input { margin-top: 3px; accent-color: var(--accent); }
 .spell-btn { font-weight: 500; }
 .play-res { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; border-top: 1px solid var(--line); }
 .play-res:first-child { border-top: 0; }
+/* Starred resources: highlighted and listed first */
+.res-name { display: inline-flex; align-items: center; gap: 4px; }
+.star-btn { border: 0; background: none; cursor: pointer; font-size: 16px; line-height: 1; padding: 0 2px; color: var(--muted); }
+.star-btn:hover { color: var(--accent); }
+.star-btn.on { color: #d4a017; }
+.play-res.fav { background: color-mix(in srgb, #d4a017 14%, transparent); border-radius: 6px; padding: 4px 6px; margin: 2px -6px; font-weight: 600; border-top-color: transparent; }
 .notes-list { margin: 0; padding-left: 18px; }
 .play-stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 
