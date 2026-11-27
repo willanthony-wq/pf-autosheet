@@ -80,6 +80,10 @@ def clean(n):
 
 feats, traits, spells, items, gear, weapons, armor, classes, archetypes, choices, races = {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}
 monsters, companions = {}, {}
+mythic = {'base': [], 'paths': [], 'universal': []}
+# Base mythic abilities and the tier each is gained (Mythic Adventures, Table: Base Mythic Abilities)
+MYTHIC_BASE_TIER = {'hard to kill': 1, 'mythic power': 1, 'surge': 1, 'amazing initiative': 2, 'recuperation': 3, 'mythic saving throws': 5,
+                    'force of will': 6, 'unstoppable': 8, 'immortal': 9, 'legendary hero': 10}
 
 SKILLS = ['Acrobatics', 'Appraise', 'Bluff', 'Climb', 'Diplomacy', 'Disable Device', 'Disguise', 'Escape Artist', 'Fly', 'Handle Animal', 'Heal', 'Intimidate',
           'Linguistics', 'Perception', 'Ride', 'Sense Motive', 'Sleight of Hand', 'Spellcraft', 'Stealth', 'Survival', 'Swim', 'Use Magic Device']
@@ -453,6 +457,57 @@ for book, abbr in BOOKS:
         elif 'start' not in e:
             e['start'] = block
 
+    # ---- mythic rules (Mythic Adventures): base abilities by tier, the six paths, universal path abilities
+    if abbr == 'MA' and not mythic['paths']:
+        sec = lambda name, parent=None: c.execute('select * from sections where name=? ' + ('and parent_id=?' if parent else '') + ' order by lft', (name, parent) if parent else (name,)).fetchone()
+        tier_of = lambda nm: int(re.match(r'(\d+)', nm).group(1)) if re.match(r'\d+', nm) else 1
+        ab = lambda x: {'n': re.sub(r'\s*\((Ex|Su|Sp)\)$', '', clean(x['name'])), 'd': text(x['body'] or x['description'], 900)}
+        base = sec('Base Mythic Abilities')
+        base = c.execute("select * from sections where name='Base Mythic Abilities' and type='section'").fetchone()
+        if base:
+            for k in kids(base['section_id']):
+                a = ab(k)
+                a['l'] = MYTHIC_BASE_TIER.get(a['n'].lower(), 1)
+                mythic['base'].append(a)
+        uni = c.execute("select * from sections where name='Universal Path Abilities'").fetchone()
+        if uni:
+            for g in kids(uni['section_id']):
+                for k in kids(g['section_id']):
+                    if k['type'] in ('ability', 'section'):
+                        mythic['universal'].append(dict(ab(k), t=tier_of(clean(g['name']))))
+        for pn in ('Archmage', 'Champion', 'Guardian', 'Hierophant', 'Marshal', 'Trickster'):
+            # the path's own section is the one with a "Bonus Hit Points" part (other sections share the name)
+            top = c.execute("select s.* from sections s where s.name=? and exists (select 1 from sections k where k.parent_id=s.section_id and k.name='Bonus Hit Points')", (pn,)).fetchone()
+            if not top:
+                continue
+            path = {'n': pn, 's': abbr, 'd': text(top['body'], 600), 'hp': 0, 'feature': None, 'capstone': None, 'abilities': []}
+            for k in kids(top['section_id']):
+                kn = clean(k['name'])
+                if re.match(r'^\d+(st|nd|rd|th)-Tier', kn):   # the trickster files its tiers here, not under its features
+                    for x in kids(k['section_id']):
+                        if x['type'] in ('ability', 'section') and not clean(x['name']).endswith('Builds'):
+                            path['abilities'].append(dict(ab(x), t=tier_of(kn)))
+                elif kn == 'Role':
+                    path['role'] = text(k['body'], 500)
+                elif kn == 'Bonus Hit Points':
+                    m = re.search(r'gain (\d+) bonus hit points', text(k['body']))
+                    path['hp'] = int(m.group(1)) if m else 0
+                elif kn.endswith('Features'):
+                    for f in kids(k['section_id']):
+                        fn = clean(f['name'])
+                        sub = kids(f['section_id'])
+                        if re.match(r'^\d+(st|nd|rd|th)-Tier', fn):
+                            for x in sub:
+                                if x['type'] in ('ability', 'section'):
+                                    path['abilities'].append(dict(ab(x), t=tier_of(fn)))
+                        elif fn == 'Path Ability':
+                            continue
+                        elif sub and all(x['type'] == 'ability' for x in sub):
+                            path['feature'] = {'n': fn, 'd': text(f['body'], 400), 'options': [ab(x) for x in sub]}
+                        elif f['type'] == 'ability':
+                            path['capstone'] = ab(f)
+            mythic['paths'].append(path)
+
     # ---- races (Advanced Race Guide): ability modifiers, size, speed, senses, languages, bonuses and features
     for r in c.execute("select * from sections where type='race'"):
         if abbr != 'ARG':   # the Advanced Race Guide has every race, written the same way
@@ -568,5 +623,8 @@ def dump(name, store, sort=True):
 
 
 companions = {k: v for k, v in companions.items() if 'start' in v}
+with open(os.path.join(OUT, 'mythic.json'), 'w', encoding='utf-8') as f:
+    json.dump(mythic, f, ensure_ascii=False, separators=(',', ':'))
+print(f"mythic    paths {len(mythic['paths'])}, base {len(mythic['base'])}, universal {len(mythic['universal'])}, path abilities {sum(len(x['abilities']) for x in mythic['paths'])}")
 for n, s in [('feats', feats), ('traits', traits), ('spells', spells), ('items', items), ('gear', gear), ('weapons', weapons), ('armor', armor), ('classes', classes), ('archetypes', archetypes), ('choices', choices), ('races', races), ('monsters', monsters), ('companions', companions)]:
     dump(n, s)

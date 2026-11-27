@@ -173,7 +173,7 @@
   // A bonus value is a number or a small formula such as "max(3, level)" or "ranks >= 10 ? 6 : 3".
   // Variables: level, bab, str..cha (modifiers), ranks (in the targeted skill), class1..class3 (levels in each
   // class slot) and any class name as a word, e.g. rogue, cleric, machine_smith (your levels in it; 0 if none).
-  const BASE_VARS = new Set(['level', 'bab', 'cl', 'str', 'dex', 'con', 'int', 'wis', 'cha', 'ranks', 'speed', 'fly', 'swim', 'burrow', 'climb']);
+  const BASE_VARS = new Set(['level', 'bab', 'cl', 'str', 'dex', 'con', 'int', 'wis', 'cha', 'ranks', 'speed', 'fly', 'swim', 'burrow', 'climb', 'tier']);
   const MATH_FNS = new Set(['max', 'min', 'floor', 'ceil', 'abs']);
   function classSlug(name) { return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''); }
   const CLASS_SLUGS = new Set(D.classes.map(c => classSlug(c.name)).concat(['class1', 'class2', 'class3']));
@@ -191,7 +191,7 @@
         return 'L("' + id + '")';
       });
       try {
-        const fn = new Function('V', 'const {level=0,bab=0,cl=0,str=0,dex=0,con=0,int=0,wis=0,cha=0,ranks=0,speed=0,fly=0,swim=0,burrow=0,climb=0}=V; const {max,min,floor,ceil,abs}=Math;' +
+        const fn = new Function('V', 'const {level=0,bab=0,cl=0,str=0,dex=0,con=0,int=0,wis=0,cha=0,ranks=0,speed=0,fly=0,swim=0,burrow=0,climb=0,tier=0}=V; const {max,min,floor,ceil,abs}=Math;' +
           ' const C=V.C||{}; const L=k=>Object.prototype.hasOwnProperty.call(C,k)?C[k]:0; return (' + body + ');');
         out = { fn, unknown };
       } catch (e) { out = null; }
@@ -235,13 +235,14 @@
       rows.push(row);
     }
   }
+  function mythicTier(ch) { return Math.max(0, Math.min(10, Math.floor(n(ch.mythic && ch.mythic.tier)))); }
   // Base speeds, for effect formulas such as Haste's min(30, speed)
   function speedVars(ch) {
     const sp = (ch.info && ch.info.speeds) || {};
     return { speed: n(sp.base), fly: n(sp.fly), swim: n(sp.swim), burrow: n(sp.burrow), climb: n(sp.climb) };
   }
   function abilityVars(d, level, bab) {
-    const V = { level, bab, cl: d.quickCl || 0, C: classVars(d) };
+    const V = { level, bab, cl: d.quickCl || 0, tier: d.mythicTier || 0, C: classVars(d) };
     for (const a of ABILITIES) V[a] = d.mods ? d.mods[a] : 0;
     return V;
   }
@@ -282,6 +283,18 @@
     for (const f of ch.classFeatures || []) pushBonuses(rows, f.bonuses || [], 'feature', b => b.label || f.name || 'Class feature', 'Untyped (stacks)', V);
     for (const s of ch.slots || []) pushBonuses(rows, s.bonuses || [], 'worn', b => b.label || s.item || s.slot || 'Worn item', 'Enhancement', V);
     for (const x of ch.miscItems || []) pushBonuses(rows, x.bonuses || [], 'misc', b => b.label || x.name || 'Magic item', 'Enhancement', V);
+    // Mythic: abilities' bonuses, the path's bonus hit points per tier, Amazing Initiative (+tier from 2nd tier)
+    // and +2 to an ability score at tiers 2, 4, 6, 8 and 10
+    const my = ch.mythic || {}, tier = mythicTier(ch);
+    if (tier > 0) {
+      for (const f of my.abilities || []) pushBonuses(rows, f.bonuses || [], 'mythic', b => b.label || f.name || 'Mythic ability', 'Untyped (stacks)', V);
+      const U = 'Untyped (stacks)', MY = window.PF_MODEL.MYTHIC;
+      if (MY.HP[my.path]) rows.push({ src: 'mythic', name: `${my.path} tiers (bonus HP)`, type: U, v: { hp: MY.HP[my.path] * tier }, text: '' });
+      if (tier >= 2) rows.push({ src: 'mythic', name: 'Amazing initiative', type: U, v: { init: tier }, text: '' });
+      (my.boosts || []).slice(0, MY.boosts(tier)).forEach((a, i) => {
+        if (ABILITIES.includes(a)) rows.push({ src: 'mythic', name: `Mythic ability score (tier ${2 * (i + 1)})`, type: U, v: { [a]: 2 }, text: '' });
+      });
+    }
 
 
     for (const it of ch.magicItems) {
@@ -352,7 +365,10 @@
     // Caster level for formulas (before effects; the CL column of effects is added later for spells)
     { const sc = ch.spellcasting || {}; const cc = d.classes.find(x => x.data && x.name === sc.className);
       d.quickCl = Math.min(20, (cc ? cc.level : 0) + n(sc.classLevelMisc)) + n(sc.clMisc); }
-    ctx.vars = abilityVars({ mods: quickMods(ch), quickCl: d.quickCl, classes: d.classes }, d.level, d.bab);
+    d.mythicTier = mythicTier(ch);
+    { const M2 = window.PF_MODEL.MYTHIC, t = d.mythicTier;
+      d.mythic = { tier: t, path: (ch.mythic && ch.mythic.path) || '', powerMax: M2.powerMax(t), powerLeft: Math.max(0, M2.powerMax(t) - n(ch.mythic && ch.mythic.powerUsed)), surge: t ? '1' + M2.surgeDie(t) : '', feats: M2.feats(t), boosts: M2.boosts(t) }; }
+    ctx.vars = abilityVars({ mods: quickMods(ch), quickCl: d.quickCl, classes: d.classes, mythicTier: d.mythicTier }, d.level, d.bab);
     let rows = buildEffectRows(ch, Object.assign({}, ctx, { hpMax: 0 }));
     computeAbilities(ch, d, rows);
     ctx.vars = abilityVars(d, d.level, d.bab);

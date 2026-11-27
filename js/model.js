@@ -231,6 +231,9 @@
       companions: [],           // animal companions, eidolons, familiars, others (see companion.js)
       customClasses: [],        // classes copied from an imported workbook's Class Charts
       customAttackOptions: [],  // attack formulas copied from an imported workbook
+      // Mythic Adventures: path, tier, mythic power used today, the path's 1st-tier feature, the ability score
+      // raised at tiers 2/4/6/8/10, and mythic abilities (base abilities and path abilities, with bonuses)
+      mythic: { path: '', tier: 0, powerUsed: 0, feature: '', boosts: ['', '', '', '', ''], abilities: [] },
     };
   }
 
@@ -254,6 +257,10 @@
     magicItemsToEffects(ch);
     if (window.PF_COMPANION) ch.companions = (ch.companions || []).map(c => window.PF_COMPANION.normalize(c));
     for (const k of ['traits', 'feats', 'classFeatures', 'slots', 'miscItems']) (ch[k] || []).forEach(x => { if (!Array.isArray(x.bonuses)) x.bonuses = []; });
+    if (!Array.isArray(ch.mythic.boosts)) ch.mythic.boosts = ['', '', '', '', ''];
+    while (ch.mythic.boosts.length < 5) ch.mythic.boosts.push('');
+    if (!Array.isArray(ch.mythic.abilities)) ch.mythic.abilities = [];
+    ch.mythic.abilities.forEach(x => { if (!Array.isArray(x.bonuses)) x.bonuses = []; });
     while (ch.spellcasting.levels.length < 10) ch.spellcasting.levels.push({ spells: [], used: 0, perDayOverride: '' });
     ch.spellcasting.levels.forEach(l => (l.spells || []).forEach(s => { if (!s.id) s.id = uid(); }));
     (ch.spellcasting.sla || []).forEach(g => (g.items || []).forEach(s => { if (!s.id) s.id = uid(); }));
@@ -328,8 +335,17 @@
   function isPlainObject(o) { return o && typeof o === 'object' && !Array.isArray(o); }
   function uid() { return Math.random().toString(36).slice(2, 10); }
 
+  // Mythic paths: bonus hit points per tier; mythic power 3 + 2 x tier per day; surge die by tier
+  const MYTHIC = {
+    PATHS: ['Archmage', 'Champion', 'Guardian', 'Hierophant', 'Marshal', 'Trickster'],
+    HP: { Archmage: 3, Champion: 5, Guardian: 5, Hierophant: 4, Marshal: 4, Trickster: 4 },
+    powerMax: t => (t > 0 ? 3 + 2 * t : 0),
+    surgeDie: t => (t >= 10 ? 'd12' : t >= 7 ? 'd10' : t >= 4 ? 'd8' : 'd6'),
+    feats: t => Math.ceil(Math.max(0, t) / 2),        // mythic feats at tiers 1, 3, 5, 7, 9
+    boosts: t => Math.floor(Math.max(0, t) / 2),      // +2 to an ability score at tiers 2, 4, 6, 8, 10
+  };
   window.PF_MODEL = {
-    ABILITIES, ABILITY_NAMES, ABBR_TO_KEY, EFFECT_COLS, BONUS_TYPES, BONUS_TARGETS, STACKING_TYPES, SIZES, AGE, XP,
+    MYTHIC, ABILITIES, ABILITY_NAMES, ABBR_TO_KEY, EFFECT_COLS, BONUS_TYPES, BONUS_TARGETS, STACKING_TYPES, SIZES, AGE, XP,
     HP_FORMULAS, SKILL_SYSTEMS, SPECIALTY_SKILLS, ITEM_SLOTS, BACKGROUND_QUESTIONS,
     blankCharacter, blankEffect, COMMON_EFFECTS, commonEffect, classEffect, blankWeapon, isBlankWeapon, defaultToggles, normalize, uid,
   };

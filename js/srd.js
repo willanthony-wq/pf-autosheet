@@ -4,6 +4,15 @@
 (() => {
   'use strict';
   const KINDS = ['feats', 'traits', 'spells', 'items', 'gear', 'weapons', 'armor', 'classes', 'archetypes', 'choices', 'races', 'monsters', 'companions'];
+  // Rules sources switched off on the Settings tab ("APG", "UM"...): their entries leave suggestion lists and pickers
+  let disabled = new Set(), disabledSig = '';
+  function setDisabled(list) {
+    const sig = (list || []).slice().sort().join('|');
+    if (sig === disabledSig) return false;
+    disabled = new Set(list || []); disabledSig = sig;
+    return true;
+  }
+  const enabled = x => !x || !x.s || !disabled.has(x.s);
   const cache = {}, pending = {};
   const ver = (document.querySelector('script[src*="js/srd.js"]') || { src: '' }).src.split('?v=')[1] || '1';
 
@@ -89,14 +98,20 @@
   const LIMIT = 400;
   const full = {};   // datalist id -> [{ n, k }]
   const shown = {};  // datalist id -> query the list was last built for
+  const builtSig = {};  // datalist id -> source selection it was built with
   const optHtml = n => `<option value="${String(n).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}">`;
   function datalist(id, kinds, filter) {
-    if (document.getElementById(id)) return;
+    const old = document.getElementById(id);
+    if (old && builtSig[id] === disabledSig) return;
+    if (old) old.remove();
     ensure(kinds).then(res => {
-      if (document.getElementById(id)) return;
+      if (document.getElementById(id) && builtSig[id] === disabledSig) return;
+      const stale = document.getElementById(id);
+      if (stale) stale.remove();
+      builtSig[id] = disabledSig;
       const seen = new Set(), names = [];
       res.forEach(c => c && c.list.forEach(x => {
-        if (filter && !filter(x)) return;
+        if (!enabled(x) || (filter && !filter(x))) return;
         const k = key(x.n);
         if (seen.has(k)) return;
         seen.add(k);
@@ -217,6 +232,13 @@
   }
 
   const list = kind => (cache[kind] ? cache[kind].list : []);
+  // Mythic rules (data/srd/mythic.json): { base, paths, universal }
+  let mythicJson = null, mythicP = null;
+  function mythic() {
+    if (mythicJson) return Promise.resolve(mythicJson);
+    if (!mythicP) mythicP = fetch(`data/srd/mythic.json?v=${ver}`).then(r => (r.ok ? r.json() : null)).then(j => (mythicJson = j)).catch(() => { mythicP = null; return null; });
+    return mythicP;
+  }
 
-  window.PF_SRD = { spellLevel, hasSpellList, classKey, list, CUSTOM, USE_SRD, KINDS, load, ensure, narrow, archetypesFor, archetype, choicesFor, choice, find, findAny, priceOf, enhOf, datalist, classFeatures, classFeatureText, key, loaded: k => !!cache[k] };
+  window.PF_SRD = { mythic, mythicData: () => mythicJson, setDisabled, enabled, spellLevel, hasSpellList, classKey, list, CUSTOM, USE_SRD, KINDS, load, ensure, narrow, archetypesFor, archetype, choicesFor, choice, find, findAny, priceOf, enhOf, datalist, classFeatures, classFeatureText, key, loaded: k => !!cache[k] };
 })();

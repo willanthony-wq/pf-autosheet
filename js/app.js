@@ -143,9 +143,36 @@
 
   const classOptions = () => {
     const opts = (App.ch.customClasses || []).map(c => ({ v: c.name, l: c.name, g: 'From your spreadsheet' }));
-    for (const c of D.classes) opts.push({ v: c.name, l: c.name, g: c.cat });
+    const keep = new Set(App.ch.classes.map(c => c.name).filter(Boolean));
+    for (const c of D.classes) if (srcOn(classSource(c)) || keep.has(c.name)) opts.push({ v: c.name, l: c.name, g: c.cat });
     return opts;
   };
+  // ----- Rules sources (Settings tab): books you switch off leave the suggestion lists and pickers
+  const SOURCES = [
+    ['Paizo rulebooks', [['CRB', 'Core Rulebook'], ['APG', "Advanced Player's Guide"], ['UM', 'Ultimate Magic'], ['UC', 'Ultimate Combat'], ['ARG', 'Advanced Race Guide'],
+      ['ACG', 'Advanced Class Guide'], ['UCa', 'Ultimate Campaign'], ['UE', 'Ultimate Equipment'], ['MA', 'Mythic Adventures'], ['TG', 'Technology Guide'],
+      ['PU', 'Pathfinder Unchained (classes)'], ['OA', 'Occult Adventures (classes)'], ['UI', 'Ultimate Intrigue (vigilante)'], ['UW', 'Ultimate Wilderness (shifter)'], ['CS', 'Campaign Setting prestige classes']]],
+    ['Bestiaries and GM books', [['B1', 'Bestiary'], ['B2', 'Bestiary 2'], ['B3', 'Bestiary 3'], ['B4', 'Bestiary 4'], ['MC', 'Monster Codex'], ['NPC', 'NPC Codex'], ['GMG', 'GameMastery Guide'],
+      ['Monstrous', 'Monster racial hit dice classes']]],
+    ['Other and third-party', [['Eberron', 'Eberron prestige classes (3.5)'], ['DSP-Psi', 'Psionics (Dreamscarred Press)'], ['DSP-PoW', 'Path of War (Dreamscarred Press)'],
+      ['NeoExodus', 'Classes of NeoExodus: Machinesmith'], ['NeoExodus WoMD', 'NeoExodus: Weapons of Machinesmith Destruction'], ['Rite Publishing', 'Rite Publishing (Program Feat)']]],
+  ];
+  // Where each class comes from: the rules data's book, else the spreadsheet's class category
+  const CLASS_SRC = { 'Arcane Archer': 'CRB', 'Arcane Trickster': 'CRB', Assassin: 'CRB', Barbarian: 'CRB', Bard: 'CRB', Cleric: 'CRB', 'Dragon Disciple': 'CRB', Druid: 'CRB', Duelist: 'CRB',
+    'Eldritch Knight': 'CRB', Fighter: 'CRB', Loremaster: 'CRB', Monk: 'CRB', 'Mystic Theurge': 'CRB', Paladin: 'CRB', 'Pathfinder Chronicler': 'CRB', Ranger: 'CRB', Rogue: 'CRB',
+    Shadowdancer: 'CRB', Sorcerer: 'CRB', Wizard: 'CRB', Alchemist: 'APG', 'Battle Herald': 'APG', Cavalier: 'APG', 'Holy Vindicator': 'APG', 'Horizon Walker': 'APG', Inquisitor: 'APG',
+    'Master Chymist': 'APG', 'Master Spy': 'APG', 'Nature Warden': 'APG', Oracle: 'APG', 'Rage Prophet': 'APG', 'Stalwart Defender': 'APG', Summoner: 'APG', Witch: 'APG', Antipaladin: 'APG',
+    Magus: 'UM', Ninja: 'UC', Samurai: 'UC', Gunslinger: 'UC', Arcanist: 'ACG', Bloodrager: 'ACG', Brawler: 'ACG', Hunter: 'ACG', Investigator: 'ACG', Shaman: 'ACG', Skald: 'ACG',
+    Slayer: 'ACG', Swashbuckler: 'ACG', Warpriest: 'ACG', Shifter: 'UW', Vigilante: 'UI' };
+  function classSource(c) {
+    if (!c) return '';
+    if (CLASS_SRC[c.name]) return CLASS_SRC[c.name];
+    if (/\(Unchained\)/.test(c.name)) return 'PU';
+    if (/NeoExodus/.test(c.source || '')) return 'NeoExodus';
+    return { Occult: 'OA', Monstrous: 'Monstrous', 'Paizo Prestige': 'CS', 'Eberron Prestige': 'Eberron', NPC: 'CRB', '3PP-Psionics': 'DSP-Psi', '3PP-Martial': 'DSP-PoW', Hybrid: 'ACG', Base: 'CRB' }[c.cat] || '';
+  }
+  const srcOn = s => !s || !(App.ch && (App.ch.settings.disabledSources || []).includes(s));
+  const srdOn = x => !SRD || !SRD.enabled || SRD.enabled(x);
 
   // ---------- Compute & output refresh ----------
   function recompute() {
@@ -191,6 +218,7 @@
     const main = $('#main');
     if (!App.ch) { main.innerHTML = renderEmpty(); renderActiveSide(); return; }
     const y = window.scrollY;
+    if (window.PF_SRD && window.PF_SRD.setDisabled) window.PF_SRD.setDisabled(App.ch.settings.disabledSources || []);
     const fn = { play: renderPlay, character: renderOverview, overview: renderOverview, race: renderRace, skills: renderSkills, combat: renderCombat, companion: renderCompanion, spells: renderSpells, effects: renderEffects,
       features: renderFeatures, feats: renderFeats, notes: renderNotes, settings: renderSettings }[App.tab] || renderOverview;
     const wnames = App.ch.weapons.map(w => w.name).concat(...(App.ch.companions || []).map(c => (c.attacks || []).map(a => a.name))).filter(Boolean);
@@ -333,7 +361,8 @@
       { cls: 'span-2', tools: `<button class="btn small" data-action="add" data-list="traits">+ Trait</button>` });
     const cf = card('Class Features', featureList('classFeatures'),
       { cls: 'span-2', tools: `<button class="btn small ghost" data-action="srd-class-features" title="Adds the features your classes get up to your level (Core, APG, ACG and other Paizo base classes), with their rules text">Add for my level</button><button class="btn small" data-action="add" data-list="classFeatures">+ Feature</button>` });
-    return `<div class="grid two">${identity}${classes}${abilities}${hp}${saves}${defenses}${traits}${cf}</div>${classFeatureNames()}`;
+    const mythic = srcOn('MA') || +(ch.mythic && ch.mythic.tier) > 0 ? mythicCard() : '';
+    return `<div class="grid two">${identity}${classes}${abilities}${hp}${saves}${defenses}${traits}${cf}${mythic}</div>${classFeatureNames()}`;
   }
 
   // Archetypes chosen for a class, with a picker of that class's archetypes from the rules data
@@ -345,7 +374,7 @@
       const known = list && list.some(x => x.n.toLowerCase() === String(a).toLowerCase());
       return `<span class="chip on arch-chip" title="${known || !list ? 'Archetype' : 'Not in the rules data: its abilities won\'t be added automatically'}">${esc(a)}${known || !list ? '' : ' ?'}<button class="icon-btn" data-action="remove-archetype" data-i="${i}" data-k="${k}" aria-label="Remove ${esc(a)}">✕</button></span>`;
     }).join('');
-    const options = list ? list.filter(x => !chosen.some(a => String(a).toLowerCase() === x.n.toLowerCase())) : [];
+    const options = list ? list.filter(x => srdOn(x) && !chosen.some(a => String(a).toLowerCase() === x.n.toLowerCase())) : [];
     const picker = list === null ? '<span class="small muted">loading archetypes…</span>'
       : options.length ? `<select class="arch-add" data-i="${i}" aria-label="Add an archetype for ${esc(c.name)}"><option value="">+ Archetype…</option>${options.map(x => `<option value="${esc(x.n)}">${esc(x.n)} (${esc(x.s)})</option>`).join('')}</select>`
       : (chosen.length ? '' : '<span class="small muted">No archetypes in the rules data</span>');
@@ -362,7 +391,7 @@
     const isPicked = (g, n) => picked.some(x => x.g === g && x.n.toLowerCase() === n.toLowerCase());
     const groups = new Map();
     for (const x of all) {
-      if (x.k === 'auto' || isPicked(x.g, x.n)) continue;
+      if (x.k === 'auto' || isPicked(x.g, x.n) || !srdOn(x)) continue;
       if (!groups.has(x.g)) groups.set(x.g, []);
       groups.get(x.g).push({ v: `${x.g}::${x.n}`, l: x.n + (x.k === 'talent' && x.l > 1 ? ` (${x.l}th+)`.replace('1th', '1st').replace('2th', '2nd').replace('3th', '3rd') : '') });
     }
@@ -507,6 +536,94 @@
         ${tail}</div>`;
     }).join('') || '<p class="small muted">None yet.</p>';
   }
+  // ----- Mythic (Mythic Adventures): path, tier, mythic power, surge, ability increases and mythic abilities
+  const TIER_LABEL = { 1: '1st', 3: '3rd', 6: '6th' };
+  function mythicCard() {
+    const ch = App.ch, my = ch.mythic, dm = App.d.mythic || {}, MY = M.MYTHIC;
+    const data = SRD ? SRD.mythicData() : null;
+    if (!data && SRD) SRD.mythic().then(j => { if (j && (App.tab === 'character' || App.tab === 'overview')) render(); });
+    const path = data && data.paths.find(p => p.n === my.path);
+    const t = dm.tier || 0;
+    const boosts = Array.from({ length: dm.boosts || 0 }, (_, i) => field(`Tier ${2 * (i + 1)}: +2 to`, sel(`mythic/boosts/${i}`, M.ABILITIES.map(a => ({ v: a, l: M.ABILITY_NAMES[a] })), { blank: '— ability —', rerender: true }))).join('');
+    const top = `<div class="fields">
+        ${field('Mythic path', sel('mythic/path', MY.PATHS, { blank: '— not mythic —', rerender: true }))}
+        ${field('Tier', inp('mythic/tier', { type: 'num', ph: '0', title: 'Mythic tier, 0 to 10' }))}
+        ${path && path.feature ? field(path.feature.n, sel('mythic/feature', path.feature.options.map(o => o.n), { blank: '— choose one —', rerender: true })) : ''}
+        ${boosts}</div>`;
+    if (!t) return card('Mythic', `${top}<p class="small muted">Pick a path and a tier (Mythic Adventures) to track mythic power, surge, bonus hit points, Amazing Initiative, ability increases and path abilities.</p>`,
+      { cls: 'span-2', fold: 'char:mythic', summary: 'not mythic' });
+    const picked = my.abilities.filter(x => /^path:/.test(x.src || '')).length;
+    const stats = `<div class="inline" style="margin:8px 0">
+        <span>Mythic power <strong>${dm.powerLeft}</strong> / ${dm.powerMax}</span>
+        <span class="counter"><button class="btn small" data-action="bump" data-path="mythic/powerUsed" data-d="1" aria-label="Use one mythic power">−</button><button class="btn small" data-action="bump" data-path="mythic/powerUsed" data-d="-1" aria-label="Regain one mythic power">+</button></span>
+        <button class="btn small" data-action="mythic-surge" title="Roll your surge die (Shift-click: private)">Surge +${esc(dm.surge)}</button>
+        <span class="small muted">Bonus HP +${(MY.HP[my.path] || 0) * t}${t >= 2 ? ` · initiative +${t}` : ''} · mythic feats ${dm.feats} (at tiers 1, 3, 5, 7, 9) · path abilities ${picked} / ${t}</span></div>`;
+    let picker = '';
+    if (data && path) {
+      const have = new Set(my.abilities.map(x => SRD.key(x.name)));
+      const groups = [];
+      for (const tt of [1, 3, 6]) {
+        if (t < tt) continue;
+        for (const [lbl, list] of [[path.n, path.abilities], ['Universal', data.universal]]) {
+          const opts = list.filter(a => a.t === tt && !have.has(SRD.key(a.n)));
+          if (opts.length) groups.push(`<optgroup label="${TIER_LABEL[tt]}-tier ${esc(lbl)}">${opts.map(a => `<option value="${esc(lbl)}::${esc(a.n)}">${esc(a.n)}</option>`).join('')}</optgroup>`);
+        }
+      }
+      if (groups.length) picker = `<select class="mythic-add" aria-label="Add a path ability" style="width:auto"><option value="">+ Path ability…</option>${groups.join('')}</select>`;
+    }
+    const rows = my.abilities.map((x, i) => {
+      const p = `mythic/abilities/${i}`;
+      return `<div class="feature-item"><div class="feature-head mythic">${inp(`${p}/name`, { ph: 'Mythic ability' })}${removeBtn('mythic/abilities', i, 'mythic ability')}</div>${area(`${p}/text`, { rows: 3, ph: 'Description' })}
+        ${bonusEditor(`${p}/bonuses`, x.bonuses)}${addBonusButtons(`${p}/bonuses`, 'Untyped (stacks)', null, i, 'mythic/abilities')}</div>`;
+    }).join('');
+    return card('Mythic', `${top}${stats}<div class="inline" style="margin-bottom:6px">${picker}<button class="btn small ghost" data-action="mythic-sync" title="Adds the base mythic abilities for your tier, your path's 1st-tier feature and its 10th-tier ability">Add for my tier</button></div>${rows || '<p class="small muted">No mythic abilities listed yet.</p>'}`,
+      { cls: 'span-2', fold: 'char:mythic', summary: `${esc(my.path)} ${t} · mythic power ${dm.powerLeft} / ${dm.powerMax}` });
+  }
+  // Base mythic abilities for the tier, the path's chosen 1st-tier feature and its 10th-tier ability; ones above
+  // your tier (or no longer chosen) come off unless you edited them
+  async function syncMythic(auto) {
+    const data = SRD ? await SRD.mythic() : null;
+    if (!data || !App.ch) return;
+    const my = App.ch.mythic, MY = M.MYTHIC, t = Math.max(0, Math.min(10, Math.floor(+my.tier || 0)));
+    const path = data.paths.find(p => p.n === my.path);
+    const want = [];
+    if (t > 0) {
+      for (const b of data.base) {
+        if (b.l > t || /^(ability score|mythic feat)$/i.test(b.n)) continue;
+        want.push({ src: `base:${b.n}`, name: b.n === 'Surge' ? `Surge +1${MY.surgeDie(t)}` : b.n === 'Mythic Power' ? `Mythic power (${MY.powerMax(t)}/day)` : b.n, text: b.d });
+      }
+      const o = path && path.feature && path.feature.options.find(x => x.n === my.feature);
+      if (o) want.push({ src: `feature:${o.n}`, name: `${o.n} (${path.feature.n})`, text: o.d });
+      if (path && path.capstone && t >= 10) want.push({ src: `capstone:${path.capstone.n}`, name: path.capstone.n, text: path.capstone.d });
+    }
+    let added = 0, removed = 0;
+    const wanted = new Set(want.map(w => w.src));
+    for (const w of want) {
+      const have = my.abilities.find(x => x.src === w.src);
+      if (have) { if (have.name === have.srcName && have.name !== w.name) { have.name = w.name; have.srcName = w.name; added++; } continue; }
+      my.abilities.push({ name: w.name, text: w.text, bonuses: [], src: w.src, srcName: w.name, srcHash: textHash(w.text) });
+      added++;
+    }
+    my.abilities = my.abilities.filter(x => {
+      if (!/^(base|feature|capstone):/.test(x.src || '') || wanted.has(x.src)) return true;
+      if (x.srcHash !== textHash(x.text) || (x.bonuses || []).length) return true;
+      removed++;
+      return false;
+    });
+    if (added || removed) changed(true);
+    if (!auto || added || removed) toast(added || removed ? `Mythic abilities: ${added} added or updated, ${removed} removed.` : 'Your mythic abilities are already listed.');
+  }
+  function addMythicAbility(v) {
+    const data = SRD && SRD.mythicData();
+    if (!data) return;
+    const [grp, name] = v.split('::');
+    const path = data.paths.find(p => p.n === App.ch.mythic.path);
+    const list = grp === 'Universal' ? data.universal : path ? path.abilities : [];
+    const a = list.find(x => x.n === name);
+    if (!a) return;
+    App.ch.mythic.abilities.push({ name: a.n, text: a.d, bonuses: [], src: `path:${a.n}` });
+    changed(true);
+  }
   // ----- Feat types and prerequisites, trait categories (from the SRD data)
   const FEAT_TYPES = ['Combat', 'Critical', 'General', 'Item Creation', 'Metamagic', 'Mythic', 'Style', 'Teamwork', 'Story', 'Grit', 'Panache', 'Performance', 'Monster'];
   function featListId() { return App.featType ? `srd-feats-${App.featType.toLowerCase().replace(/\W+/g, '-')}` : 'srd-feats'; }
@@ -601,6 +718,7 @@
     ch.classFeatures.forEach((f, i) => L.push([`classFeatures/${i}/bonuses`, f.name || 'Class feature', 'Class feature']));
     ch.slots.forEach((s, i) => L.push([`slots/${i}/bonuses`, s.item || s.slot || 'Worn item', 'Worn item']));
     (ch.miscItems || []).forEach((x, i) => L.push([`miscItems/${i}/bonuses`, x.name || 'Magic item', 'Magic item']));
+    if (+(ch.mythic && ch.mythic.tier) > 0) ch.mythic.abilities.forEach((x, i) => L.push([`mythic/abilities/${i}/bonuses`, x.name || 'Mythic ability', 'Mythic']));
     return L;
   }
   function compSituationalLists(ci) {
@@ -671,7 +789,10 @@
     const checks = card('Saves & Checks', `<div class="save-row">${saveBtn('fort', 'Fort')}${saveBtn('ref', 'Reflex')}${saveBtn('will', 'Will')}</div>
       ${ch.saves.notes ? `<p class="small muted">${esc(ch.saves.notes)}</p>` : ''}
       <div class="ability-row">${M.ABILITIES.map(a => `<div class="ab-cell"><span class="label">${a.toUpperCase()} <span class="muted">${out(`abilities/${a}/score`, '', '')}</span></span>${rollBtn(M.ABILITY_NAMES[a] + ' check', `abilities/${a}/mod`)}</div>`).join('')}</div>
-      ${d.spells.data ? `<div class="inline" style="margin-top:8px"><span class="small">Caster level</span>${rollBtn('Caster level check', 'spells/cl')}<span class="small">Concentration</span>${rollBtn('Concentration', 'spells/concentration')}</div>` : ''}`);
+      ${d.spells.data ? `<div class="inline" style="margin-top:8px"><span class="small">Caster level</span>${rollBtn('Caster level check', 'spells/cl')}<span class="small">Concentration</span>${rollBtn('Concentration', 'spells/concentration')}</div>` : ''}
+      ${d.mythic && d.mythic.tier ? `<div class="inline" style="margin-top:8px"><span class="small">Mythic power <strong>${d.mythic.powerLeft}</strong> / ${d.mythic.powerMax}</span>
+        <span class="counter"><button class="btn small" data-action="bump" data-path="mythic/powerUsed" data-d="1" aria-label="Use one mythic power">−</button><button class="btn small" data-action="bump" data-path="mythic/powerUsed" data-d="-1" aria-label="Regain one mythic power">+</button></span>
+        <button class="btn small" data-action="mythic-surge" title="Roll your surge die (Shift-click: private)">Surge +${esc(d.mythic.surge)}</button></div>` : ''}`);
 
     const atkRows = ch.weapons.map((w, i) => `<tr>
         <td class="l"><strong>${esc(w.name || 'Unnamed weapon')}</strong><div class="sub">${esc(w.crit || '20')}/${esc(w.mult || 'x2')}${w.range ? ' · ' + esc(w.range) + ' ft' : ''}${w.type ? ' · ' + esc(w.type) : ''}${weaponSpecial(w) ? ' · ' + esc(weaponSpecial(w)) : ''}</div></td>
@@ -739,7 +860,7 @@
   }
 
   // ----- What makes a number: hover or click a Play tile (AC, Touch, CMD, saves...) to see its parts and sources
-  const SRC_NAMES = { race: 'race', trait: 'trait', feat: 'feat', feature: 'class feature', worn: 'worn item', misc: 'magic item', effect: 'effect', toggle: 'toggle', item: 'magic item', condition: 'condition' };
+  const SRC_NAMES = { mythic: 'mythic', race: 'race', trait: 'trait', feat: 'feat', feature: 'class feature', worn: 'worn item', misc: 'magic item', effect: 'effect', toggle: 'toggle', item: 'magic item', condition: 'condition' };
   // The named bonuses behind one key (ac, nat, fort...), with the ones that don't stack marked
   function sourcesOf(key, typeFilter, rows) {
     const legacy = t => (t !== 'Deflect/Enhance/Resist' ? t : key === 'ac' ? 'Deflection' : ['fort', 'ref', 'will'].includes(key) ? 'Resistance' : 'Enhancement');
@@ -1261,7 +1382,7 @@
   function renderRace() {
     const ch = App.ch, r = ch.race, R = window.PF_RACES;
     if (!R.loaded()) R.load().then(() => { if (App.tab === 'race') render(); });
-    const presetOpts = R.groups().map(([g, names]) => `<optgroup label="${esc(g)}">${names.map(n => `<option value="${esc(n)}"${r.preset === n ? ' selected' : ''}>${esc(n)}</option>`).join('')}</optgroup>`).join('');
+    const presetOpts = R.groups(r.preset).map(([g, names]) => `<optgroup label="${esc(g)}">${names.map(n => `<option value="${esc(n)}"${r.preset === n ? ' selected' : ''}>${esc(n)}</option>`).join('')}</optgroup>`).join('');
     const main = card('Race', `<div class="fields">
         ${field('Race', inp('info/race', { ph: 'e.g. Tiefling' }))}
         <label class="field">Start from a race<span class="inline" style="flex-wrap:nowrap"><select id="race-preset" aria-label="Race preset"><option value="">— choose —</option>${presetOpts}</select><button class="btn small" data-action="apply-race">Apply</button></span></label>
@@ -1730,7 +1851,12 @@
       <p class="inline small">Theme: <button class="btn small" data-action="theme" data-theme="">Auto</button><button class="btn small" data-action="theme" data-theme="light">Light</button><button class="btn small" data-action="theme" data-theme="dark">Dark</button></p>
       ${(ch.customClasses || []).length ? `<p class="small muted">Classes copied from your spreadsheet: ${ch.customClasses.map(c => esc(c.name)).join(', ')}.</p>` : ''}
       <p class="small muted">Based on the Pathfinder Autosheet v6.2.1 by /u/darthmarth28 (free for non-commercial use). Class tables: ${D.classes.length} classes.</p>`);
-    return `<div class="grid two">${discord}${rules}${data}</div>`;
+    const off = new Set(ch.settings.disabledSources || []);
+    const sources = card('Rules sources', `<p class="small" style="margin-top:0">Untick a book to hide what it adds from this character's lists: classes, archetypes, class choices, races, feats, traits, spells, magic items, gear, weapons and creatures. Anything already on the sheet stays, and imports still use every book.</p>
+      ${SOURCES.map(([g, list]) => `<h3 style="margin:10px 0 4px">${esc(g)}</h3><div class="source-grid">${list.map(([k, n]) => `<label class="inline small"><input type="checkbox" data-action="toggle-source" data-src="${esc(k)}"${off.has(k) ? '' : ' checked'}> ${esc(n)}</label>`).join('')}</div>`).join('')}
+      <p class="inline" style="margin-top:10px"><button class="btn small" data-action="sources-all" data-on="1">All on</button><button class="btn small" data-action="sources-all" data-on="">All off</button>
+        <span class="small muted">${off.size ? `${off.size} off` : 'All sources on'}</span></p>`, { cls: 'span-2' });
+    return `<div class="grid two">${discord}${rules}${sources}${data}</div>`;
   }
 
   // ---------- Events ----------
@@ -1798,6 +1924,8 @@
     const el = e.target;
     if (el.id === 'add-condition' && el.value) { App.ch.conditions.push(el.value); changed(true); return; }
     if (el.id === 'feat-type-filter') { App.featType = el.value || ''; render(); return; }
+    if (el.classList && el.classList.contains('mythic-add') && el.value) { addMythicAbility(el.value); return; }
+    if (el.dataset && /^mythic\/(path|tier|feature)$/.test(el.dataset.bind || '')) setTimeout(() => syncMythic(true), 60);
     if (el.classList && el.classList.contains('choice-add') && el.value) {
       const c = App.ch.classes[+el.dataset.i];
       const [g, n, parent] = el.value.split('::');
@@ -1934,6 +2062,19 @@
         if (i >= 0) c.splice(i, 1); else c.push(n);
         changed(true);
       },
+      'toggle-source': () => {
+        const s = el.dataset.src, list = App.ch.settings.disabledSources = App.ch.settings.disabledSources || [];
+        const i = list.indexOf(s);
+        if (el.checked) { if (i >= 0) list.splice(i, 1); } else if (i < 0) list.push(s);
+        changed(true);
+      },
+      'sources-all': () => { App.ch.settings.disabledSources = el.dataset.on ? [] : SOURCES.flatMap(([, l]) => l.map(([k]) => k)); changed(true); },
+      'mythic-surge': () => {
+        const dm = App.d.mythic;
+        if (!dm || !dm.surge) return;
+        try { const r = DICE.rollExpr(dm.surge); emit({ title: `${who()}: Surge (+${dm.surge})`, total: r.total, lines: [r.text] }, priv); } catch (e) { toast(e.message); }
+      },
+      'mythic-sync': () => syncMythic(false),
       'bump': () => { const p = el.dataset.path; const v = (parseFloat(get(p)) || 0) + (+el.dataset.d); pathSet(App.ch, p, Math.max(0, v)); changed(true); },
       'hp': () => hpAction(el.dataset.mode),
       'pip': () => {
@@ -2122,6 +2263,7 @@
     App.ch.spellcasting.levels.forEach(l => { l.used = 0; });
     App.ch.resources.forEach(r => { if (r.max !== '' && r.max !== undefined) r.uses = r.max; });
     App.ch.hp.nonlethal = 0;
+    if (App.ch.mythic) App.ch.mythic.powerUsed = 0;   // mythic power refreshes each day
     changed(true);
     toast('Rested.');
   }

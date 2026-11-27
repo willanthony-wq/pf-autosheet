@@ -142,9 +142,11 @@
     return srd ? { name: srd.n, preset: fromSrd(srd) } : null;
   }
   // Names for the Race tab, grouped
-  function groups() {
-    const extra = srdCache().filter(x => !RACES[x.n]);
-    return [['Core', Object.keys(RACES)], ['Featured', extra.filter(x => x.cat === 'featured').map(x => x.n)], ['Uncommon', extra.filter(x => x.cat !== 'featured').map(x => x.n)]].filter(g => g[1].length);
+  function groups(keep) {
+    const on = x => !window.PF_SRD || !window.PF_SRD.enabled || window.PF_SRD.enabled(x) || x.n === keep;
+    const core = Object.keys(RACES).filter(n => on({ n, s: 'CRB' }));
+    const extra = srdCache().filter(x => !RACES[x.n] && on(x));
+    return [['Core', core], ['Featured', extra.filter(x => x.cat === 'featured').map(x => x.n)], ['Uncommon', extra.filter(x => x.cat !== 'featured').map(x => x.n)]].filter(g => g[1].length);
   }
   // Loads the rules-data races once; resolves when find()/groups() can see them
   function load() {

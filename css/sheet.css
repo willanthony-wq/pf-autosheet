@@ -437,3 +437,6 @@ tr.effect-bonuses .effect-bonus-box { position: sticky; left: 8px; width: min(88
 .tag { display: inline-block; font-size: 11px; line-height: 1.4; padding: 0 6px; border-radius: 9px; background: var(--calc); color: var(--muted); border: 1px solid var(--line); }
 .tag.ok { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, var(--line)); }
 .tag.warn { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+/* Mythic abilities; rules-source checkboxes */
+.feature-head.mythic { grid-template-columns: 1fr 28px; }
+.source-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 2px 12px; }
