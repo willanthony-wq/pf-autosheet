@@ -417,6 +417,7 @@
     App.ch.feats.forEach(f => add(f.name || 'Feat', f.bonuses));
     App.ch.classFeatures.forEach(f => add(f.name || 'Class feature', f.bonuses));
     App.ch.slots.forEach(s => add(s.item || s.slot || 'Worn item', s.bonuses));
+    App.ch.effects.forEach(e => { if (e.active) add(e.name || 'Effect', e.bonuses); });
     return out;
   }
 
@@ -1322,12 +1323,16 @@
       },
       'spell-presets': () => {
         const s = get(el.dataset.path);
-        const res = spellPresetFor(s.name);
-        if (!res) { toast(`No standard bonuses known for "${s.name || 'this spell'}". Use + Bonus to add your own.`); return; }
+        const res = spellPresetFor(s.name) || [];
+        const dice = applySpellDice(s);
+        if (!res.length && !dice) { toast(`No standard bonuses known for "${s.name || 'this spell'}". Use + Bonus to add your own.`); return; }
         s.buff = s.buff || { on: true, target: 'self', bonuses: [] };
-        s.buff.bonuses = (s.buff.bonuses || []).concat(res);
+        const sameAs = (a, b) => a.target === b.target && a.type === b.type && String(a.value) === String(b.value) && (a.text || '') === (b.text || '') && (a.skill || '') === (b.skill || '');
+        const fresh = res.filter(b => !(s.buff.bonuses || []).some(x => sameAs(x, b)));
+        s.buff.bonuses = (s.buff.bonuses || []).concat(fresh);
         changed(true);
-        toast(`Added ${res.length} bonus${res.length === 1 ? '' : 'es'} for ${s.name}.`);
+        const done = [fresh.length ? `Added ${fresh.length} bonus${fresh.length === 1 ? '' : 'es'}` : '', dice ? `${fresh.length ? 'set' : 'Set'} the dice` : ''].filter(Boolean).join(' and ');
+        toast(done ? `${done} for ${s.name}.` : `${s.name} already has its standard bonuses.`);
       },
       'add-sla': () => { App.ch.spellcasting.sla[+el.dataset.g].items.push({ id: M.uid(), name: '', uses: '' }); changed(true); },
       'add': () => {
@@ -1553,7 +1558,7 @@
   function spellSummary(s) {
     const bits = [];
     if (s.attack) bits.push(s.attack === 'rtouch' ? 'ranged touch' : 'melee touch');
-    if (s.dmgDie) bits.push(`${String(s.dmgCount || '1').trim()}d${s.dmgDie}${s.dmgBonus ? ' + ' + s.dmgBonus : ''}${s.healing ? ' healing' : s.dmgType ? ' ' + s.dmgType : ''}`);
+    if (s.dmgDie) bits.push(`${String(s.dmgCount || '1').trim()}d${s.dmgDie}${s.dmgBonus ? ' + ' + s.dmgBonus : ''}${s.tempHp ? ' temp HP' : s.healing ? ' healing' : s.dmgType ? ' ' + s.dmgType : ''}`);
     if (s.save) bits.push(s.save);
     if (s.buff && s.buff.on) bits.push('buff' + (s.buff.target && s.buff.target !== 'self' ? ' → ' + targetName(s.buff.target) : ''));
     return bits.join(' · ');
@@ -1586,7 +1591,8 @@
         ${field('Saving throw', inp(`${p}/save`, { ph: 'Reflex half' }))}
         ${field('Duration', inp(`${p}/duration`, { ph: '1 min/level' }))}
       </div>
-      <p class="inline small" style="margin:8px 0 0"><label class="inline">${chk(`${p}/healing`, { rerender: true })} Healing (dice heal instead of damage)</label></p>
+      <p class="inline small" style="margin:8px 0 0"><label class="inline">${chk(`${p}/healing`, { rerender: true })} Healing (dice heal instead of damage)</label>
+        <label class="inline">${chk(`${p}/tempHp`, { rerender: true, title: 'Casting adds the roll as temporary HP to the target (yours or a companion). Temporary HP from different casts don\'t stack: the higher amount stays.' })} Temporary HP (dice give temporary HP to the target)</label></p>
       <div class="spell-buff">
         <label class="inline"><input type="checkbox" data-bind="${p}/buff/on" data-type="bool" data-rerender${buff.on ? ' checked' : ''}> <strong>Buff:</strong> casting switches on an effect with these bonuses</label>
         ${buff.on ? `<div class="fields" style="margin-top:6px">${field('Target', sel(`${p}/buff/target`, targets, { blank: false }))}</div>
@@ -1652,10 +1658,19 @@
       const bonus = E.evalBonus(s.dmgBonus || 0, V) || 0;
       const r = DICE.damage(`${count}d${s.dmgDie}`, bonus, 1);
       total = r.total;
+      if (s.tempHp) {
+        const t = (s.buff && s.buff.target) || ctx.defaultTarget || 'self';
+        const tn = applyTempHp(t, r.total);
+        lines.push(`**Temporary HP: ${r.total}** (${r.text})${tn ? ' → ' + tn : ''}`);
+        return finishCast(s, dcv, ctx, lines, total, crit, fumble);
+      }
       let line = `**${s.healing ? 'Healing' : 'Damage'}: ${r.total}** (${r.text})${!s.healing && s.dmgType ? ' ' + s.dmgType : ''}`;
       if (threat && !s.healing) { const c2 = DICE.damage(`${count}d${s.dmgDie}`, bonus, 2); line += ` · if confirmed: **${c2.total}** (x2: ${c2.text})`; }
       lines.push(line);
     }
+    return finishCast(s, dcv, ctx, lines, total, crit, fumble);
+  }
+  function finishCast(s, dcv, ctx, lines, total, crit, fumble) {
     if (s.save) lines.push(`Save: ${s.save}${dcv !== null && dcv !== undefined ? ', DC ' + dcv : ''}`);
     if (s.duration) lines.push(`Duration: ${s.duration}`);
     if (s.buff && s.buff.on) {
@@ -1664,6 +1679,36 @@
     }
     if (s.notes) lines.push(s.notes);
     return { lines, total, crit, fumble };
+  }
+  // Temporary HP from a spell: the higher amount stays (they don't stack).
+  function applyTempHp(t, amt) {
+    if (t === 'self') {
+      App.ch.hp.temp = Math.max(Number(App.ch.hp.temp) || 0, amt);
+      return App.ch.info.name || 'you';
+    }
+    const c = App.ch.companions.find(x => 'c:' + x.id === t);
+    if (!c) return null;
+    c.temp = Math.max(Number(c.temp) || 0, amt);
+    return c.name || c.species || c.kind;
+  }
+  // Dice the SRD text doesn't give in a parseable form.
+  const SPELL_DICE = {
+    'aid': { dmgCount: '1', dmgDie: 8, dmgBonus: 'min(cl, 10)', tempHp: true },
+    'false life': { dmgCount: '1', dmgDie: 10, dmgBonus: 'min(cl, 10)', tempHp: true },
+    "heroes' feast": { dmgCount: '1', dmgDie: 8, dmgBonus: 'min(floor(cl/2), 10)', tempHp: true },
+    'magic missile': { dmgCount: 'min(floor((cl+1)/2), 5)', dmgDie: 4, dmgBonus: 'min(floor((cl+1)/2), 5)', dmgType: 'force' },
+  };
+  function spellDiceFor(name) {
+    const x = SPELL_DICE[String(name || '').trim().toLowerCase().replace(/[’]/g, "'")];
+    return x ? Object.assign({}, x) : null;
+  }
+  // Fill blank dice fields from SPELL_DICE; returns how many fields were set.
+  function applySpellDice(s) {
+    const x = spellDiceFor(s.name);
+    if (!x || !blankish(s.dmgDie)) return 0;
+    let c = 0;
+    for (const k of Object.keys(x)) if (blankish(s[k]) || s[k] === false) { s[k] = x[k]; c++; }
+    return c;
   }
   // A companion's spell or ability: its HD as caster level unless set, its own touch attack and modifiers.
   function castCompSpell(ci, i, priv) {
@@ -1824,6 +1869,7 @@
     c += f('duration', it.du);
     c += f('notes', [it.d, it.r ? `Range ${it.r.replace(/\.$/, '')}.` : '', it.sr && /^yes/i.test(it.sr) ? 'SR applies.' : ''].filter(Boolean).join(' '));
     if (it.atk) c += f('attack', it.atk);
+    c += applySpellDice(s);
     if (it.dmg && blankish(s.dmgDie)) {
       s.dmgDie = it.dmg.d; s.dmgCount = it.dmg.c; c += 2;
       c += f('dmgBonus', it.dmg.b) + f('dmgType', it.dmg.t);
