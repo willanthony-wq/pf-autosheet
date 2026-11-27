@@ -28,7 +28,7 @@ def sections(t, level='####'):
     parts = re.split(r'^%s (.+)$' % level, t, flags=re.M)
     out = []
     for i in range(1, len(parts), 2):
-        out.append((parts[i].strip(), clean(parts[i + 1])))
+        out.append((parts[i].strip(), clean(re.split(r'\n## ', parts[i + 1])[0])))   # stop at the next top-level heading
     return out
 
 
@@ -39,6 +39,7 @@ feat = dict(sections(main))
 proto_list = clean(main[main.index('### Machinesmith Prototype List') + len('### Machinesmith Prototype List'):main.index('Machinesmiths can forge steel')])
 proto_list = re.sub(r'(\d)(st|nd|rd|th)-Level\n', r'\1\2 level: ', proto_list)
 prot = feat['Prototypes (Su)']
+prot = prot[prot.index('Machinesmiths can forge steel'):] if 'Machinesmiths can forge steel' in prot else prot   # the list itself goes first, once
 gw = re.sub(r'^Subpages\nArchetypes\nGreatworks\n', '', feat['Greatworks (Su)'])
 F = {
     'weapon and armor proficiency': ('Weapon and Armor Proficiency', feat['Weapon and Armor Proficiency']),
@@ -96,7 +97,7 @@ UP = {'Base': 1, 'Upgrade 1': 5, 'Upgrade 2': 10, 'Upgrade 3': 15, 'Master Upgra
 for fn, name in [('g_analyzers.txt', 'Analyzer'), ('g_constructors.txt', 'Constructor'), ('g_mechanus.txt', 'Mechanus'), ('g_mobius-weapons.txt', 'Mobius Weapon')]:
     t = body(rd(fn))
     intro = clean(re.split(r'^#### ', t.split('\n', 1)[1], maxsplit=1, flags=re.M)[0])
-    intro = '\n'.join(p for p in intro.split('\n') if not p.startswith('At 5th and every five levels'))
+    intro = '\n'.join(p.lstrip('# ') for p in intro.split('\n') if not p.startswith('At 5th and every five levels'))
     secs = sections(t)
     powers, extra = [], []
     for h, x in secs:
