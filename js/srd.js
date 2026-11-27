@@ -40,6 +40,9 @@
     if (words.length === 3) out.push(`${words[1]} ${words[2]}, ${words[0]}`, `${words[2]}, ${words[0]} ${words[1]}`);
     if (/s$/.test(base)) out.push(base.replace(/s$/, ''));
     out.push(base + ' (empty)');
+    // "Skill Focus (Stealth)", "Weapon Focus (longsword)" -> the feat itself
+    const noDetail = base.replace(/\s*\([^)]*\)$/, '').trim();
+    if (noDetail && noDetail !== base) out.push(noDetail);
     return [...new Set(out)];
   }
   function find(kind, name) {

@@ -382,7 +382,7 @@
       let head, desc = '', kind = null, defType = 'Untyped (stacks)';
       if (key === 'feats') {
         head = `${inp(`feats/${i}/level`, { ph: 'Lvl', aria: 'Level gained' })}${inp(`feats/${i}/name`, { ph: 'Power Attack', list: 'srd-feats' })}`;
-        desc = area(`feats/${i}/text`, { rows: 1, ph: 'Description' }); kind = 'feat';
+        desc = area(`feats/${i}/text`, { rows: 3, ph: 'Description' }); kind = 'feat';
       } else if (key === 'slots') {
         head = `${inp(`slots/${i}/slot`, { ph: 'slot', aria: 'Slot' })}${inp(`slots/${i}/item`, { ph: 'empty', aria: 'Item', list: 'srd-worn' }).replace('<input ', '<input data-rerender-blur ')}`;
         kind = 'item'; defType = 'Enhancement';
@@ -391,7 +391,7 @@
         kind = 'trait'; defType = 'Trait';
       } else {
         head = `${inp(`classFeatures/${i}/name`, { ph: 'Channel Energy' })}`;
-        desc = area(`classFeatures/${i}/text`, { rows: 1, ph: 'Description' });
+        desc = area(`classFeatures/${i}/text`, { rows: 3, ph: 'Description' });
       }
       const hasBonuses = (x.bonuses || []).length > 0;
       // An empty item slot doesn't need bonus buttons until something is in it.
@@ -543,7 +543,7 @@
       if (key === 'buffs') {
         head = `<input type="checkbox" data-bind="${p}/active" data-type="bool" data-rerender aria-label="Buff on"${x.active ? ' checked' : ''}>${inp(`${p}/name`, { ph: 'Buff' })}`;
       } else if (key === 'feats') {
-        head = inp(`${p}/name`, { ph: 'Weapon Focus (Bite)', list: 'srd-feats' }); desc = area(`${p}/text`, { rows: 1, ph: 'Description' }); kind = 'feat';
+        head = inp(`${p}/name`, { ph: 'Weapon Focus (Bite)', list: 'srd-feats' }); desc = area(`${p}/text`, { rows: 3, ph: 'Description' }); kind = 'feat';
       } else if (key === 'gear') {
         head = `${inp(`${p}/slot`, { ph: 'slot', aria: 'Slot' })}${inp(`${p}/item`, { ph: 'Amulet of Natural Armor +1', aria: 'Item' })}`; kind = 'item'; defType = 'Enhancement';
       } else {
@@ -827,7 +827,7 @@
       `<p class="small muted">These count as racial bonuses: two racial bonuses to the same thing don't stack, but they stack with every other type. "Situational" entries are reminders shown on the Play tab and don't change any numbers.</p>`,
       { tools: `<button class="btn small" data-action="add-bonus" data-list="race/bonuses" data-type="Racial">+ Bonus</button>`, cls: 'span-2' });
 
-    const list = ch.racialFeatures.map((x, i) => `<div class="list-row feature-row">${inp(`racialFeatures/${i}/name`, { ph: 'Feature' })}${area(`racialFeatures/${i}/text`, { rows: 1, ph: 'Description' })}${removeBtn('racialFeatures', i)}</div>`).join('') || '<p class="small muted">None yet.</p>';
+    const list = ch.racialFeatures.map((x, i) => `<div class="list-row feature-row">${inp(`racialFeatures/${i}/name`, { ph: 'Feature' })}${area(`racialFeatures/${i}/text`, { rows: 3, ph: 'Description' })}${removeBtn('racialFeatures', i)}</div>`).join('') || '<p class="small muted">None yet.</p>';
     const feats = card('Racial Features', list, { tools: `<button class="btn small" data-action="add" data-list="racialFeatures">+ Feature</button>`, cls: 'span-2' });
     return `<div class="grid two">${main}${bonuses}${feats}</div>`;
   }
@@ -1805,10 +1805,12 @@
   }
   const blankish = v => v === undefined || v === null || String(v).trim() === '';
   const SRD_RULES = [
-    { re: /^(companions\/\d+\/)?feats\/\d+\/name$/, kinds: ['feats'], fill: (o, it, f) => f('text', (it.p ? `Prerequisites: ${it.p}\n` : '') + (it.b || it.d)) },
+    { re: /^(companions\/\d+\/)?feats\/\d+\/name$/, kinds: ['feats'], fill: (o, it, f) =>
+      f('text', (it.p ? `Prerequisites: ${it.p}\n` : '') + (it.b || it.d)) + standardBonuses(o, 'feat', o.name) },
     { re: /^traits\/\d+\/text$/, kinds: ['traits'], fill: (o, it) => {
       if (String(o.text).includes(':')) return 0;
-      o.text = `${it.n}: ${it.d}`; return 1;
+      o.text = `${it.n}: ${it.d}`;
+      return 1 + standardBonuses(o, 'trait', it.n);
     } },
     { re: /^classFeatures\/\d+\/name$/, kinds: ['classes'], lookup: name => {
       const t = SRD.classFeatureText(name, App.d.classes.filter(c => c.name).map(c => c.name));
@@ -1820,24 +1822,65 @@
     { re: /^(spellcasting\/levels\/\d+\/spells|spellcasting\/sla\/\d+\/items|companions\/\d+\/spells)\/\d+\/name$/, kinds: ['spells'], fill: fillSpell },
   ];
   function srdRule(path) { return SRD ? SRD_RULES.find(r => r.re.test(path)) : null; }
+  // Usual bonuses for a feat or trait (Toughness, Iron Will, Reactionary...), only when it has none yet.
+  function standardBonuses(o, kind, name) {
+    if ((o.bonuses || []).length) return 0;
+    const res = window.PF_FEATS.suggest(kind, name, skillNameList());
+    if (!res || !res.length) return 0;
+    o.bonuses = res;
+    return 1;
+  }
+  // What a field goes back to when autofilled details are cleared
+  const SRD_RESET = { crit: '20', mult: 'x2', enh: '0', healing: false, tempHp: false, bonuses: [] };
+  // Clear the fields the SRD filled in last time, unless you've changed them since.
+  function clearSrdFill(obj) {
+    const prev = obj.srdFill;
+    if (!prev) return 0;
+    let c = 0;
+    for (const [k, v] of Object.entries(prev.vals || {})) {
+      if (JSON.stringify(obj[k]) !== JSON.stringify(v)) continue;   // edited by hand: keep it
+      if (k === 'buff') delete obj[k];
+      else obj[k] = k in SRD_RESET ? JSON.parse(JSON.stringify(SRD_RESET[k])) : '';
+      c++;
+    }
+    delete obj.srdFill;
+    return c;
+  }
   async function srdAutofill(path) {
     const rule = srdRule(path);
     if (!rule) return 0;
     const parts = path.split('/'); const field = parts.pop();
     const obj = pathGet(App.ch, parts.join('/'));
-    const name = obj && obj[field];
-    if (!obj || blankish(name) || obj.srdCustom) return 0;
-    await SRD.ensure(rule.kinds);
-    const it = rule.lookup ? rule.lookup(name) : (SRD.findAny(rule.kinds, field === 'text' ? String(name).split(':')[0] : name) || {}).item;
-    if (!it) return 0;
-    const filled = [];
+    if (!obj || obj.srdCustom) return 0;
+    const name = obj[field];
+    let it = null;
+    if (!blankish(name)) {
+      await SRD.ensure(rule.kinds);
+      it = rule.lookup ? rule.lookup(name) : (SRD.findAny(rule.kinds, field === 'text' ? String(name).split(':')[0] : name) || {}).item;
+    }
+    // Same entry as before (e.g. you just left the field again): nothing to do
+    if (it && obj.srdFill && SRD.key(obj.srdFill.n) === SRD.key(it.n) && SRD.key(obj.srdFill.typed || '') === SRD.key(name)) return 0;
+    const prevName = obj.srdFill && obj.srdFill.n;
+    const cleared = clearSrdFill(obj);
+    if (!it) {
+      if (cleared) toast(`Cleared the details filled in for ${prevName}.`);
+      return cleared;
+    }
+    const before = JSON.parse(JSON.stringify(obj));
     const f = (k, v) => {
       if (v === undefined || v === null || v === '' || !blankish(obj[k])) return 0;
-      obj[k] = v; filled.push(k); return 1;
+      obj[k] = v; return 1;
     };
     const nFilled = rule.fill(obj, it, f, path) || 0;
-    if (nFilled) toast(`Filled in from the SRD: ${it.n}${it.s ? ' (' + it.s + ')' : ''}.`);
-    return nFilled;
+    // Remember what was filled in, so changing the name later can replace it
+    const vals = {};
+    for (const k of new Set(Object.keys(before).concat(Object.keys(obj)))) {
+      if (k === field || k === 'srdFill') continue;
+      if (JSON.stringify(before[k]) !== JSON.stringify(obj[k])) vals[k] = JSON.parse(JSON.stringify(obj[k] === undefined ? null : obj[k]));
+    }
+    if (Object.keys(vals).length) obj.srdFill = { n: it.n, typed: String(obj[field]), vals };
+    if (nFilled) toast(`${cleared ? 'Replaced with' : 'Filled in from'} the SRD: ${it.n}${it.s ? ' (' + it.s + ')' : ''}.`);
+    return nFilled + cleared;
   }
   function fillWeapon(w, it, f) {
     if (!blankish(w.dice)) return 0;                // already set up by hand

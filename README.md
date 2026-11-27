@@ -66,10 +66,10 @@ The webhook URL is stored only in this browser. It is never written into exporte
 
 ## Autofill from the Pathfinder Reference Document
 
-Name fields suggest entries as you type. Browsers show only about 500 suggestions at a time, so the list holds the names matching what you've typed, those starting with it first. Pick one (or type its exact name) and the sheet fills in the fields you left blank. It never overwrites anything you typed. The first entry in every list is **(Custom)**: pick it to type your own entry (homebrew, or a renamed version) with no autofill. To switch autofill back on for that row, clear the field and pick **(Use SRD list)**.
+Name fields suggest entries as you type. Browsers show only about 500 suggestions at a time, so the list holds the names matching what you've typed, those starting with it first. Pick one (or type its exact name) and the sheet fills in the fields you left blank. Change the name later and it replaces what it filled in (text, bonuses, dice, weapon stats) with the new entry's, or clears it for a name it doesn't know. Anything you edited by hand is kept. The first entry in every list is **(Custom)**: pick it to type your own entry (homebrew, or a renamed version) with no autofill. To switch autofill back on for that row, clear the field and pick **(Use SRD list)**.
 
-- **Feats** (yours and companions'): prerequisites and benefit text.
-- **Traits:** the trait's text after its name.
+- **Feats** (yours and companions'): prerequisites and benefit text, plus the usual bonuses where the sheet knows them (Toughness, Iron Will, Skill Focus (Stealth), Weapon Focus (longsword)…).
+- **Traits:** the trait's text after its name, plus the usual bonuses (Reactionary, Resilient…).
 - **Class features:** the rules text. **Add for my level** on the Class Features card lists everything your classes get up to your current level. Run it again after leveling up and numbered features update (Sneak attack +3d6 becomes +4d6).
 - **Spells and spell-like abilities** (yours and companions'): save, duration, range and a short description; damage or healing dice that scale with caster level (Fireball becomes `min(cl, 10)` d6 fire); ranged or melee touch attacks; buff bonuses for common buffs such as Bless, Shield of Faith or Haste.
 - **Weapons:** damage dice for your size (Small or Medium), crit range and multiplier, range, damage type, weight, and an attack type and formula if none is set (composite bows add Str to damage). A name like `+1 longsword` also sets the enhancement.
