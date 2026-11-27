@@ -230,7 +230,7 @@
     </div>`, { cls: 'span-2' });
 
     const classRows = ch.classes.map((c, i) => `<tr>
-        <td class="l">${sel(`classes/${i}/name`, classOptions(), { rerender: true, aria: 'Class ' + (i + 1), blank: '— none —', cls: 'class-select' })}</td>
+        <td class="l">${sel(`classes/${i}/name`, classOptions(), { rerender: true, aria: 'Class ' + (i + 1), blank: '— none —', cls: 'class-select' })}${archetypeCell(c, i)}</td>
         <td>${inp(`classes/${i}/level`, { type: 'num', aria: 'Level' })}</td>
         <td>${out(`classes/${i}/hd`)}</td><td>${out(`classes/${i}/bab`, 'sign')}</td>
         <td>${out(`classes/${i}/fort`, 'sign')}</td><td>${out(`classes/${i}/ref`, 'sign')}</td><td>${out(`classes/${i}/will`, 'sign')}</td>
@@ -314,6 +314,42 @@
 
 
     return `<div class="grid two">${identity}${classes}${abilities}${hp}${saves}${defenses}</div>`;
+  }
+
+  // Archetypes chosen for a class, with a picker of that class's archetypes from the rules data
+  function archetypeCell(c, i) {
+    if (!c.name) return '';
+    const chosen = c.archetypes || [];
+    const S = window.PF_SRD, list = S && S.loaded('archetypes') ? S.archetypesFor(c.name) : null;
+    const chips = chosen.map((a, k) => {
+      const known = list && list.some(x => x.n.toLowerCase() === String(a).toLowerCase());
+      return `<span class="chip on arch-chip" title="${known || !list ? 'Archetype' : 'Not in the rules data: its abilities won\'t be added automatically'}">${esc(a)}${known || !list ? '' : ' ?'}<button class="icon-btn" data-action="remove-archetype" data-i="${i}" data-k="${k}" aria-label="Remove ${esc(a)}">✕</button></span>`;
+    }).join('');
+    const options = list ? list.filter(x => !chosen.some(a => String(a).toLowerCase() === x.n.toLowerCase())) : [];
+    const picker = list === null ? '<span class="small muted">loading archetypes…</span>'
+      : options.length ? `<select class="arch-add" data-i="${i}" aria-label="Add an archetype for ${esc(c.name)}"><option value="">+ Archetype…</option>${options.map(x => `<option value="${esc(x.n)}">${esc(x.n)} (${esc(x.s)})</option>`).join('')}</select>`
+      : (chosen.length ? '' : '<span class="small muted">No archetypes in the rules data</span>');
+    const clash = archetypeClashes(c);
+    return `<div class="arch-cell">${chips}${picker}</div>${clash ? `<div class="small warn-text">${esc(clash)}</div>` : ''}`;
+  }
+  // Two archetypes can't replace the same class feature
+  function archetypeClashes(c) {
+    const S = window.PF_SRD;
+    if (!S || !S.loaded('archetypes') || (c.archetypes || []).length < 2) return '';
+    const seen = new Map(), out = [];
+    for (const a of c.archetypes) {
+      const A = S.archetype(c.name, a);
+      if (!A) continue;
+      for (const r of new Set(A.a.flatMap(ab => ab.r.map(featureKey)))) {
+        if (seen.has(r) && seen.get(r) !== A.n) out.push(`${seen.get(r)} and ${A.n} both replace ${r}`);
+        else seen.set(r, A.n);
+      }
+    }
+    return out.length ? out.join('; ') + '. These archetypes can\'t be combined.' : '';
+  }
+  // "Sneak attack +3d6", "Trap sense +1", "Bravery (×3)" -> "sneak attack", "trap sense", "bravery"
+  function featureKey(name) {
+    return String(name || '').toLowerCase().replace(/\s*\(×\d+\)$/, '').replace(/\s*[+\u2212-]?\d+(d\d+)?(\/day|st|nd|rd|th)?\b.*$/i, '').replace(/\s*\(.*\)$/, '').replace(/s$/, '').trim();
   }
 
   // Formula help: shown from the ? next to every bonus value.
@@ -455,7 +491,8 @@
   // ----- Play tab: everything needed at the table on one page
   function renderPlay() {
     const ch = App.ch, d = App.d;
-    const classLine = d.classes.filter(c => c.data && c.level).map(c => `${c.name} ${c.level}`).join(' / ') || 'No class yet';
+    const classLine = d.classes.map((c, i) => [c, (ch.classes[i] && ch.classes[i].archetypes) || []]).filter(([c]) => c.data && c.level)
+      .map(([c, a]) => `${c.name}${a.length ? ` (${a.join(', ')})` : ''} ${c.level}`).join(' / ') || 'No class yet';
     const sub = [ch.info.race, classLine, ch.info.alignment, d.size.name !== 'Medium' ? d.size.name : ''].filter(Boolean).join(' · ');
     const tile = (label, inner) => `<div class="tile"><div class="label">${label}</div><div class="value">${inner}</div></div>`;
     const header = `<section class="card play-header span-all">
@@ -1280,6 +1317,13 @@
   document.addEventListener('change', e => {
     const el = e.target;
     if (el.id === 'add-condition' && el.value) { App.ch.conditions.push(el.value); changed(true); return; }
+    if (el.classList && el.classList.contains('arch-add') && el.value) {
+      const c = App.ch.classes[+el.dataset.i];
+      c.archetypes = (c.archetypes || []).concat(el.value);
+      changed(true);
+      toast(`${el.value} added. Click "Add for my level" on the Features & Gear tab to update your class features.`);
+      return;
+    }
     if (el.id === 'common-effect' && el.value) { const e = M.commonEffect(el.value, false); if (e) App.ch.effects.unshift(e); changed(true); return; }
     if (el.classList && el.classList.contains('comp-add-condition') && el.value) { App.ch.companions[+el.dataset.c].conditions.push(el.value); changed(true); return; }
     // Typing a known name fills in the blanks from the Pathfinder Reference Document
@@ -1361,6 +1405,7 @@
       },
       'jump': () => jumpToField(el.dataset.tab, el.dataset.focus),
       'srd-class-features': () => addClassFeatures(),
+      'remove-archetype': () => { const c = App.ch.classes[+el.dataset.i]; (c.archetypes || []).splice(+el.dataset.k, 1); changed(true); },
       'sort-worn': () => sortWornItems(),
       'remove': () => { const arr = get(el.dataset.list); if (Array.isArray(arr)) { arr.splice(+el.dataset.i, 1); changed(true); } },
       'toggle-condition': () => {
@@ -1844,6 +1889,7 @@
       spells: [['srd-spells', ['spells']]],
       companion: [['srd-feats', ['feats']], ['srd-spells', ['spells']], ['srd-worn', ['items'], x => x.slot && x.slot !== 'none']],
     }[tab] || [];
+    if ((tab === 'character' || tab === 'overview') && !SRD.loaded('archetypes')) SRD.load('archetypes').then(() => { if (App.tab === tab) render(); });
     want.forEach(([id, kinds, filter]) => SRD.datalist(id, kinds, filter));
   }
   const blankish = v => v === undefined || v === null || String(v).trim() === '';
@@ -1972,29 +2018,62 @@
   }
   // Class features for the character's current levels, from the SRD class tables.
   async function addClassFeatures() {
-    await SRD.load('classes');
-    const classes = App.d.classes.filter(c => c.name && c.level > 0);
+    await SRD.ensure(['classes', 'archetypes']);
+    const classes = App.d.classes.map((c, i) => Object.assign({}, c, { archetypes: (App.ch.classes[i] && App.ch.classes[i].archetypes) || [] })).filter(c => c.name && c.level > 0);
     if (!classes.length) { toast('Set your classes and levels on the Character tab first.'); return; }
-    const baseOf = name => String(name || '').toLowerCase().replace(/\s*\(×\d+\)$/, '').replace(/\s*[+\u2212-]?\d+(d\d+)?(\/day|st|nd|rd|th)?\b.*$/i, '').replace(/\s*\(.*\)$/, '').trim();
-    let added = 0, updated = 0;
-    const missing = [];
+    const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+    const list = App.ch.classFeatures;
+    let added = 0, updated = 0, removed = 0;
+    const missing = [], kept = [], unknownArch = [];
     for (const c of classes) {
       const r = SRD.classFeatures(c.name, c.level);
       if (!r) { missing.push(c.name); continue; }
+      // Archetype abilities gained by this level, and the base features they replace
+      const replaced = new Map();   // feature key -> archetype name
+      const archFeats = [];
+      for (const aName of c.archetypes) {
+        const A = SRD.archetype(c.name, aName);
+        if (!A) { unknownArch.push(aName); continue; }
+        for (const ab of A.a) {
+          const same = r.features.find(f => featureKey(f.base) === featureKey(ab.n));   // "Smite Evil" in Hospitaler takes the base one's place
+          const lvl = same ? same.first : ab.l;
+          if (lvl > c.level) continue;
+          if (same) replaced.set(featureKey(same.base), A.n);
+          ab.r.forEach(x => replaced.set(featureKey(x), A.n));
+          archFeats.push({ name: ab.n, text: ab.d + (ab.m.length ? `\n(Changes ${ab.m.join(', ')}.)` : ''), src: `arch:${A.n}:${featureKey(ab.n)}`, arch: A.n });
+        }
+      }
+      // Base class features (minus replaced ones)
       for (const feat of r.features) {
-        const b = feat.base.toLowerCase();
-        const have = App.ch.classFeatures.find(x => baseOf(x.name) === b);
-        if (have) {
-          if (have.name.toLowerCase() !== feat.name.toLowerCase() && /\d/.test(feat.name)) { have.name = feat.name.charAt(0).toUpperCase() + feat.name.slice(1); updated++; }
+        const k = featureKey(feat.base);
+        if (replaced.has(k)) {
+          // Take out a replaced feature this button added, or one nobody has written in; keep edited ones
+          for (const x of list.filter(x => featureKey(x.name) === k && !String(x.src || '').startsWith('arch:'))) {
+            if (x.src || !String(x.text || '').trim() || x.text === feat.text) { list.splice(list.indexOf(x), 1); removed++; }
+            else kept.push(`${x.name} (replaced by ${replaced.get(k)})`);
+          }
           continue;
         }
-        App.ch.classFeatures.push({ name: feat.name.charAt(0).toUpperCase() + feat.name.slice(1), text: feat.text, bonuses: [] });
+        const have = list.find(x => x.src === `class:${c.name}:${k}`) || list.find(x => !x.src && featureKey(x.name) === k);
+        if (have) {
+          if (have.name.toLowerCase() !== feat.name.toLowerCase() && /\d/.test(feat.name)) { have.name = cap(feat.name); updated++; }
+          if (!have.src) have.src = `class:${c.name}:${k}`;
+          continue;
+        }
+        list.push({ name: cap(feat.name), text: feat.text, bonuses: [], src: `class:${c.name}:${k}` });
+        added++;
+      }
+      for (const f of archFeats) {
+        if (list.some(x => x.src === f.src)) continue;
+        list.push({ name: `${f.name} (${f.arch})`, text: f.text, bonuses: [], src: f.src });
         added++;
       }
     }
-    if (added || updated) changed(true);
-    const msg = [added ? `Added ${added} class feature${added === 1 ? '' : 's'}` : '', updated ? `${added ? 'updated' : 'Updated'} ${updated} to your level` : ''].filter(Boolean).join(', ');
-    toast((msg || 'Your class features are already listed') + (missing.length ? `. Not in the SRD tables: ${missing.join(', ')}.` : '.'));
+    if (added || updated || removed) changed(true);
+    const parts = [added ? `added ${added}` : '', updated ? `updated ${updated} to your level` : '', removed ? `removed ${removed} that your archetype replaces` : ''].filter(Boolean);
+    const msg = parts.length ? 'Class features: ' + parts.join(', ') : 'Your class features are already listed';
+    toast(msg + (missing.length ? `. Not in the SRD tables: ${missing.join(', ')}` : '') + (unknownArch.length ? `. Archetypes not in the rules data: ${unknownArch.join(', ')}` : '')
+      + (kept.length ? `. Kept because you edited them: ${kept.join(', ')}` : '') + '.');
   }
 
   // ----- Worn magic items: put each item in its body slot's row

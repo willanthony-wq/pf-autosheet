@@ -2,7 +2,7 @@
 // Data files in data/srd/ are built by tools/build_srd.py and loaded only when a tab needs them.
 (() => {
   'use strict';
-  const KINDS = ['feats', 'traits', 'spells', 'items', 'gear', 'weapons', 'armor', 'classes'];
+  const KINDS = ['feats', 'traits', 'spells', 'items', 'gear', 'weapons', 'armor', 'classes', 'archetypes'];
   const cache = {}, pending = {};
   const ver = (document.querySelector('script[src*="js/srd.js"]') || { src: '' }).src.split('?v=')[1] || '1';
 
@@ -129,7 +129,7 @@
     cls.levels.slice(0, Math.max(0, level)).forEach((feats, li) => feats.forEach(f => {
       const base = f.replace(/\s*[+−-]?\d+(d\d+)?(\/day|st|nd|rd|th)?\b.*$/i, '').replace(/\s*\(.*\)$/, '').trim() || f;
       const k = base.toLowerCase();
-      const cur = byBase.get(k) || { base, count: 0, name: f, level: li + 1 };
+      const cur = byBase.get(k) || { base, count: 0, name: f, level: li + 1, first: li + 1 };
       cur.count += 1; cur.name = f; cur.level = li + 1;
       byBase.set(k, cur);
     }));
@@ -140,9 +140,16 @@
     };
     return { cls, features: [...byBase.values()].map(x => ({
       name: x.count > 1 && x.name.toLowerCase() === x.base.toLowerCase() ? `${x.base} (×${x.count})` : x.name,
-      base: x.base, level: x.level, text: desc(x.base),
+      base: x.base, level: x.level, first: x.first, text: desc(x.base),
     })) };
   }
+  // Archetypes of a class ("Paladin" or "Paladin (Hospitaler)" -> paladin's list), and one by name
+  const classKey = n => key(String(n || '').replace(/\s*\(.*\)\s*$/, ''));
+  function archetypesFor(className) {
+    const c = cache.archetypes;
+    return c ? c.list.filter(a => a.c === classKey(className)).sort((x, y) => x.n.localeCompare(y.n)) : [];
+  }
+  function archetype(className, name) { return archetypesFor(className).find(a => key(a.n) === key(name)) || null; }
   // Description of a class feature from any class (the character's classes first).
   function classFeatureText(name, classNames) {
     const c = cache.classes;
@@ -156,5 +163,5 @@
     return '';
   }
 
-  window.PF_SRD = { CUSTOM, USE_SRD, KINDS, load, ensure, narrow, find, findAny, priceOf, enhOf, datalist, classFeatures, classFeatureText, key, loaded: k => !!cache[k] };
+  window.PF_SRD = { CUSTOM, USE_SRD, KINDS, load, ensure, narrow, archetypesFor, archetype, find, findAny, priceOf, enhOf, datalist, classFeatures, classFeatureText, key, loaded: k => !!cache[k] };
 })();

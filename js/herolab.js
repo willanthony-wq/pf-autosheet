@@ -56,6 +56,10 @@
     const n = lc(name);
     return D.classes.find(c => lc(c.name) === n) || D.classes.find(c => lc(c.name) === n.replace(/\s*\(.*\)$/, '')) || null;
   }
+  function archetypesIn(className) {
+    const m = String(className || '').match(/\(([^)]+)\)\s*$/);
+    return m ? m[1].split(/\s*[,/]\s*/).map(x => x.trim()).filter(x => x && !/^(unchained|core)$/i.test(x)).map(x => x.replace(/\w/g, ch => ch.toUpperCase())) : [];
+  }
   function stripItem(name) { return lc(name).replace(/^\+\d+\s+/, '').replace(/^(masterwork|mwk)\s+/, '').replace(/\s*\(.*\)$/, '').trim(); }
   const MATERIAL_WORDS = /\b(mithral|adamantine|darkwood|dragonhide|cold iron|alchemical silver|silver|elysian bronze|angelskin|eel hide|griffon mane|living steel|bulette)\b/g;
   function findArmor(table, name) {
@@ -107,9 +111,11 @@
     ch.classes = cls.map(c => {
       const hit = findClass(at(c, 'name'));
       if (!hit) warnings.push(`Class "${at(c, 'name')}" isn't in the sheet's class list. Pick the closest one on the Character tab.`);
-      return { name: hit ? hit.name : '', level: num(at(c, 'level')) };
+      return { name: hit ? hit.name : '', level: num(at(c, 'level')), archetypes: archetypesIn(at(c, 'name')) };
     });
     while (ch.classes.length < 3) ch.classes.push({ name: '', level: 0 });
+    const archSet = ch.classes.filter(c => (c.archetypes || []).length).map(c => `${c.name}: ${c.archetypes.join(', ')}`);
+    if (archSet.length) warnings.push(`Archetype set: ${archSet.join('; ')}. The class features came from Hero Lab already; "Add for my level" on the Features & Gear tab can fill in any that are missing.`);
 
     // Abilities: Hero Lab's base already includes racial modifiers, so the race's ability modifiers stay at 0.
     for (const a of kids(kid(C, 'attributes'), 'attribute')) {
@@ -565,7 +571,7 @@
     const found = []; let mm, firstAt = -1;
     while ((mm = classRe.exec(rest))) { if (firstAt < 0) firstAt = mm.index; found.push({ name: findClass(mm[1]).name, level: +mm[3], archetype: (mm[2] || '').replace(/[()]/g, '').trim() }); }
     if (firstAt > 0) ch.info.race = rest.slice(0, firstAt).trim();
-    ch.classes = found.map(f => ({ name: f.name, level: f.level }));
+    ch.classes = found.map(f => ({ name: f.name, level: f.level, archetypes: archetypesIn(`(${f.archetype})`) }));
     while (ch.classes.length < 3) ch.classes.push({ name: '', level: 0 });
     if (!found.length) warnings.push(`Couldn't read the class from "${id}". Set it on the Character tab.`);
     const arch = found.filter(f => f.archetype).map(f => `${f.name}: ${f.archetype}`);
@@ -696,7 +702,7 @@
     const lookText = (opts && opts.lookupText) || (() => '');
     for (const f of ch.feats) if (!f.text) f.text = lookText('feats', f.name) || '';
     for (const t of ch.traits) if (!t.text.includes(':')) { const d2 = lookText('traits', t.text); if (d2) t.text = `${t.text}: ${d2}`; }
-    if (arch.length) ch.notes = `Archetype: ${arch.join('; ')}`;
+
 
     // Spells: "1st—bless, cure light wounds (2)"
     const casting = found.find(f => { const c = findClass(f.name); return c && c.stat; });
@@ -717,7 +723,7 @@
       hpTarget: hpM ? +hpM[1] : 0, target, wTargets, saves, init: firstNum(field(head, 'Init')) ?? firstNum((head.find(l => /^Init /.test(l)) || '').slice(5)),
       ac: acM ? +acM[1] : null, cmb: firstNum((stats.join(' ').match(/CMB\s+([+-]\d+)/) || [])[1]), cmd: firstNum((stats.join(' ').match(/CMD\s+(\d+)/) || [])[1]), speed: spd,
     }, warnings);
-    if (arch.length) warnings.push(`Archetype: ${arch.join('; ')}. The sheet uses the base class; check any class features the archetype changes.`);
+    if (arch.length) warnings.push(`Archetype set: ${arch.join('; ')}. Click "Add for my level" on the Features & Gear tab to swap in its class features.`);
     warnings.push('This is an older Hero Lab portfolio, so details come from its text statblock. Feat and ability text is what the statblock shows (often shortened).');
     return { character: ch, warnings };
   }

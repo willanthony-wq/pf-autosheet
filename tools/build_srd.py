@@ -68,7 +68,7 @@ def clean(n):
     return re.sub(r'\s+', ' ', html.unescape(n or '')).strip()
 
 
-feats, traits, spells, items, gear, weapons, armor, classes = {}, {}, {}, {}, {}, {}, {}, {}
+feats, traits, spells, items, gear, weapons, armor, classes, archetypes = {}, {}, {}, {}, {}, {}, {}, {}, {}
 
 
 def keep(store, name, val):
@@ -200,6 +200,42 @@ for book, abbr in BOOKS:
                                                          'Alchemical Remedies', 'Alchemical Tools', 'Alchemical Weapons', 'Entertainment and Trade Goods')):
                 keep(gear, name, {'n': name, 's': abbr, 'cost': cost, 'w': w})
 
+    # ---- archetypes: abilities with the level gained and the class features they replace or modify
+    for a in c.execute("select * from sections where type='class_archetype'"):
+        cls = (a['subtype'] or '').replace('_', ' ').strip().lower()
+        name = clean(a['name'])
+        if not cls or not name:
+            continue
+        key = f'{cls}|{name.lower()}'
+        if key in archetypes:
+            continue
+        abilities = []
+        if re.match(r'^(class skills|class features|ex-)', name, re.I):   # class sections filed as archetypes (e.g. the APG antipaladin)
+            continue
+        for k in kids(a['section_id']):
+            if k['type'] not in ('ability', 'section'):
+                continue
+            t = text(k['body'] or k['description'])
+            # Plain sections are abilities too, except lists of suggested options ("The following rage powers complement...")
+            if k['type'] == 'section' and (re.match(r'^the following', t, re.I) or not t):
+                continue
+            lv = re.search(r'(?:\bat|reaches|starting at|beginning at|upon reaching)\s+(\d+)(?:st|nd|rd|th) level', t, re.I)
+            def names(m):
+                out = []
+                for part in re.split(r',\s*|\s+and\s+|\s+or\s+', m):
+                    part = re.sub(r"^(the\s+)?(standard\s+)?([\w\s]+?'s?\s+)?", '', part.strip(), flags=re.I) if re.match(r"^(the\s+)?(standard\s+)?\w+'s?\s", part.strip(), re.I) else part.strip()
+                    part = re.sub(r'^(the|a|an)\s+', '', part, flags=re.I)
+                    part = re.sub(r'\s+(class features?|abilit(y|ies)|bonus(es)?|feature)$', '', part, flags=re.I).strip(' .')
+                    if part and len(part) < 60:
+                        out.append(part)
+                return out
+            rep_m = re.findall(r'(?:this|which|it)\s+(?:ability\s+|power\s+)?replaces?\s+([^.;]+)', t, re.I)
+            mod_m = re.findall(r'(?:this|which|it)\s+(?:ability\s+)?(?:modifies|alters|changes)\s+([^.;]+)', t, re.I)
+            abilities.append({'n': re.sub(r'\s*\((Ex|Su|Sp)\)$', '', clean(k['name'])), 'l': int(lv.group(1)) if lv else 1, 'd': text(k['body'] or k['description'], 600),
+                              'r': [x for m in rep_m for x in names(m)], 'm': [x for m in mod_m for x in names(m)]})
+        if abilities:
+            archetypes[key] = {'n': name, 'c': cls, 's': abbr, 'd': text(a['body'] or a['description'], 300), 'a': abilities}
+
     # ---- class features by level (base classes)
     for cl in c.execute("select * from sections where type='class' and subtype in ('core','base','hybrid','prestige')"):
         cname = clean(cl['name'])
@@ -240,5 +276,5 @@ def dump(name, store, sort=True):
     print(f'{name:8} {len(store):5}  {os.path.getsize(os.path.join(OUT, name + ".json")) / 1024:.0f} KB')
 
 
-for n, s in [('feats', feats), ('traits', traits), ('spells', spells), ('items', items), ('gear', gear), ('weapons', weapons), ('armor', armor), ('classes', classes)]:
+for n, s in [('feats', feats), ('traits', traits), ('spells', spells), ('items', items), ('gear', gear), ('weapons', weapons), ('armor', armor), ('classes', classes), ('archetypes', archetypes)]:
     dump(n, s)
