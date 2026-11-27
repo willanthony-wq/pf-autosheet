@@ -435,7 +435,7 @@
       const n = at(s, 'name');
       if (seen.has(n)) return null;
       seen.add(n);
-      const d = txt(kid(s, 'description')).split(/(?<=\.)\s/)[0];
+      const d = txt(kid(s, 'description')).replace(/\.\s[\s\S]*$/, '.');   // first sentence
       return d ? `${n}: ${d}` : n;
     }).filter(Boolean).join('\n');
     c.resources = kids(kid(X, 'trackedresources'), 'trackedresource').map(r => ({ name: at(r, 'name'), uses: num(at(r, 'left')), max: num(at(r, 'max')) }));

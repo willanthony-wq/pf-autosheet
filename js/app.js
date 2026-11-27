@@ -484,10 +484,12 @@
         ${emptySlot ? '' : addBonusButtons(`${key}/${i}/bonuses`, defType, hasBonuses ? null : kind, i, key)}</div>`;
     }).join('') || '<p class="small muted">None yet.</p>';
   }
+  // Standard bonuses (js/feats.js); null if that file didn't load
+  function featSuggest(...args) { return window.PF_FEATS ? window.PF_FEATS.suggest(...args) : null; }
   function suggestBonuses(key, i, kind) {
     const item = pathGet(App.ch, `${key}/${i}`);
     const name = /traits$/.test(key) ? item.text : /(slots|gear)$/.test(key) ? item.item : item.name;
-    const res = window.PF_FEATS.suggest(kind, name, skillNameList());
+    const res = featSuggest(kind, name, skillNameList());
     if (!res) { toast(`No standard bonuses known for "${name || 'this ' + kind}". Use + Bonus to add your own.`); return; }
     item.bonuses = (item.bonuses || []).concat(res);
     changed(true);
@@ -1684,7 +1686,10 @@
       showImportResult(ch, warnings);
     } catch (err) {
       console.error(err);
-      alert('Import failed: ' + err.message);
+      const missing = missingParts();
+      alert('Import failed: ' + err.message + (missing.length
+        ? `\n\nPart of the sheet didn't load (${missing.join(', ')}), usually because the browser kept old files after an update. Press Ctrl+Shift+R (Cmd+Shift+R on a Mac) to reload, then import again.`
+        : '\n\nIf the sheet was updated while this tab was open, press Ctrl+Shift+R (Cmd+Shift+R on a Mac) to reload, then try again.'));
     }
   }
   function showImportResult(ch, warnings, from) {
@@ -2116,7 +2121,7 @@
   function standardBonuses(o, kind, name) {
     if ((o.bonuses || []).length) return 0;
     const firstClass = (App.ch.classes.find(c => c.name) || {}).name;
-    const res = window.PF_FEATS.suggest(kind, name, skillNameList(), firstClass ? E.classSlug(firstClass) : undefined, o.text);
+    const res = featSuggest(kind, name, skillNameList(), firstClass ? E.classSlug(firstClass) : undefined, o.text);
     if (!res || !res.length) return 0;
     o.bonuses = res;
     return 1;
@@ -2227,7 +2232,7 @@
     const cap = x => x.charAt(0).toUpperCase() + x.slice(1);
     const skills = d.skills.map(x => x.name).concat(M.SPECIALTY_SKILLS);
     const list = ch.classFeatures;
-    const std = (name, cls, text) => (opts.bonuses ? (window.PF_FEATS.suggest('feature', name, skills, E.classSlug(cls), text) || []) : []);
+    const std = (name, cls, text) => (opts.bonuses ? (featSuggest('feature', name, skills, E.classSlug(cls), text) || []) : []);
     const make = (name, text, src, cls) => { const bonuses = std(name, cls, text); return { name, text, bonuses, src, srcHash: textHash(text), srcB: bonuses.length }; };
     const wanted = new Set(), wantSpells = new Set();
     for (const c of classes) {
@@ -2551,7 +2556,20 @@
   window.addEventListener('beforeunload', () => { if (App.ch) saveNow(); });
 
   // ---------- Boot ----------
+  // Every script defines one of these. One can go missing when the browser mixes cached old files with new
+  // ones right after an update; a hard reload fixes it.
+  const PARTS = { PF_DATA: 'data.js', PF_ATTACK_GROUP: 'attacks-extra.js', PF_MODEL: 'model.js', PF_RACES: 'races.js', PF_COMPANION: 'companion.js',
+    PF_FEATS: 'feats.js', PF_ENGINE: 'engine.js', PF_HEROLAB: 'herolab.js', PF_IMPORT: 'import.js', PF_DICE: 'dice.js', PF_DISCORD: 'discord.js', PF_SRD: 'srd.js' };
+  function missingParts() { return Object.keys(PARTS).filter(k => !window[k]).map(k => PARTS[k]); }
   function boot() {
+    const missing = missingParts();
+    if (missing.length) {
+      const bar = document.createElement('div');
+      bar.className = 'load-warning';
+      bar.setAttribute('role', 'alert');
+      bar.textContent = `Part of the sheet didn't load (${missing.join(', ')}), usually because the browser kept old files after an update. Press Ctrl+Shift+R (Cmd+Shift+R on a Mac) to reload.`;
+      document.body.prepend(bar);
+    }
     App.settings = lsGet(LS.settings, {}) || {};
     if (App.settings.theme) document.documentElement.setAttribute('data-theme', App.settings.theme);
     App.roster = lsGet(LS.roster, { ids: [], current: null }) || { ids: [], current: null };

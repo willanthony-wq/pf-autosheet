@@ -210,7 +210,8 @@
     const out = [];
     const src = String(text || '');
     // One clause at a time, so the reminder text is the sentence the number came from
-    for (const clause of src.split(/(?<=[.;])\s+|\n+/)) {
+    // (no regex lookbehind: older Safari can't parse it, and the whole file would fail to load)
+    for (const clause of src.replace(/([.;])\s+/g, '$1\n').split(/\n+/)) {
       const re = /\+(\d+)\s+(?:([a-z]+)\s+)?(?:bonus(?:es)?\s+)?(?:(?:on|to|in|with)\s+)?(?:all\s+|your\s+|its\s+|his or her\s+|their\s+)?/gi;
       let m;
       while ((m = re.exec(clause))) {
