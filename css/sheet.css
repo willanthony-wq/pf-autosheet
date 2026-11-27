@@ -254,6 +254,21 @@ select.class-select { min-width: 190px; }
 .icon-btn.sit-btn.on { color: var(--accent); background: var(--calc); }
 .bonus-row.situational { border-left: 3px solid var(--accent); padding-left: 3px; }
 .chip.sit:not(.on) { border-style: dashed; }
+/* What makes a number: Play tiles show their breakdown on hover or click */
+.explain { cursor: help; }
+.explain:hover, .explain:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
+.explain-i { font-size: 10px; color: var(--muted); }
+.explain-pop { position: absolute; z-index: 50; background: var(--panel); color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius); box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 10px 12px; font-size: 13px; }
+.explain-pop[hidden] { display: none; }
+.explain-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+.explain-total { font-size: 18px; font-weight: 700; }
+.explain-table { width: 100%; border-collapse: collapse; }
+.explain-table td { padding: 3px 0; vertical-align: top; border-bottom: 1px dashed var(--line); }
+.explain-table td:last-child { text-align: right; font-weight: 600; white-space: nowrap; padding-left: 10px; }
+.explain-table tr:last-child td { border-bottom: 0; }
+.explain-table .sub { font-size: 11px; color: var(--muted); }
+.explain-src { margin: 2px 0 0; padding-left: 14px; font-size: 12px; }
+.explain-src li.off { text-decoration: line-through; opacity: .7; }
 /* Misc magic items: name, then small labelled number fields */
 .feature-head.misc-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: end; }
 .feature-head.misc-head > input[type=text] { flex: 1 1 100%; min-width: 160px; font-weight: 600; }   /* name on its own line, bold like worn items */

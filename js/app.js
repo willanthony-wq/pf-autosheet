@@ -185,6 +185,7 @@
   ];
 
   function render() {
+    if (typeof hideExplain === 'function') hideExplain(true);
     renderRosterSelect();
     renderTabs();
     const main = $('#main');
@@ -587,7 +588,7 @@
     const classLine = d.classes.map((c, i) => [c, (ch.classes[i] && ch.classes[i].archetypes) || []]).filter(([c]) => c.data && c.level)
       .map(([c, a]) => `${c.name}${a.length ? ` (${a.join(', ')})` : ''} ${c.level}`).join(' / ') || 'No class yet';
     const sub = [ch.info.race, classLine, ch.info.alignment, d.size.name !== 'Medium' ? d.size.name : ''].filter(Boolean).join(' · ');
-    const tile = (label, inner) => `<div class="tile"><div class="label">${label}</div><div class="value">${inner}</div></div>`;
+    const tile = (label, inner, key) => `<div class="tile${key ? ' explain' : ''}"${key ? ` data-explain="${key}" tabindex="0" aria-label="${esc(label)}: show what makes this number"` : ''}><div class="label">${label}${key ? ' <span class="explain-i" aria-hidden="true">ⓘ</span>' : ''}</div><div class="value">${inner}</div></div>`;
     const header = `<section class="card play-header span-all">
       <div class="play-id"><h1>${esc(ch.info.name || 'Unnamed')}</h1><div class="muted">${esc(sub)}</div>
         <div class="play-hp">
@@ -601,13 +602,13 @@
           ${ch.hp.dr || ch.hp.resist ? `<div class="small muted">${esc([ch.hp.dr, ch.hp.resist].filter(Boolean).join(' · '))}</div>` : ''}
         </div></div>
       <div class="tiles play-tiles">
-        ${tile('AC', out('ac/total', '', ''))}${tile('Touch', out('ac/touch', '', ''))}${tile('Flat-footed', out('ac/flat', '', ''))}${tile('CMD', out('cmd', '', ''))}
-        ${tile('Initiative', rollBtn('Initiative', 'initiative/total'))}${tile('CMB', rollBtn('Combat maneuver', 'cmb'))}
-        ${tile('Speed', out('speed/land', 'ft', ''))}${tile('BAB', out('bab', 'sign', ''))}
+        ${tile('AC', out('ac/total', '', ''), 'ac')}${tile('Touch', out('ac/touch', '', ''), 'touch')}${tile('Flat-footed', out('ac/flat', '', ''), 'flat')}${tile('CMD', out('cmd', '', ''), 'cmd')}
+        ${tile('Initiative', rollBtn('Initiative', 'initiative/total'), 'init')}${tile('CMB', rollBtn('Combat maneuver', 'cmb'), 'cmb')}
+        ${tile('Speed', out('speed/land', 'ft', ''), 'speed')}${tile('BAB', out('bab', 'sign', ''), 'bab')}
         ${tile('Load', `<span title="Carrying ${esc(d.gear.total)} of ${esc(d.gear.heavy)} lb (light up to ${esc(d.gear.light)}, medium up to ${esc(d.gear.medium)})">${out('armor/encumbrance', '', '')}</span><span class="tile-sub">${out('gear/total', 'lb', '')}</span>`)}
       </div></section>`;
 
-    const saveBtn = (k, label) => `<div class="save-btn"><span class="label">${label}</span>${rollBtn(label + ' save', `saves/${k}/total`, { big: true })}</div>`;
+    const saveBtn = (k, label) => `<div class="save-btn explain" data-explain="${k}" tabindex="0" aria-label="${label} save: show what makes this number"><span class="label">${label} <span class="explain-i" aria-hidden="true">ⓘ</span></span>${rollBtn(label + ' save', `saves/${k}/total`, { big: true })}</div>`;
     const checks = card('Saves & Checks', `<div class="save-row">${saveBtn('fort', 'Fort')}${saveBtn('ref', 'Reflex')}${saveBtn('will', 'Will')}</div>
       ${ch.saves.notes ? `<p class="small muted">${esc(ch.saves.notes)}</p>` : ''}
       <div class="ability-row">${M.ABILITIES.map(a => `<div class="ab-cell"><span class="label">${a.toUpperCase()} <span class="muted">${out(`abilities/${a}/score`, '', '')}</span></span>${rollBtn(M.ABILITY_NAMES[a] + ' check', `abilities/${a}/mod`)}</div>`).join('')}</div>
@@ -671,6 +672,156 @@
     const side = `<div class="play-stack">${res}</div>`;
     return `<div class="grid play-grid">${header}${checks}${attacks}${playCompanionCards()}${stack}${side}</div>`;
   }
+
+  // ----- What makes a number: hover or click a Play tile (AC, Touch, CMD, saves...) to see its parts and sources
+  const SRC_NAMES = { race: 'race', trait: 'trait', feat: 'feat', feature: 'class feature', worn: 'worn item', misc: 'magic item', effect: 'effect', toggle: 'toggle', item: 'magic item', condition: 'condition' };
+  // The named bonuses behind one key (ac, nat, fort...), with the ones that don't stack marked
+  function sourcesOf(key, typeFilter) {
+    const legacy = t => (t !== 'Deflect/Enhance/Resist' ? t : key === 'ac' ? 'Deflection' : ['fort', 'ref', 'will'].includes(key) ? 'Resistance' : 'Enhancement');
+    const list = (App.d.rows || []).filter(r => r.v && E.isNum(r.v[key])).map(r => ({ name: r.name, src: r.src, type: legacy(r.type || 'Untyped (stacks)'), v: E.n(r.v[key]) }))
+      .filter(x => x.v !== 0 && (!typeFilter || typeFilter(x.type)));
+    // Same-type bonuses that don't stack: only the highest counts
+    for (const t of new Set(list.map(x => x.type))) {
+      if (M.STACKING_TYPES.includes(t)) continue;
+      const pos = list.filter(x => x.type === t && x.v > 0);
+      const best = pos.reduce((a, x) => (x.v > a.v ? x : a), pos[0]);
+      pos.forEach(x => { if (x !== best) x.off = true; });
+    }
+    return list;
+  }
+  function explainParts(key) {
+    const d = App.d, ch = App.ch, p = d.ac.parts, sg = x => (x >= 0 ? '+' : '') + x;
+    const DEFL = t => t === 'Deflection', DODGE = t => t === 'Dodge (stacks)', OTHER = t => !['Armor', 'Enhancement', 'Deflection', 'Dodge (stacks)'].includes(t);
+    const line = (label, value, note, sources) => ({ label, value, note: note || '', sources: sources || [] });
+    const dexNote = () => {
+      if (d.loseDex) return 'you lose your Dex bonus (a condition)';
+      if (d.armor.maxDex !== null && d.mods.dex > d.armor.maxDex) return `Dex ${sg(d.mods.dex)}, capped by armor or load (max Dex ${sg(d.armor.maxDex)})`;
+      return '';
+    };
+    const armorName = [ch.armor.item || ch.armor.name].filter(Boolean).join('');
+    const shieldName = ch.shield.item || ch.shield.name || '';
+    const acLines = (which) => {
+      const L = [line('Base', 10)];
+      if (which !== 'touch') {
+        if (p.armor) L.push(line('Armor', p.armor, armorName, sourcesOf('ac', t => t === 'Armor' || t === 'Enhancement')));
+        if (p.shield) L.push(line('Shield', p.shield, shieldName));
+      }
+      const dex = which === 'flat' ? Math.min(0, p.dex) : p.dex;
+      L.push(line('Dex', dex, which === 'flat' && p.dex > 0 ? 'no Dex bonus when flat-footed' : dexNote()));
+      if (p.size) L.push(line('Size', p.size, d.size.name));
+      if (which !== 'touch' && p.natural) L.push(line('Natural armor', p.natural, '', sourcesOf('nat')));
+      if (p.deflect) L.push(line('Deflection', p.deflect, '', sourcesOf('ac', DEFL)));
+      const dodge = which === 'flat' ? Math.min(0, p.dodge) : p.dodge;
+      if (dodge || (p.dodge && which === 'flat')) L.push(line('Dodge', dodge, which === 'flat' && p.dodge > 0 ? 'no dodge bonus when flat-footed' : '', sourcesOf('ac', DODGE)));
+      if (which === 'ac' && p.misc) L.push(line('Misc', p.misc, 'Character tab'));
+      if (p.temp) L.push(line('Other bonuses', p.temp, '', sourcesOf('ac', OTHER)));
+      return L;
+    };
+    const classList = d.classes.filter(c => c.name && c.level > 0);
+    switch (key) {
+      case 'ac': return { title: 'Armor Class', total: d.ac.total, lines: acLines('ac') };
+      case 'touch': return { title: 'Touch AC', total: d.ac.touch, lines: acLines('touch'), foot: 'Touch attacks ignore armor, shield and natural armor.' };
+      case 'flat': return { title: 'Flat-footed AC', total: d.ac.flat, lines: acLines('flat'), foot: 'Flat-footed: no Dex or dodge bonus (penalties still count).' };
+      case 'cmd': {
+        const L = [line('Base', 10), line('BAB', d.bab), line('Str', d.mods.str), line('Dex', p.dex, dexNote())];
+        if (d.size.cmb) L.push(line('Size', d.size.cmb, d.size.name));
+        if (p.deflect) L.push(line('Deflection', p.deflect, '', sourcesOf('ac', DEFL)));
+        if (p.dodge) L.push(line('Dodge', p.dodge, '', sourcesOf('ac', DODGE)));
+        if (p.temp) L.push(line('Other AC bonuses', p.temp, '', sourcesOf('ac', OTHER)));
+        const cmdB = E.stack(d.rows, 'cmd');
+        if (cmdB) L.push(line('CMD bonuses', cmdB, '', sourcesOf('cmd')));
+        return { title: 'Combat Maneuver Defense', total: d.cmd, lines: L };
+      }
+      case 'cmb': {
+        const L = [line('BAB', d.bab), line('Str', d.mods.str)];
+        if (d.size.cmb) L.push(line('Size', d.size.cmb, d.size.name));
+        if (d.effectTotals.mAtk) L.push(line('Melee attack bonuses', d.effectTotals.mAtk, '', sourcesOf('mAtk')));
+        const cmbB = E.stack(d.rows, 'cmb');
+        if (cmbB) L.push(line('CMB bonuses', cmbB, '', sourcesOf('cmb')));
+        return { title: 'Combat Maneuver Bonus', total: d.cmb, lines: L };
+      }
+      case 'init': {
+        const i = d.initiative, L = [line('Dex', i.dex)];
+        if (i.misc) L.push(line('Misc', i.misc, 'Character tab'));
+        if (i.temp) {
+          const fromText = (d.rows || []).filter(r => /initiative/i.test(r.text || '') && E.firstNumber(r.text)).map(r => ({ name: r.name, src: r.src, type: r.type || '', v: E.firstNumber(r.text) }));
+          L.push(line('Bonuses', i.temp, '', sourcesOf('init').concat(fromText)));
+        }
+        return { title: 'Initiative', total: i.total, lines: L };
+      }
+      case 'bab': return { title: 'Base Attack Bonus', total: d.bab, lines: classList.map(c => line(`${c.name} ${c.level}`, c.bab)) };
+      case 'speed': {
+        const sp = d.speed, base = E.n(ch.info.speeds.base), L = [line('Base speed', base, ch.info.race || '')];
+        const fx = E.stack(d.rows, 'speed');
+        if (fx) L.push(line('Speed bonuses', fx, '', sourcesOf('speed')));
+        const mults = (d.rows || []).filter(r => r.v && typeof r.v.speed === 'string' && /^\s*x/i.test(r.v.speed)).map(r => `${r.name} ×${r.v.speed.replace(/^\s*x/i, '')}`);
+        if (mults.length) L.push(line('Multiplied', null, mults.join(', ')));
+        const cat = d.armor.loadCat;
+        if (sp.overloaded) L.push(line('Overloaded', null, 'over your heavy load: 5 ft as a full-round action'));
+        else if (['Medium', 'Heavy', 'Overloaded'].includes(cat) && sp.land < (base + fx)) L.push(line(`${cat} armor or load`, null, 'speed reduced (30 ft → 20, 20 → 15)'));
+        return { title: 'Speed', total: sp.land + ' ft', lines: L, foot: `Charge ${sp.charge} ft · run ${sp.run} ft` };
+      }
+      case 'fort': case 'ref': case 'will': {
+        const s = d.saves[key], ab = { fort: 'Con', ref: 'Dex', will: 'Wis' }[key];
+        const L = [line('Base', s.base, classList.map(c => `${c.name} ${c.level}`).join(', ')), line(ab, s.ability)];
+        if (s.resist) L.push(line('Resistance', s.resist, '', sourcesOf(key, t => t === 'Resistance')));
+        if (s.misc) L.push(line('Misc', s.misc, 'Character tab'));
+        if (s.temp) L.push(line('Other bonuses', s.temp, '', sourcesOf(key, t => t !== 'Resistance')));
+        return { title: { fort: 'Fortitude', ref: 'Reflex', will: 'Will' }[key] + ' save', total: s.total, lines: L };
+      }
+    }
+    return null;
+  }
+  function explainHtml(key) {
+    const x = explainParts(key);
+    if (!x) return '';
+    const sg = v => (v >= 0 ? '+' : '') + v;
+    const rows = x.lines.map(l => `<tr><td class="l">${esc(l.label)}${l.note ? `<div class="sub">${esc(l.note)}</div>` : ''}${l.sources.length ? `<ul class="explain-src">${l.sources.map(s2 => `<li class="${s2.off ? 'off' : ''}">${esc(s2.name)} <span class="muted">${esc(sg(s2.v))}${s2.type && s2.type !== 'Untyped (stacks)' ? ' ' + esc(s2.type.replace(' (stacks)', '').toLowerCase()) : ''}${SRC_NAMES[s2.src] ? ' · ' + SRC_NAMES[s2.src] : ''}${s2.off ? ' · doesn\'t stack' : ''}</span></li>`).join('')}</ul>` : ''}</td>
+      <td>${l.value === null ? '' : (l.label === 'Base' || l.label === 'Base speed' ? esc(l.value) : esc(sg(l.value)))}</td></tr>`).join('');
+    return `<div class="explain-head"><strong>${esc(x.title)}</strong><span class="explain-total">${esc(x.total)}</span></div><table class="explain-table">${rows}</table>${x.foot ? `<p class="small muted" style="margin:6px 0 0">${esc(x.foot)}</p>` : ''}`;
+  }
+  // One popover for the whole page. Hover shows it; a click (or Enter) pins it until you click elsewhere.
+  let explainPinned = null;
+  function showExplain(el, pin) {
+    const html = explainHtml(el.dataset.explain);
+    if (!html) return;
+    let pop = $('#explain-pop');
+    if (!pop) { pop = document.createElement('div'); pop.id = 'explain-pop'; pop.className = 'explain-pop'; pop.setAttribute('role', 'dialog'); document.body.appendChild(pop); }
+    pop.innerHTML = html;
+    pop.hidden = false;
+    const r = el.getBoundingClientRect(), w = Math.min(340, window.innerWidth - 16);
+    pop.style.width = w + 'px';
+    pop.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + window.scrollX + 'px';
+    const below = r.bottom + 6 + pop.offsetHeight < window.innerHeight || r.top < pop.offsetHeight + 12;
+    pop.style.top = (below ? r.bottom + 6 : r.top - pop.offsetHeight - 6) + window.scrollY + 'px';
+    explainPinned = pin ? el.dataset.explain : explainPinned;
+  }
+  function hideExplain(force) {
+    if (explainPinned && !force) return;
+    explainPinned = null;
+    const pop = $('#explain-pop');
+    if (pop) pop.hidden = true;
+  }
+  document.addEventListener('mouseover', e => {
+    const el = e.target.closest && e.target.closest('[data-explain]');
+    if (el && !explainPinned) showExplain(el, false);
+  });
+  document.addEventListener('mouseout', e => {
+    const el = e.target.closest && e.target.closest('[data-explain]');
+    if (el && !(e.relatedTarget && el.contains(e.relatedTarget))) hideExplain(false);
+  });
+  document.addEventListener('click', e => {
+    const el = e.target.closest && e.target.closest('[data-explain]');
+    // Clicking a roll button inside the tile still rolls; anywhere else on the tile pins the breakdown
+    if (el && !e.target.closest('button')) { if (explainPinned === el.dataset.explain) hideExplain(true); else showExplain(el, true); return; }
+    if (!(e.target.closest && e.target.closest('#explain-pop'))) hideExplain(true);
+  });
+  document.addEventListener('keydown', e => {
+    const el = e.target.closest && e.target.closest('[data-explain]');
+    if (e.key === 'Escape') hideExplain(true);
+    else if (el && e.target === el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); showExplain(el, true); }
+  });
+  window.addEventListener('scroll', () => hideExplain(true), { passive: true });
 
   // ----- Active Bonuses: in the sidebar under Dice, so it shows on every tab
   function activeBonusesHtml() {
