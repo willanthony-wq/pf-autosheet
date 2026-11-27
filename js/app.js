@@ -1788,21 +1788,17 @@
       const count = Math.max(1, E.evalBonus(String(s.dmgCount || '1'), V) || 1);
       const bonus = E.evalBonus(s.dmgBonus || 0, V) || 0;
       const what = s.attack ? 'Ray' : 'Missile';
+      spellDamage.spell = s;
       total = 0;
       for (let i = 1; i <= rays; i++) {
-        let line = `**${what} ${i}:**`, miss = false, thr = false;
+        let line = `**${what} ${i}:**`, miss = false, critOn = false;
         if (s.attack) {
           const r = DICE.check(b);
           line += ` touch **${r.total}** (d20 ${r.nat} ${DICE.signed(b)})`;
           if (r.nat === 1) { line += ' natural 1, miss'; miss = true; }
-          else if (r.nat === 20) { const c2 = DICE.check(b); line += ` threat! confirm ${c2.total} (d20 ${c2.nat})`; thr = crit = true; }
+          else if (r.nat === 20) { const c2 = DICE.check(b); critOn = c2.nat !== 1; line += critOn ? ` **critical!** confirm ${c2.total} (d20 ${c2.nat}) vs. touch AC` : ` threat, but the confirmation is a natural 1`; crit = crit || critOn; }
         }
-        if (s.dmgDie && !miss) {
-          const r = DICE.damage(`${count}d${s.dmgDie}`, bonus, 1);
-          total += r.total;
-          line += `${s.attack ? ' ·' : ''} damage **${r.total}** (${r.text})${s.dmgType ? ' ' + s.dmgType : ''}`;
-          if (thr) { const c2 = DICE.damage(`${count}d${s.dmgDie}`, bonus, 2); line += ` · if confirmed: **${c2.total}**`; }
-        }
+        if (s.dmgDie && !miss) line += (s.attack ? ' ·' : '') + spellDamage(count, bonus, critOn, n => { total += n; });
         lines.push(line);
       }
       if (s.dmgDie) lines.push(`Total if all ${s.attack ? 'hit' : 'strike one target'}: **${total}**`);
@@ -1815,7 +1811,7 @@
       const r = DICE.check(b);
       let line = `**${s.attack === 'rtouch' ? 'Ranged' : 'Melee'} touch: ${r.total}** (d20 ${r.nat} ${DICE.signed(b)})`;
       if (r.nat === 1) { line += ' natural 1, miss'; fumble = true; }
-      else if (r.nat === 20) { const c2 = DICE.check(b); line += ` threat! confirm ${c2.total} (d20 ${c2.nat})`; crit = threat = true; }
+      else if (r.nat === 20) { const c2 = DICE.check(b); threat = c2.nat !== 1; crit = threat; line += threat ? ` **critical!** confirm ${c2.total} (d20 ${c2.nat}) vs. touch AC` : ' threat, but the confirmation is a natural 1'; }
       lines.push(line);
     }
     if (s.dmgDie && !fumble) {
@@ -1829,11 +1825,26 @@
         lines.push(`**Temporary HP: ${r.total}** (${r.text})${tn ? ' → ' + tn : ''}`);
         return finishCast(s, dcv, ctx, lines, total, crit, fumble);
       }
-      let line = `**${s.healing ? 'Healing' : 'Damage'}: ${r.total}** (${r.text})${!s.healing && s.dmgType ? ' ' + s.dmgType : ''}`;
-      if (threat && !s.healing) { const c2 = DICE.damage(`${count}d${s.dmgDie}`, bonus, 2); line += ` · if confirmed: **${c2.total}** (x2: ${c2.text})`; }
+      let line;
+      if (threat && !s.healing) {
+        // Critical hit: dice rolled twice; the normal roll stays visible in case the confirmation misses
+        const c2 = DICE.damage(`${count}d${s.dmgDie}`, bonus, 2);
+        total = c2.total;
+        line = `**Critical damage: ${c2.total}** (x2: ${c2.text})${s.dmgType ? ' ' + s.dmgType : ''} · if the confirmation misses: ${r.total} (${r.text})`;
+      } else line = `**${s.healing ? 'Healing' : 'Damage'}: ${r.total}** (${r.text})${!s.healing && s.dmgType ? ' ' + s.dmgType : ''}`;
       lines.push(line);
     }
     return finishCast(s, dcv, ctx, lines, total, crit, fumble);
+  }
+  // One ray's or missile's damage text; a critical doubles the dice and keeps the normal roll for a missed confirmation
+  function spellDamage(count, bonus, critOn, addTotal) {
+    const s = spellDamage.spell;
+    const normal = DICE.damage(`${count}d${s.dmgDie}`, bonus, 1);
+    const type = s.dmgType ? ' ' + s.dmgType : '';
+    if (!critOn) { addTotal(normal.total); return ` damage **${normal.total}** (${normal.text})${type}`; }
+    const c2 = DICE.damage(`${count}d${s.dmgDie}`, bonus, 2);
+    addTotal(c2.total);
+    return ` **critical damage ${c2.total}** (x2: ${c2.text})${type} · if the confirmation misses: ${normal.total}`;
   }
   function finishCast(s, dcv, ctx, lines, total, crit, fumble) {
     if (s.save) lines.push(`Save: ${s.save}${dcv !== null && dcv !== undefined ? ', DC ' + dcv : ''}`);
