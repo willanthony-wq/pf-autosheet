@@ -87,7 +87,7 @@ input.n { width: 52px; }
 input.n-wide { width: 70px; }
 input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); }
 label.field { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; min-width: 0; }
-label.field > input, label.field > select { font-size: 14px; text-transform: none; letter-spacing: 0; color: var(--ink); }
+label.field > input, label.field > select, label.field > .jump { font-size: 14px; text-transform: none; letter-spacing: 0; color: var(--ink); }
 .fields { display: grid; gap: 8px 10px; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 .inline { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
@@ -336,3 +336,14 @@ table.mini tr.total td { border-top: 1px solid var(--line); font-weight: 700; }
 /* Formulas in effect and toggle cells */
 .effects-table td input.fx-formula { min-width: 9ch; font-size: 12px; }
 .effects-table td .fx-result { display: block; font-size: 11px; color: var(--muted); text-align: center; }
+
+/* Values edited on another tab: click to jump there */
+.jump { display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; min-height: 32px; padding: 4px 8px;
+  border: 1px dashed var(--line); border-radius: var(--radius); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+td .jump { justify-content: center; min-height: 28px; padding: 2px 6px; }
+.jump:hover, .jump:focus-visible { border-style: solid; border-color: var(--accent); }
+.jump .jump-icon { font-size: 11px; color: var(--muted); }
+.jump:hover .jump-icon { color: var(--accent); }
+.flash { animation: flash 1.6s ease-out; }
+@keyframes flash { 0%, 40% { box-shadow: 0 0 0 3px var(--focus); } 100% { box-shadow: 0 0 0 3px transparent; } }
+@media (prefers-reduced-motion: reduce) { .flash { animation: none; outline: 2px solid var(--focus); } }

@@ -59,7 +59,7 @@ The webhook URL is stored only in this browser. It is never written into exporte
 ## Tabs
 
 - **Play:** everything you need at the table on one page: HP with damage/heal buttons, AC/touch/flat-footed/CMD, initiative, saves, ability checks, attacks, buffs and conditions, all skills (with a filter), spells with slot tracking and cast buttons, resources, and a list of active bonuses and situational reminders.
-- **Character:** identity, classes, ability scores, HP settings, and the full save and AC breakdowns.
+- **Character:** identity, classes, ability scores, HP settings, and the full save and AC breakdowns. Values that are set on another tab (race, size, racial ability modifiers, temporary bonuses, armor, shield, natural armor, deflection, dodge, speed) are links marked ↗: click one to open that tab with the cursor in the field.
 - **Companion:** animal companions, eidolons, familiars and other creatures (cohorts, constructs, mounts). Each one also gets a card on the Play tab with HP, defenses, saves, attacks, skills and resources; its rolls post under its own name.
 - **Features & Gear:** inventory, coins and encumbrance, plus feats, worn magic items, traits, class features and resources.
 - **Race, Skills, Combat, Spells, Effects, Notes, Settings:** the detailed editors.

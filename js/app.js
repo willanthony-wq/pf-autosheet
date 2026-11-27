@@ -115,6 +115,12 @@
     return `<button class="roll${o.big ? ' big-roll' : ''}" data-action="roll-check" data-label="${esc(label)}" data-mod="${esc(modPath)}"${o.who ? ` data-who="${esc(o.who)}"` : ''} title="Roll ${esc(label)} (Shift-click for a private roll)">` +
       `<span data-out="${esc(modPath)}" data-fmt="sign">${esc(fmt(dget(modPath), 'sign'))}</span></button>`;
   }
+  // A value that is edited on another tab: clicking it opens that tab with the cursor in the field.
+  const TAB_NAMES = { race: 'Race', combat: 'Combat', effects: 'Effects', skills: 'Skills', features: 'Features & Gear' };
+  function jump(content, tab, focus, title) {
+    return `<button type="button" class="jump" data-action="jump" data-tab="${tab}"${focus ? ` data-focus="${esc(focus)}"` : ''} title="${esc(title || 'Edit on the ' + TAB_NAMES[tab] + ' tab')}">${content}<span class="jump-icon" aria-hidden="true">↗</span></button>`;
+  }
+  function jumpOut(path, f, tab, focus, title) { return jump(out(path, f, ''), tab, focus, title); }
   function field(label, control, cls) { return `<label class="field${cls ? ' ' + cls : ''}">${esc(label)}${control}</label>`; }
   function card(title, body, o = {}) {
     return `<section class="card${o.cls ? ' ' + o.cls : ''}"${o.id ? ` id="${o.id}"` : ''}><header><h2>${esc(title)}</h2><span class="spacer"></span>${o.tools || ''}</header>${body}</section>`;
@@ -212,9 +218,9 @@
     const d = App.d, ch = App.ch;
     const identity = card('Character', `<div class="fields">
       ${field('Name', inp('info/name'))}${field('Player', inp('info/player'))}
-      ${field('Alignment', inp('info/alignment', { ph: 'e.g. CN' }))}${field('Race', inp('info/race'))}
+      ${field('Alignment', inp('info/alignment', { ph: 'e.g. CN' }))}${field('Race', jump(ch.info.race ? esc(ch.info.race) : '<span class="muted">Choose a race</span>', 'race', 'info/race'))}
       ${field('Deity', inp('info/deity'))}${field('Gender', inp('info/gender'))}
-      ${field('Base size', sel('info/size', M.SIZES.map(s => s.name), { blank: false }))}
+      ${field('Base size', jump(esc(ch.info.size || 'Medium'), 'race', 'info/size'))}
       ${field('Current size', out('size/name', '', 'calc'))}
       ${field('Age category', sel('info/age', M.AGE.categories, { blank: false }))}
       ${field('Age', inp('info/ageYears'))}${field('Height', inp('info/height'))}${field('Weight', inp('info/weight'))}
@@ -247,12 +253,12 @@
     const abilRows = M.ABILITIES.map(a => `<tr>
       <td class="l ability-name">${M.ABILITY_NAMES[a]}</td>
       <td>${out(`abilities/${a}/score`, '', 'calc big')}</td>
-      <td>${out(`abilities/${a}/race`, 'sign')}</td>
+      <td>${jumpOut(`abilities/${a}/race`, 'sign', 'race', `race/abilityMods/${a}`, 'Racial modifier: edit on the Race tab')}</td>
       <td>${rollBtn(M.ABILITY_NAMES[a] + ' check', `abilities/${a}/mod`)}</td>
       <td>${inp(`abilities/${a}/base`, { type: 'num', aria: a + ' base' })}</td>
       <td>${inp(`abilities/${a}/enh`, { type: 'num', aria: a + ' enhancement' })}</td>
       <td>${inp(`abilities/${a}/inh`, { type: 'num', aria: a + ' inherent' })}</td>
-      <td>${out(`abilities/${a}/temp`, 'sign')}</td>
+      <td>${jumpOut(`abilities/${a}/temp`, 'sign', 'effects', '', 'From effects: edit on the Effects tab')}</td>
       <td>${inp(`abilities/${a}/pen`, { type: 'num', aria: a + ' penalty' })}</td>
       <td>${out(`abilities/${a}/age`, 'sign')}</td></tr>`).join('');
     const abilities = card('Ability Scores', `<div class="scroll-x"><table>
@@ -277,8 +283,8 @@
       ${ch.settings.woundThresholds ? `<p class="small"><strong>Wound threshold:</strong> ${out('woundState', '', '')}</p>` : ''}`);
 
     const saveRow = (k, label) => `<tr><td class="l ability-name">${label}</td><td>${rollBtn(label + ' save', `saves/${k}/total`, { big: false })}</td>
-      <td>${out(`saves/${k}/base`, 'sign')}</td><td>${out(`saves/${k}/ability`, 'sign')}</td><td>${out(`saves/${k}/resist`, 'sign')}</td>
-      <td>${inp(`saves/${k}/misc`, { type: 'num', aria: label + ' misc' })}</td><td>${out(`saves/${k}/temp`, 'sign')}</td></tr>`;
+      <td>${out(`saves/${k}/base`, 'sign')}</td><td>${out(`saves/${k}/ability`, 'sign')}</td><td>${jumpOut(`saves/${k}/resist`, 'sign', 'effects', '', 'Resistance bonuses (cloaks…): edit on the Effects tab')}</td>
+      <td>${inp(`saves/${k}/misc`, { type: 'num', aria: label + ' misc' })}</td><td>${jumpOut(`saves/${k}/temp`, 'sign', 'effects', '', 'From effects: edit on the Effects tab')}</td></tr>`;
     const saves = card('Saving Throws', `<table><thead><tr><th class="l">Save</th><th>Total</th><th>Base</th><th>Ability</th><th>Resist</th><th>Misc</th><th>Temp</th></tr></thead>
       <tbody>${saveRow('fort', 'Fortitude')}${saveRow('ref', 'Reflex')}${saveRow('will', 'Will')}</tbody></table>
       <div style="margin-top:8px">${field('Save notes', area('saves/notes', { rows: 2 }))}</div>`);
@@ -292,12 +298,17 @@
       </div>
       <div class="scroll-x" style="margin-top:10px"><table>
         <thead><tr><th>Armor</th><th>Shield</th><th>Dex</th><th>Size</th><th>Natural</th><th>Deflect</th><th>Dodge</th><th>Misc</th><th>Temp</th></tr></thead>
-        <tbody><tr>${['armor', 'shield', 'dex', 'size', 'natural', 'deflect', 'dodge'].map(k => `<td>${out('ac/parts/' + k, 'sign')}</td>`).join('')}
-          <td>${inp('ac/misc', { type: 'num', aria: 'AC misc' })}</td><td>${out('ac/parts/temp', 'sign')}</td></tr></tbody>
+        <tbody><tr>${['armor', 'shield', 'dex', 'size', 'natural', 'deflect', 'dodge'].map(k => {
+          const go = { armor: ['combat', 'armor/item', 'Armor: edit on the Combat tab'], shield: ['combat', 'shield/item', 'Shield: edit on the Combat tab'],
+            size: ['race', 'info/size', 'Size: edit on the Race tab'], natural: ['effects', '', 'Natural armor: edit on the Effects tab'],
+            deflect: ['effects', '', 'Deflection: edit on the Effects tab'], dodge: ['effects', '', 'Dodge: edit on the Effects tab'] }[k];
+          return `<td>${go ? jumpOut('ac/parts/' + k, 'sign', go[0], go[1], go[2]) : out('ac/parts/' + k, 'sign')}</td>`;
+        }).join('')}
+          <td>${inp('ac/misc', { type: 'num', aria: 'AC misc' })}</td><td>${jumpOut('ac/parts/temp', 'sign', 'effects', '', 'From effects: edit on the Effects tab')}</td></tr></tbody>
       </table></div>
       <div class="fields" style="margin-top:8px">
         ${field('Initiative misc', inp('initiative/misc', { type: 'num' }))}
-        ${field('Speed', out('speed/land', 'ft'))}
+        ${field('Speed', jumpOut('speed/land', 'ft', 'combat', 'info/speeds/base', 'Base speed: edit on the Combat tab'))}
         ${field('AC notes', inp('ac/notes'))}
       </div>`);
 
@@ -1344,6 +1355,7 @@
           inventory: { name: '', qty: 1, weight: '', value: '', carried: true, notes: '' } };
         App.ch[el.dataset.list].push(blanks[el.dataset.list]); changed(true);
       },
+      'jump': () => jumpToField(el.dataset.tab, el.dataset.focus),
       'srd-class-features': () => addClassFeatures(),
       'sort-worn': () => sortWornItems(),
       'remove': () => { const arr = get(el.dataset.list); if (Array.isArray(arr)) { arr.splice(+el.dataset.i, 1); changed(true); } },
@@ -2008,6 +2020,23 @@
     sortSlots();
     changed(true);
     toast(moved ? `Moved ${moved} item${moved === 1 ? '' : 's'} to ${moved === 1 ? 'its slot' : 'their slots'}.` : 'Every item the SRD knows is already in its slot.');
+  }
+
+  // Open a tab and put the cursor in one of its fields (or show the tab's first card)
+  function jumpToField(tab, focus) {
+    App.tab = tab;
+    render();
+    const main = $('#main');
+    const target = focus ? main.querySelector(`[data-bind="${CSS.escape(focus)}"]`) : main.querySelector('.card');
+    if (!target) { window.scrollTo(0, 0); return; }
+    target.scrollIntoView({ block: 'center' });
+    if (focus) {
+      target.focus({ preventScroll: true });
+      if (target.select && target.type === 'text') target.select();
+    }
+    const box = focus ? target : target;
+    box.classList.add('flash');
+    setTimeout(() => box.classList.remove('flash'), 1600);
   }
 
   function toast(msg) {
