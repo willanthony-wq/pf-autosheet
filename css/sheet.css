@@ -239,6 +239,15 @@ select.class-select { min-width: 190px; }
 .icon-btn.sit-btn.on { color: var(--accent); background: var(--calc); }
 .bonus-row.situational { border-left: 3px solid var(--accent); padding-left: 3px; }
 .chip.sit:not(.on) { border-style: dashed; }
+/* Misc magic items: name, then small labelled number fields */
+.feature-head.misc-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: end; }
+.feature-head.misc-head > input[type=text] { flex: 1 1 220px; min-width: 160px; }
+.mini-field { display: flex; flex-direction: column; font-size: 11px; color: var(--muted); gap: 2px; }
+.mini-field input[type=text], .mini-field input:not([type]) { width: 64px; }
+.mini-field .counter input { width: 48px; }
+.mini-field input[type=checkbox] { align-self: center; margin: 6px 0; }
+/* Worn items use the full card width; empty slots stay one short line */
+.worn-list .feature-head.slots { grid-template-columns: 130px minmax(0, 1fr) 28px; }
 .bonus-row.inactive > *:not(input[type=checkbox]):not(.icon-btn) { opacity: .5; }
 /* Narrow lists: two lines per bonus. Line 1: on, type, applies to, remove. Line 2: detail, value. */
 @container (max-width: 700px) {

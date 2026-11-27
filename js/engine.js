@@ -60,18 +60,23 @@
       value += qty(x) * n(x.value);
       if (x.carried !== false) items += qty(x) * n(x.weight);
     }
+    let magic = 0;
+    for (const x of ch.miscItems || []) {
+      value += qty(x) * n(x.value);
+      if (x.carried !== false) magic += qty(x) * n(x.weight);
+    }
     const weapons = (ch.weapons || []).reduce((t, w) => t + (w.carried === false ? 0 : n(w.weight)), 0);
     const wt = (p, kind) => (isNum(p.weight) ? n(p.weight) : (armorDefaultWeight(p, kind) || 0));
     const armor = wt(ch.armor || {}, 'armor'), shield = wt(ch.shield || {}, 'shield');
     const m = ch.money || {};
     const coinCount = n(m.pp) + n(m.gp) + n(m.sp) + n(m.cp);
     const coins = c.coins === false ? 0 : coinCount / 50;
-    const total = round2(items + weapons + armor + shield + coins);
+    const total = round2(items + magic + weapons + armor + shield + coins);
     const load = total <= light ? 'Light' : total <= medium ? 'Medium' : total <= heavy ? 'Heavy' : 'Overloaded';
     const money = n(m.pp) * 10 + n(m.gp) + n(m.sp) / 10 + n(m.cp) / 100;
     d.gear = {
       str, light, medium, heavy, liftOverHead: heavy, liftOffGround: heavy * 2, push: heavy * 5,
-      items: round2(items), weapons: round2(weapons), armor: round2(armor), shield: round2(shield), coins: round2(coins), total, load,
+      items: round2(items), magic: round2(magic), weapons: round2(weapons), armor: round2(armor), shield: round2(shield), coins: round2(coins), total, load,
       armorDefault: armorDefaultWeight(ch.armor, 'armor'), shieldDefault: armorDefaultWeight(ch.shield, 'shield'),
       money: round2(money), itemValue: round2(value), wealth: round2(money + value),
     };
@@ -259,6 +264,7 @@
     for (const f of ch.feats || []) pushBonuses(rows, f.bonuses || [], 'feat', b => b.label || f.name || 'Feat', 'Untyped (stacks)', V);
     for (const f of ch.classFeatures || []) pushBonuses(rows, f.bonuses || [], 'feature', b => b.label || f.name || 'Class feature', 'Untyped (stacks)', V);
     for (const s of ch.slots || []) pushBonuses(rows, s.bonuses || [], 'worn', b => b.label || s.item || s.slot || 'Worn item', 'Enhancement', V);
+    for (const x of ch.miscItems || []) pushBonuses(rows, x.bonuses || [], 'misc', b => b.label || x.name || 'Magic item', 'Enhancement', V);
 
 
     for (const it of ch.magicItems) {

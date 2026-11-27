@@ -119,7 +119,7 @@
     });
     while (ch.classes.length < 3) ch.classes.push({ name: '', level: 0 });
     const archSet = ch.classes.filter(c => (c.archetypes || []).length).map(c => `${c.name}: ${c.archetypes.join(', ')}`);
-    if (archSet.length) warnings.push(`Archetype set: ${archSet.join('; ')}. The class features came from Hero Lab already; "Add for my level" on the Features & Gear tab can fill in any that are missing.`);
+    if (archSet.length) warnings.push(`Archetype set: ${archSet.join('; ')}. The class features came from Hero Lab already; "Add for my level" on the Character tab can fill in any that are missing.`);
 
     // Abilities: Hero Lab's base already includes racial modifiers, so the race's ability modifiers stay at 0.
     for (const a of kids(kid(C, 'attributes'), 'attribute')) {
@@ -306,7 +306,9 @@
         row.bonuses = b;
         continue;
       }
-      ch.inventory.push(invItem(it));
+      // Not worn (wands, staves, ioun stones, a bag of holding...): Misc Magic Items on the Gear tab
+      const inv = invItem(it);
+      ch.miscItems.push({ name: inv.name, qty: inv.qty, uses: '', max: '', weight: inv.weight, value: inv.value, carried: true, text: itemText(it), bonuses: suggest('item', name) });
     }
     const weaponNames = new Set([...melee, ...ranged].map(w => stripItem(at(w, 'name'))));
     for (const it of kids(kid(C, 'gear'), 'item')) {
@@ -932,7 +934,7 @@
       hpTarget: hpM ? +hpM[1] : 0, target, wTargets, saves, init: firstNum(field(head, 'Init')) ?? firstNum((head.find(l => /^Init /.test(l)) || '').slice(5)),
       ac: acM ? +acM[1] : null, cmb: firstNum((stats.join(' ').match(/CMB\s+([+-]\d+)/) || [])[1]), cmd: firstNum((stats.join(' ').match(/CMD\s+(\d+)/) || [])[1]), speed: spd,
     }, warnings);
-    if (arch.length) warnings.push(`Archetype set: ${arch.join('; ')}. Click "Add for my level" on the Features & Gear tab to swap in its class features.`);
+    if (arch.length) warnings.push(`Archetype set: ${arch.join('; ')}. Click "Add for my level" on the Character tab to swap in its class features.`);
     warnings.push('This is an older Hero Lab portfolio, so details come from its text statblock. Feat and ability text is what the statblock shows (often shortened).');
     return { character: ch, warnings };
   }

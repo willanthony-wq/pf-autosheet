@@ -116,7 +116,7 @@
       `<span data-out="${esc(modPath)}" data-fmt="sign">${esc(fmt(dget(modPath), 'sign'))}</span></button>`;
   }
   // A value that is edited on another tab: clicking it opens that tab with the cursor in the field.
-  const TAB_NAMES = { race: 'Race', combat: 'Combat', effects: 'Effects', skills: 'Skills', features: 'Features & Gear' };
+  const TAB_NAMES = { race: 'Race', combat: 'Combat', effects: 'Effects', skills: 'Skills', features: 'Gear', feats: 'Feats', character: 'Character' };
   function jump(content, tab, focus, title) {
     return `<button type="button" class="jump" data-action="jump" data-tab="${tab}"${focus ? ` data-focus="${esc(focus)}"` : ''} title="${esc(title || 'Edit on the ' + TAB_NAMES[tab] + ' tab')}">${content}<span class="jump-icon" aria-hidden="true">↗</span></button>`;
   }
@@ -166,7 +166,7 @@
   // ---------- Rendering ----------
   const TABS = [
     ['play', 'Play'], ['character', 'Character'], ['race', 'Race'], ['skills', 'Skills'], ['combat', 'Combat'], ['spells', 'Spells'],
-    ['effects', 'Effects'], ['features', 'Features & Gear'], ['companion', 'Companion'], ['notes', 'Notes'], ['settings', 'Settings'],
+    ['effects', 'Effects'], ['feats', 'Feats'], ['features', 'Gear'], ['companion', 'Companion'], ['notes', 'Notes'], ['settings', 'Settings'],
   ];
 
   function render() {
@@ -176,7 +176,7 @@
     if (!App.ch) { main.innerHTML = renderEmpty(); return; }
     const y = window.scrollY;
     const fn = { play: renderPlay, character: renderOverview, overview: renderOverview, race: renderRace, skills: renderSkills, combat: renderCombat, companion: renderCompanion, spells: renderSpells, effects: renderEffects,
-      features: renderFeatures, notes: renderNotes, settings: renderSettings }[App.tab] || renderOverview;
+      features: renderFeatures, feats: renderFeats, notes: renderNotes, settings: renderSettings }[App.tab] || renderOverview;
     const wnames = App.ch.weapons.map(w => w.name).concat(...(App.ch.companions || []).map(c => (c.attacks || []).map(a => a.name))).filter(Boolean);
     const focusBind = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.bind : null;
     main.innerHTML = fn() + `<datalist id="srd-off"><option value="${esc(window.PF_SRD ? window.PF_SRD.USE_SRD : '')}" label="Switch SRD suggestions and autofill back on"></datalist><datalist id="weapon-names">${[...new Set(wnames)].map(w => `<option value="${esc(w)}">`).join('')}</datalist>`;
@@ -313,7 +313,11 @@
       </div>`);
 
 
-    return `<div class="grid two">${identity}${classes}${abilities}${hp}${saves}${defenses}</div>`;
+    const traits = card('Traits & Drawbacks', featureList('traits'),
+      { cls: 'span-2', tools: `<button class="btn small" data-action="add" data-list="traits">+ Trait</button>` });
+    const cf = card('Class Features', featureList('classFeatures'),
+      { cls: 'span-2', tools: `<button class="btn small ghost" data-action="srd-class-features" title="Adds the features your classes get up to your level (Core, APG, ACG and other Paizo base classes), with their rules text">Add for my level</button><button class="btn small" data-action="add" data-list="classFeatures">+ Feature</button>` });
+    return `<div class="grid two">${identity}${classes}${abilities}${hp}${saves}${defenses}${traits}${cf}</div>${classFeatureNames()}`;
   }
 
   // Archetypes chosen for a class, with a picker of that class's archetypes from the rules data
@@ -518,6 +522,7 @@
     ch.feats.forEach((f, i) => L.push([`feats/${i}/bonuses`, f.name || 'Feat', 'Feat']));
     ch.classFeatures.forEach((f, i) => L.push([`classFeatures/${i}/bonuses`, f.name || 'Class feature', 'Class feature']));
     ch.slots.forEach((s, i) => L.push([`slots/${i}/bonuses`, s.item || s.slot || 'Worn item', 'Worn item']));
+    (ch.miscItems || []).forEach((x, i) => L.push([`miscItems/${i}/bonuses`, x.name || 'Magic item', 'Magic item']));
     return L;
   }
   function compSituationalLists(ci) {
@@ -536,6 +541,7 @@
     App.ch.feats.forEach(f => add(f.name || 'Feat', f.bonuses));
     App.ch.classFeatures.forEach(f => add(f.name || 'Class feature', f.bonuses));
     App.ch.slots.forEach(s => add(s.item || s.slot || 'Worn item', s.bonuses));
+    (App.ch.miscItems || []).forEach(x => add(x.name || 'Magic item', x.bonuses));
     App.ch.effects.forEach(e => { if (e.active) add(e.name || 'Effect', e.bonuses); });
     return out;
   }
@@ -635,12 +641,14 @@
         { tools: `<button class="btn small ghost" data-action="rest">Rest</button><button class="btn small ghost" data-action="tab" data-tab="spells">Edit</button>` });
     }
 
+    const miscCharges = (ch.miscItems || []).map((x, i) => (x.max !== '' && x.max !== undefined && x.max !== null) ? `<div class="play-res"><span>${esc(x.name || 'Magic item')}</span>
+        <span class="counter"><button class="btn small" data-action="bump" data-path="miscItems/${i}/uses" data-d="-1" aria-label="Use one charge">−</button><strong>${esc(x.uses === '' || x.uses === undefined ? 0 : x.uses)}</strong><span class="muted">/ ${esc(x.max)}</span><button class="btn small" data-action="bump" data-path="miscItems/${i}/uses" data-d="1" aria-label="Add one charge">+</button></span></div>` : '').join('');
     const res = card('Resources', `${ch.resources.map((r, i) => `<div class="play-res"><span>${esc(r.name || 'Resource')}</span>
-        <span class="counter"><button class="btn small" data-action="bump" data-path="resources/${i}/uses" data-d="-1" aria-label="Use one">−</button><strong>${esc(r.uses === '' || r.uses === undefined ? 0 : r.uses)}</strong>${r.max !== '' && r.max !== undefined ? `<span class="muted">/ ${esc(r.max)}</span>` : ''}<button class="btn small" data-action="bump" data-path="resources/${i}/uses" data-d="1" aria-label="Add one">+</button></span></div>`).join('') || '<p class="small muted">No resources. Add them on Features &amp; Gear.</p>'}
+        <span class="counter"><button class="btn small" data-action="bump" data-path="resources/${i}/uses" data-d="-1" aria-label="Use one">−</button><strong>${esc(r.uses === '' || r.uses === undefined ? 0 : r.uses)}</strong>${r.max !== '' && r.max !== undefined ? `<span class="muted">/ ${esc(r.max)}</span>` : ''}<button class="btn small" data-action="bump" data-path="resources/${i}/uses" data-d="1" aria-label="Add one">+</button></span></div>`).join('') || '<p class="small muted">No resources. Add them on the Gear tab.</p>'}${miscCharges}
       <div class="play-res"><span><strong>Hero points</strong></span><span class="counter"><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="-1">−</button><strong>${esc(ch.heroPoints.current)}</strong><span class="muted">/ ${esc(ch.heroPoints.max)}</span><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="1">+</button></span></div>`);
 
     const groups = {};
-    const label = { race: 'Race', trait: 'Traits', feat: 'Feats', feature: 'Class features', worn: 'Worn items', effect: 'Effects', toggle: 'Toggles', item: 'Magic items', condition: 'Conditions' };
+    const label = { race: 'Race', trait: 'Traits', feat: 'Feats', feature: 'Class features', worn: 'Worn items', misc: 'Misc magic items', effect: 'Effects', toggle: 'Toggles', item: 'Magic items', condition: 'Conditions' };
     for (const r of d.rows) (groups[r.src] = groups[r.src] || new Set()).add(r.name);
     const notes = situationalNotes();
     const active = card('Active Bonuses', `${Object.keys(label).filter(k => groups[k]).map(k => `<p class="small"><strong>${label[k]}:</strong> ${[...groups[k]].map(esc).join(', ')}</p>`).join('') || '<p class="small muted">Nothing active.</p>'}
@@ -1226,8 +1234,8 @@
       { tools: `${picker}<button class="btn small" data-action="add-effect">+ Effect</button>` });
 
 
-    const where = { race: 'Race tab', trait: 'trait, Features & Gear tab', feat: 'feat, Features & Gear tab', feature: 'class feature, Features & Gear tab',
-      worn: 'worn item, Features & Gear tab', item: 'magic item', condition: 'condition, Play or Combat tab' };
+    const where = { race: 'Race tab', trait: 'trait, Character tab', feat: 'feat, Feats tab', feature: 'class feature, Character tab',
+      worn: 'worn item, Gear tab', misc: 'magic item, Gear tab', item: 'magic item', condition: 'condition, Play or Combat tab' };
     const seen = new Set();
     const active = App.d.rows.filter(r => where[r.src] && !seen.has(r.src + r.name) && seen.add(r.src + r.name));
     const applied = card('Also applied (from other tabs)', active.length ? `<ul>${active.map(r => `<li><strong>${esc(r.name)}</strong> <span class="muted small">(${esc(where[r.src])})</span></li>`).join('')}</ul>`
@@ -1236,29 +1244,77 @@
   }
 
   // ----- Features & gear
+  // Shared help for the bonus editors (Feats, Character and Gear tabs)
+  function bonusHelp(what) {
+    return `<p class="small muted span-2" style="margin:0">Give ${what} a <strong>bonus</strong> and it changes your numbers: pick what it applies to and a value. Values can be formulas such as <span class="kbd">max(3, level)</span> (Toughness), <span class="kbd">max(1, floor(rogue/2))</span> (Trapfinding: half your rogue levels, at least 1) or <span class="kbd">ranks >= 10 ? 6 : 3</span> (Skill Focus). Click the <strong>?</strong> next to any value for the full list of variables, and the result appears beside it. The <strong>◐</strong> button makes a bonus situational, with a switch on the Play tab. <strong>Add standard bonuses</strong> fills them in for common feats, traits and magic items.</p>`;
+  }
+  function renderFeats() {
+    const feats = card('Feats', featureList('feats'),
+      { cls: 'span-2', tools: `<button class="btn small" data-action="add" data-list="feats">+ Feat</button>` });
+    return `<div class="grid two">${bonusHelp('a feat')}${feats}</div>`;
+  }
   function renderFeatures() {
     const ch = App.ch;
-    const traits = card('Traits & Drawbacks', featureList('traits'),
-      { tools: `<button class="btn small" data-action="add" data-list="traits">+ Trait</button>` });
-    const cf = card('Class Features', featureList('classFeatures'),
-      { tools: `<button class="btn small ghost" data-action="srd-class-features" title="Adds the features your classes get up to your level (Core, APG, ACG and other Paizo base classes), with their rules text">Add for my level</button><button class="btn small" data-action="add" data-list="classFeatures">+ Feature</button>` });
-    const feats = card('Feats', featureList('feats'),
-      { tools: `<button class="btn small" data-action="add" data-list="feats">+ Feat</button>` });
     const res = card('Resources', `${ch.resources.map((r, i) => `<div class="list-row res-row">${inp(`resources/${i}/name`, { ph: 'Wand of CLW, Rage rounds…' })}
         <span class="counter"><button class="btn small" data-action="bump" data-path="resources/${i}/uses" data-d="-1" aria-label="Use one">−</button>${inp(`resources/${i}/uses`, { type: 'num', aria: 'Uses' })}<span class="muted">/</span>${inp(`resources/${i}/max`, { type: 'num', aria: 'Max' })}<button class="btn small" data-action="bump" data-path="resources/${i}/uses" data-d="1" aria-label="Add one">+</button></span>
         ${removeBtn('resources', i)}</div>`).join('') || '<p class="small muted">Track charges, rounds per day, scrolls and coins here.</p>'}
       <div class="inline" style="margin-top:10px"><strong>Hero points</strong>
         <span class="counter"><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="-1">−</button>${inp('heroPoints/current', { type: 'num' })}<span class="muted">/</span>${inp('heroPoints/max', { type: 'num' })}<button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="1">+</button></span></div>`,
       { tools: `<button class="btn small" data-action="add" data-list="resources">+ Resource</button>` });
-    const slots = card('Magic Items Worn', `<p class="small muted" style="margin-top:0">Type or pick an item in any row and it moves to its slot (a cloak to shoulders, a belt to waist). <strong>Sort to slots</strong> does the same for items already listed.</p>` + featureList('slots'),
-      { tools: `<button class="btn small ghost" data-action="sort-worn" title="Move every item the SRD knows to its body slot">Sort to slots</button><button class="btn small" data-action="add" data-list="slots">+ Slot</button>` });
-    const help = `<p class="small muted span-2" style="margin:0">Give a feat, trait, class feature or worn item a <strong>bonus</strong> and it changes your numbers: pick what it applies to and a value. Values can be formulas such as <span class="kbd">max(3, level)</span> (Toughness), <span class="kbd">max(1, floor(rogue/2))</span> (Trapfinding: half your rogue levels, at least 1) or <span class="kbd">ranks >= 10 ? 6 : 3</span> (Skill Focus). Click the <strong>?</strong> next to any value for the full list of variables, and the result appears beside it. <strong>Add standard bonuses</strong> fills them in for common feats, traits and magic items (belts, headbands, cloaks, rings, amulets…).</p>`;
-    return `<div class="grid two">${help}${inventoryCard()}${feats}${slots}${traits}${cf}${res}</div>${classFeatureNames()}`;
+    const slots = card('Magic Items Worn', `<p class="small muted" style="margin-top:0">Type or pick an item in any row and it moves to its slot (a cloak to shoulders, a belt to waist). <strong>Sort to slots</strong> does the same for items already listed.</p><div class="worn-list">${featureList('slots')}</div>`,
+      { cls: 'span-2', tools: `<button class="btn small ghost" data-action="sort-worn" title="Move every item the SRD knows to its body slot">Sort to slots</button><button class="btn small" data-action="add" data-list="slots">+ Slot</button>` });
+    return `<div class="grid two">${inventoryCard()}${slots}${miscItemsCard()}${res}${bonusHelp('a worn or other magic item')}</div>`;
+  }
+
+  // ----- Misc magic items: magic gear that isn't worn (wands, staves, rods, ioun stones, a bag of holding...)
+  function miscItemsCard() {
+    const ch = App.ch;
+    const rows = (ch.miscItems || []).map((x, i) => {
+      const p = `miscItems/${i}`, has = (x.bonuses || []).length > 0;
+      const named = String(x.name || '').trim() || String(x.text || '').trim();
+      return `<div class="feature-item"><div class="feature-head misc-head">
+          ${inp(`${p}/name`, { ph: 'Wand of cure light wounds', list: 'srd-misc', aria: 'Item' })}
+          <label class="mini-field" title="How many">Qty${inp(`${p}/qty`, { type: 'num', ph: '1', aria: 'Quantity' })}</label>
+          <label class="mini-field" title="Charges or uses left / most it holds (wands 50, staves 10). Items with a most show on the Play tab.">Charges<span class="counter">${inp(`${p}/uses`, { type: 'num', aria: 'Charges left' })}<span class="muted">/</span>${inp(`${p}/max`, { type: 'num', aria: 'Most charges' })}</span></label>
+          <label class="mini-field" title="Weight of one, in lb.">Wt${inp(`${p}/weight`, { type: 'num', aria: 'Weight each (lb.)' })}</label>
+          <label class="mini-field" title="Value of one, in gp">gp${inp(`${p}/value`, { type: 'num', aria: 'Value each (gp)' })}</label>
+          <label class="mini-field" title="Uncheck for things stored elsewhere: they stop counting toward your load">Carried<input type="checkbox" data-bind="${p}/carried" data-type="bool"${x.carried !== false ? ' checked' : ''} aria-label="Carried"></label>
+          ${removeBtn('miscItems', i, 'item')}</div>
+        ${named ? area(`${p}/text`, { rows: 3, ph: 'Description' }) : ''}
+        ${bonusEditor(`${p}/bonuses`, x.bonuses)}
+        ${addBonusButtons(`${p}/bonuses`, 'Enhancement', has ? null : 'item', i, 'miscItems')}</div>`;
+    }).join('');
+    return card('Misc Magic Items', `<p class="small muted" style="margin-top:0">Magic items you carry but don't wear: wands, staves, rods, ioun stones, a bag of holding, potions and scrolls. Picking a known item fills in its description, weight and price. Their weight and value count with your gear. <strong>Collect from inventory</strong> moves magic items listed in your inventory here.</p>${rows || '<p class="small muted">None yet.</p>'}`,
+      { cls: 'span-2', tools: `<button class="btn small ghost" data-action="collect-misc" title="Move magic items that aren't worn from the inventory to this card">Collect from inventory</button><button class="btn small" data-action="add" data-list="miscItems">+ Item</button>` });
+  }
+  // A magic item that isn't worn: the SRD lists it as slotless, or its name says so (wands, staves, potions...)
+  // ("Scroll case", "Flask of oil" and a plain "Quarterstaff" stay in the inventory)
+  const MISC_NAME = /^(ioun|metamagic rod|lesser metamagic|greater metamagic|bag of holding|handy haversack|portable hole|feather token|bead of|horn of|deck of|figurine of|decanter of|efficient quiver)\b/i;
+  function isMiscMagic(name) {
+    const nm = String(name || '').trim().replace(/^\d+\s*x\s+/i, '');
+    if (!nm) return false;
+    if (/^(wands?|potions?|scrolls?|oils?|staff|rod|elixir|pearl|stone) of\b/i.test(nm) || MISC_NAME.test(nm)) return true;
+    const it = SRD && SRD.find('items', nm);
+    return !!(it && /^none|does not take/i.test(String(it.slot || '').trim()));
+  }
+  // Move magic items that aren't worn from the inventory to Misc Magic Items. Returns the names moved.
+  function collectMiscItems(ch) {
+    const moved = [];
+    ch.miscItems = ch.miscItems || [];
+    ch.inventory = ch.inventory.filter(x => {
+      if (!isMiscMagic(x.name)) return true;
+      const it = SRD && SRD.find('items', x.name);
+      ch.miscItems.push({ name: x.name, qty: x.qty === '' || x.qty === undefined ? 1 : x.qty, uses: '', max: '', weight: x.weight, value: x.value, carried: x.carried !== false,
+        text: [it && it.d, x.notes].filter(Boolean).join('\n'), bonuses: featSuggest('item', x.name, skillNameList()) || [] });
+      moved.push(x.name);
+      return false;
+    });
+    return moved;
   }
 
   // Names of your classes' features (base, archetypes, choices) for the Class Features name field
   function classFeatureNames() {
-    if (!SRD || !SRD.loaded('classes')) { if (SRD) SRD.ensure(['classes', 'archetypes', 'choices']).then(() => { if (App.tab === 'features') render(); }); return ''; }
+    if (!SRD || !SRD.loaded('classes')) { if (SRD) SRD.ensure(['classes', 'archetypes', 'choices']).then(() => { if (App.tab === 'character' || App.tab === 'overview') render(); }); return ''; }
     const names = new Set();
     App.ch.classes.forEach(c => {
       if (!c.name) return;
@@ -1292,7 +1348,7 @@
         <tbody>${rows || '<tr><td colspan="7" class="l small muted">Nothing yet. Add items, or pick one from the list as you type to fill in its weight and price.</td></tr>'}</tbody></table></div>
       <div class="load-grid">
         <div><div class="label">Carrying</div><table class="mini">
-          <tr><td class="l">Items</td><td>${out('gear/items', 'lb')}</td></tr><tr><td class="l">Weapons</td><td>${out('gear/weapons', 'lb')}</td></tr>
+          <tr><td class="l">Items</td><td>${out('gear/items', 'lb')}</td></tr><tr><td class="l">Magic items</td><td>${out('gear/magic', 'lb')}</td></tr><tr><td class="l">Weapons</td><td>${out('gear/weapons', 'lb')}</td></tr>
           <tr><td class="l">Armor</td><td>${out('gear/armor', 'lb')}</td></tr><tr><td class="l">Shield</td><td>${out('gear/shield', 'lb')}</td></tr>
           <tr><td class="l">Coins</td><td>${out('gear/coins', 'lb')}</td></tr><tr class="total"><td class="l">Total</td><td>${out('gear/total', 'lb')}</td></tr></table></div>
         <div><div class="label">Capacity (Str ${out('gear/str', '', '')})</div><table class="mini">
@@ -1503,7 +1559,8 @@
       'add': () => {
         const blanks = { traits: { kind: 'Trait', text: '', bonuses: [] }, racialFeatures: { name: '', text: '' }, classFeatures: { name: '', text: '', bonuses: [] },
           feats: { level: '', name: '', text: '', bonuses: [] }, resources: { name: '', uses: '', max: '' }, slots: { slot: '', item: '', text: '', bonuses: [] },
-          inventory: { name: '', qty: 1, weight: '', value: '', carried: true, notes: '' } };
+          inventory: { name: '', qty: 1, weight: '', value: '', carried: true, notes: '' },
+          miscItems: { name: '', qty: 1, uses: '', max: '', weight: '', value: '', carried: true, text: '', bonuses: [] } };
         App.ch[el.dataset.list].push(blanks[el.dataset.list]); changed(true);
       },
       'jump': () => jumpToField(el.dataset.tab, el.dataset.focus),
@@ -1513,6 +1570,12 @@
       'remove-choice': () => { const c = App.ch.classes[+el.dataset.i]; const gone = (c.choices || []).splice(+el.dataset.k, 1)[0]; if (gone) c.choices = c.choices.filter(x => x.parent !== gone.n); changed(true); autoSyncClassFeatures(); },
       'remove-archetype': () => { const c = App.ch.classes[+el.dataset.i]; (c.archetypes || []).splice(+el.dataset.k, 1); changed(true); autoSyncClassFeatures(); },
       'sort-worn': () => sortWornItems(),
+      'collect-misc': async () => {
+        if (SRD) await SRD.load('items');
+        const moved = collectMiscItems(App.ch);
+        changed(true);
+        toast(moved.length ? `Moved ${moved.length} magic item${moved.length === 1 ? '' : 's'} from the inventory: ${moved.join(', ')}.` : 'No magic items in the inventory that the sheet recognizes. Add them with + Item.');
+      },
       'remove': () => { const arr = get(el.dataset.list); if (Array.isArray(arr)) { arr.splice(+el.dataset.i, 1); changed(true); } },
       'toggle-situational': () => {
         const paths = el.dataset.paths.split('|'), list = paths.map(get).filter(Boolean);
@@ -2070,7 +2133,10 @@
   function srdDatalists(tab) {
     if (!SRD) return;
     const want = {
-      features: [['srd-feats', ['feats']], ['srd-traits', ['traits']], ['srd-worn', ['items'], x => x.slot && x.slot !== 'none'], ['srd-gear', ['gear', 'weapons', 'armor', 'items']]],
+      features: [['srd-worn', ['items'], x => x.slot && x.slot !== 'none'], ['srd-gear', ['gear', 'weapons', 'armor', 'items']], ['srd-misc', ['items'], x => !x.slot || /^none/i.test(x.slot)]],
+      feats: [['srd-feats', ['feats']]],
+      character: [['srd-traits', ['traits']]],
+      overview: [['srd-traits', ['traits']]],
       combat: [['srd-weapons', ['weapons']]],
       spells: [['srd-spells', ['spells']]],
       companion: [['srd-feats', ['feats']], ['srd-spells', ['spells']], ['srd-worn', ['items'], x => x.slot && x.slot !== 'none']],
@@ -2093,6 +2159,7 @@
     }, fill: (o, it, f) => f('text', it.d) + standardBonuses(o, 'feature', o.name) },
     // Worn items: description and usual bonuses; placeWorn() then moves the item to its slot's row
     { re: /^slots\/\d+\/item$/, kinds: ['items'], fill: (o, it, f) => f('text', it.d) + standardBonuses(o, 'item', o.item) },
+    { re: /^miscItems\/\d+\/name$/, kinds: ['items'], fill: (o, it, f) => f('text', it.d) + f('weight', it.w || 0) + f('value', SRD.priceOf(it, o.name)) + standardBonuses(o, 'item', o.name) },
     // Companion gear: description, slot and usual bonuses
     { re: /^companions\/\d+\/gear\/\d+\/item$/, kinds: ['items'], fill: (o, it, f) => f('text', it.d) + f('slot', wornSlotOf(it.n)) + standardBonuses(o, 'item', o.item) },
     { re: /^inventory\/\d+\/name$/, kinds: ['gear', 'weapons', 'armor', 'items'], fill: (o, it, f) => f('weight', it.w || 0) + f('value', SRD.priceOf(it, o.name)) },
@@ -2460,10 +2527,14 @@
     for (const f of ch.feats) if (!String(f.text || '').trim()) { const it = SRD.find('feats', f.name); if (it) { f.text = (it.p ? `Prerequisites: ${it.p}\n` : '') + (it.b || it.d); texts++; } }
     for (const t of ch.traits) if (!String(t.text || '').includes(':')) { const it = SRD.find('traits', t.text); if (it) { t.text = `${t.text}: ${it.d}`; texts++; } }
     for (const w of ch.slots) if (String(w.item || '').trim() && !String(w.text || '').trim()) { const it = SRD.find('items', w.item); if (it && it.d) { w.text = it.d; texts++; } }
+    for (const w of ch.miscItems || []) if (String(w.name || '').trim() && !String(w.text || '').trim()) { const it = SRD.find('items', w.name); if (it && it.d) { w.text = it.d; texts++; } }
+    // 6. Magic items listed with the gear that aren't worn go to Misc Magic Items
+    const collected = SRD.loaded('items') ? collectMiscItems(ch) : [];
     const parts = [];
     if (chosenNames.length) parts.push(`class choices recognized: ${chosenNames.join(', ')}`);
     const sum = syncSummary(res);
     if (sum) parts.push(sum.replace(/^Class features: /, 'class features from the SRD: ').replace(/^\. /, ''));
+    if (collected.length) parts.push(`moved to Misc Magic Items (Gear tab): ${collected.join(', ')}`);
     if (texts) parts.push(`rules text added to ${texts} feat${texts === 1 ? '' : 's'}, trait${texts === 1 ? '' : 's'} or item${texts === 1 ? '' : 's'}`);
     if (parts.length) warnings.push(parts.map((x, i) => i ? x : x.charAt(0).toUpperCase() + x.slice(1)).join('; ') + '.');
   }

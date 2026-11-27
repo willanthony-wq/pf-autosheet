@@ -205,6 +205,7 @@
       armor: { name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0, weight: '' },
       shield: { name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0, weight: '' },
       inventory: [],            // { name, qty, weight (each), value (gp each), carried, notes }
+      miscItems: [],            // magic items that aren't worn: { name, qty, uses, max, weight, value, carried, text, bonuses }
       money: { pp: 0, gp: 0, sp: 0, cp: 0 },
       carry: { strBonus: 0, mult: '', quadruped: false, coins: true },   // Muleback Cords: strBonus 8; Ant Haul: mult 3
       armorNotes: '',
@@ -252,7 +253,7 @@
     migrateLegacyTypes(ch);
     magicItemsToEffects(ch);
     if (window.PF_COMPANION) ch.companions = (ch.companions || []).map(c => window.PF_COMPANION.normalize(c));
-    for (const k of ['traits', 'feats', 'classFeatures', 'slots']) (ch[k] || []).forEach(x => { if (!Array.isArray(x.bonuses)) x.bonuses = []; });
+    for (const k of ['traits', 'feats', 'classFeatures', 'slots', 'miscItems']) (ch[k] || []).forEach(x => { if (!Array.isArray(x.bonuses)) x.bonuses = []; });
     while (ch.spellcasting.levels.length < 10) ch.spellcasting.levels.push({ spells: [], used: 0, perDayOverride: '' });
     ch.spellcasting.levels.forEach(l => (l.spells || []).forEach(s => { if (!s.id) s.id = uid(); }));
     (ch.spellcasting.sla || []).forEach(g => (g.items || []).forEach(s => { if (!s.id) s.id = uid(); }));
