@@ -381,7 +381,8 @@
   }
   // "Sneak attack +3d6", "Trap sense +1", "Bravery (×3)" -> "sneak attack", "trap sense", "bravery"
   function featureKey(name) {
-    return String(name || '').toLowerCase().replace(/\s*\(×\d+\)$/, '').replace(/\s*[+\u2212-]?\d+(d\d+)?(\/day|st|nd|rd|th)?\b.*$/i, '').replace(/\s*\(.*\)$/, '').replace(/s$/, '').trim();
+    // Bracketed details first ("Clear Mind (1/rage)", "Rage (25 rounds/day)"), then trailing numbers ("Sneak attack +3d6")
+    return String(name || '').toLowerCase().replace(/\s*\([^)]*\)/g, '').replace(/\s*[+−-]?\d+(d\d+)?(\/day|st|nd|rd|th)?\b.*$/i, '').replace(/s$/, '').trim();
   }
 
   // Formula help: shown from the ? next to every bonus value.
@@ -471,7 +472,7 @@
         head = `${sel(`traits/${i}/kind`, ['Trait', 'Drawback', 'DB'], { blank: false })}${inp(`traits/${i}/text`, { ph: 'Reactionary: +2 Initiative', list: 'srd-traits' })}`;
         kind = 'trait'; defType = 'Trait';
       } else {
-        head = `${inp(`classFeatures/${i}/name`, { ph: 'Channel Energy' })}`;
+        head = `${inp(`classFeatures/${i}/name`, { ph: 'Channel Energy', list: 'classfeat-names' })}`;
         desc = area(`classFeatures/${i}/text`, { rows: 3, ph: 'Description' });
       }
       const hasBonuses = (x.bonuses || []).length > 0;
@@ -1210,7 +1211,21 @@
     const slots = card('Magic Items Worn', `<p class="small muted" style="margin-top:0">Type or pick an item in any row and it moves to its slot (a cloak to shoulders, a belt to waist). <strong>Sort to slots</strong> does the same for items already listed.</p>` + featureList('slots'),
       { tools: `<button class="btn small ghost" data-action="sort-worn" title="Move every item the SRD knows to its body slot">Sort to slots</button><button class="btn small" data-action="add" data-list="slots">+ Slot</button>` });
     const help = `<p class="small muted span-2" style="margin:0">Give a feat, trait, class feature or worn item a <strong>bonus</strong> and it changes your numbers: pick what it applies to and a value. Values can be formulas such as <span class="kbd">max(3, level)</span> (Toughness), <span class="kbd">max(1, floor(rogue/2))</span> (Trapfinding: half your rogue levels, at least 1) or <span class="kbd">ranks >= 10 ? 6 : 3</span> (Skill Focus). Click the <strong>?</strong> next to any value for the full list of variables, and the result appears beside it. <strong>Add standard bonuses</strong> fills them in for common feats, traits and magic items (belts, headbands, cloaks, rings, amulets…).</p>`;
-    return `<div class="grid two">${help}${inventoryCard()}${feats}${slots}${traits}${cf}${res}</div>`;
+    return `<div class="grid two">${help}${inventoryCard()}${feats}${slots}${traits}${cf}${res}</div>${classFeatureNames()}`;
+  }
+
+  // Names of your classes' features (base, archetypes, choices) for the Class Features name field
+  function classFeatureNames() {
+    if (!SRD || !SRD.loaded('classes')) { if (SRD) SRD.ensure(['classes', 'archetypes', 'choices']).then(() => { if (App.tab === 'features') render(); }); return ''; }
+    const names = new Set();
+    App.ch.classes.forEach(c => {
+      if (!c.name) return;
+      const r = SRD.classFeatures(c.name, 20);
+      if (r) r.features.forEach(f => names.add(f.base.charAt(0).toUpperCase() + f.base.slice(1)));
+      (c.archetypes || []).forEach(a => { const A = SRD.archetype(c.name, a); if (A) A.a.forEach(ab => names.add(ab.n)); });
+      (c.choices || []).forEach(p => { const o = SRD.choice(c.name, p.g, p.n); if (o) (o.p || [{ n: o.n }]).forEach(pw => names.add(pw.n)); });
+    });
+    return `<datalist id="classfeat-names">${[...names].map(n => `<option value="${esc(n)}">`).join('')}</datalist>`;
   }
 
   // ----- Inventory, coins and carrying capacity
@@ -1359,14 +1374,14 @@
       const [g, n, parent] = el.value.split('::');
       c.choices = (c.choices || []).concat(parent ? { g, n, parent } : { g, n });
       changed(true);
-      toast(`${n} added. Click "Add for my level" on the Features & Gear tab to add its powers${/Domain|Bloodline|Mystery|Patron|Spirit|Subdomain/.test(g) ? ' and bonus spells' : ''}.`);
+      autoSyncClassFeatures();
       return;
     }
     if (el.classList && el.classList.contains('arch-add') && el.value) {
       const c = App.ch.classes[+el.dataset.i];
       c.archetypes = (c.archetypes || []).concat(el.value);
       changed(true);
-      toast(`${el.value} added. Click "Add for my level" on the Features & Gear tab to update your class features.`);
+      autoSyncClassFeatures();
       return;
     }
     if (el.id === 'common-effect' && el.value) { const e = M.commonEffect(el.value, false); if (e) App.ch.effects.unshift(e); changed(true); return; }
@@ -1386,6 +1401,7 @@
     // Typing an item into an empty slot: show its bonus buttons once the field is left
     if (el.dataset && el.dataset.rerenderBlur !== undefined) { render(); return; }
     if (!el.dataset || !el.dataset.bind) return;
+    if (/^classes\/\d+\/(name|level)$/.test(el.dataset.bind)) setTimeout(autoSyncClassFeatures, 0);
     if (!(el.tagName === 'SELECT' || el.type === 'checkbox')) return;
     applyBind(el);
     if (el.hasAttribute('data-rerender') || el.closest('.chip')) render(); else updateOutputs();
@@ -1451,8 +1467,8 @@
       'jump': () => jumpToField(el.dataset.tab, el.dataset.focus),
       'srd-class-features': () => addClassFeatures(),
       'srd-fill-spells': () => fillSpellsFromSrd().then(n => { if (n) changed(true); toast(n ? `Set up ${n} spell${n === 1 ? '' : 's'} from the SRD.` : 'Every spell the SRD knows is already set up.'); }),
-      'remove-choice': () => { const c = App.ch.classes[+el.dataset.i]; const gone = (c.choices || []).splice(+el.dataset.k, 1)[0]; if (gone) c.choices = c.choices.filter(x => x.parent !== gone.n); changed(true); },
-      'remove-archetype': () => { const c = App.ch.classes[+el.dataset.i]; (c.archetypes || []).splice(+el.dataset.k, 1); changed(true); },
+      'remove-choice': () => { const c = App.ch.classes[+el.dataset.i]; const gone = (c.choices || []).splice(+el.dataset.k, 1)[0]; if (gone) c.choices = c.choices.filter(x => x.parent !== gone.n); changed(true); autoSyncClassFeatures(); },
+      'remove-archetype': () => { const c = App.ch.classes[+el.dataset.i]; (c.archetypes || []).splice(+el.dataset.k, 1); changed(true); autoSyncClassFeatures(); },
       'sort-worn': () => sortWornItems(),
       'remove': () => { const arr = get(el.dataset.list); if (Array.isArray(arr)) { arr.splice(+el.dataset.i, 1); changed(true); } },
       'toggle-condition': () => {
@@ -1563,9 +1579,11 @@
         if (S) await S.ensure(['gear', 'weapons', 'armor', 'items', 'feats', 'traits']);
         await window.PF_RACES.load();
         const lookupRace = name => window.PF_RACES.find(name);
+        if (S) await S.ensure(['classes', 'archetypes', 'choices', 'items']);
+        const enrich = (c, w) => enrichImport(c, w, 'herolab');
         const lookupItem = name => { const hit = S && S.findAny(['weapons', 'armor', 'gear', 'items'], name); if (!hit) return null; const it = hit.item; return { w: it.w, cost: S.priceOf(it, name), k: it.k, ty: it.ty, rg: it.rg }; };
         const lookupText = (kind, name) => { const it = S && S.find(kind, name); return it ? (kind === 'feats' ? (it.b || it.d) : it.d) : ''; };
-        const results = window.PF_HEROLAB.importHeroLab(await file.arrayBuffer(), file.name, { lookupItem, lookupText, lookupRace });
+        const results = window.PF_HEROLAB.importHeroLab(await file.arrayBuffer(), file.name, { lookupItem, lookupText, lookupRace, enrich });
         if (App.ch) saveNow();
         App.tab = 'play';
         for (const r of results) {
@@ -1594,6 +1612,9 @@
           if (!ch.race.senses) ch.race.senses = race.preset.senses || '';
           warnings.push(`Race recognized as ${race.name}: its features and senses were added. The spreadsheet's scores and skills already include racial modifiers, so no numbers changed; to add racial bonuses as bonuses, use Apply on the Race tab ("Everything except ability modifiers").`);
         }
+        // Class choices from the imported features ("Domain: Luck"), SRD class features, and rules text for feats, traits
+        // and items. No standard bonuses: the spreadsheet's numbers already include them.
+        if (window.PF_SRD) { await window.PF_SRD.ensure(['classes', 'archetypes', 'choices', 'feats', 'traits', 'items']); enrichImport(M.normalize(ch), warnings, 'xlsx'); }
       } else throw new Error('Choose a .xlsx (Google Sheets download), a Hero Lab portfolio (.por) or a .json file exported from this sheet.');
       if (App.ch) saveNow();
       if (!ch.id || App.roster.ids.includes(ch.id)) ch.id = M.uid();
@@ -2007,7 +2028,7 @@
     { re: /^classFeatures\/\d+\/name$/, kinds: ['classes'], lookup: name => {
       const t = SRD.classFeatureText(name, App.d.classes.filter(c => c.name).map(c => c.name));
       return t ? { n: name, d: t } : null;
-    }, fill: (o, it, f) => f('text', it.d) },
+    }, fill: (o, it, f) => f('text', it.d) + standardBonuses(o, 'feature', o.name) },
     // Worn items: description and usual bonuses; placeWorn() then moves the item to its slot's row
     { re: /^slots\/\d+\/item$/, kinds: ['items'], fill: (o, it, f) => f('text', it.d) + standardBonuses(o, 'item', o.item) },
     // Companion gear: description, slot and usual bonuses
@@ -2037,7 +2058,8 @@
   // Usual bonuses for a feat or trait (Toughness, Iron Will, Reactionary...), only when it has none yet.
   function standardBonuses(o, kind, name) {
     if ((o.bonuses || []).length) return 0;
-    const res = window.PF_FEATS.suggest(kind, name, skillNameList());
+    const firstClass = (App.ch.classes.find(c => c.name) || {}).name;
+    const res = window.PF_FEATS.suggest(kind, name, skillNameList(), firstClass ? E.classSlug(firstClass) : undefined);
     if (!res || !res.length) return 0;
     o.bonuses = res;
     return 1;
@@ -2137,97 +2159,96 @@
     return c;
   }
   // Class features for the character's current levels, from the SRD class tables.
-  async function addClassFeatures() {
-    await SRD.ensure(['classes', 'archetypes', 'choices']);
-    const classes = App.d.classes.map((c, i) => Object.assign({}, c, { archetypes: (App.ch.classes[i] && App.ch.classes[i].archetypes) || [] })).filter(c => c.name && c.level > 0);
-    if (!classes.length) { toast('Set your classes and levels on the Character tab first.'); return; }
-    const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-    const list = App.ch.classFeatures;
-    let added = 0, updated = 0, removed = 0;
-    const missing = [], kept = [], unknownArch = [];
-    const wanted = new Set();   // src keys of archetype/choice features that should be present
-    let spellsAdded = 0, spellsRemoved = 0;
-    const wantSpells = new Set();
+  // Class features for a character's classes and levels, from the SRD class tables, archetypes and class choices.
+  // Works on any character (the sheet's or one being imported). Features it adds are tagged (src) so later runs update,
+  // replace or remove only what it added, never what you wrote or edited.
+  // opts.bonuses: add standard bonuses (Divine Grace, Fast Movement...) and Rage/Smite effects
+  // opts.adopt: also give standard bonuses to matching features that were already there (imports)
+  function syncClassFeatures(ch, d, opts = {}) {
+    const res = { added: 0, updated: 0, removed: 0, spellsAdded: 0, spellsRemoved: 0, missing: [], kept: [], unknown: [] };
+    const classes = d.classes.map((c, i) => Object.assign({}, c, { archetypes: (ch.classes[i] && ch.classes[i].archetypes) || [], choices: (ch.classes[i] && ch.classes[i].choices) || [] })).filter(c => c.name && c.level > 0);
+    const cap = x => x.charAt(0).toUpperCase() + x.slice(1);
+    const skills = d.skills.map(x => x.name).concat(M.SPECIALTY_SKILLS);
+    const list = ch.classFeatures;
+    const std = (name, cls) => (opts.bonuses ? (window.PF_FEATS.suggest('feature', name, skills, E.classSlug(cls)) || []) : []);
+    const make = (name, text, src, cls) => { const bonuses = std(name, cls); return { name, text, bonuses, src, srcHash: textHash(text), srcB: bonuses.length }; };
+    const wanted = new Set(), wantSpells = new Set();
     for (const c of classes) {
       const r = SRD.classFeatures(c.name, c.level);
-      if (!r) { missing.push(c.name); continue; }
-      // Archetype abilities gained by this level, and the base features they replace
-      const replaced = new Map();   // feature key -> archetype name
+      if (!r) { res.missing.push(c.name); continue; }
+      const replaced = new Map();
       const archFeats = [];
       for (const aName of c.archetypes) {
         const A = SRD.archetype(c.name, aName);
-        if (!A) { unknownArch.push(aName); continue; }
+        if (!A) { res.unknown.push(aName); continue; }
         for (const ab of A.a) {
-          const same = r.features.find(f => featureKey(f.base) === featureKey(ab.n));   // "Smite Evil" in Hospitaler takes the base one's place
+          const same = r.features.find(f => featureKey(f.base) === featureKey(ab.n));
           const lvl = same ? same.first : ab.l;
           if (lvl > c.level) continue;
           if (same) replaced.set(featureKey(same.base), A.n);
           ab.r.forEach(x => replaced.set(featureKey(x), A.n));
-          archFeats.push({ name: ab.n, text: ab.d + (ab.m.length ? `\n(Changes ${ab.m.join(', ')}.)` : ''), src: `arch:${A.n}:${featureKey(ab.n)}`, arch: A.n });
+          archFeats.push({ name: `${ab.n} (${A.n})`, text: ab.d + (ab.m.length ? `\n(Changes ${ab.m.join(', ')}.)` : ''), src: `arch:${A.n}:${featureKey(ab.n)}` });
         }
       }
       // Base class features (minus replaced ones)
       for (const feat of r.features) {
-        const k = featureKey(feat.base);
+        const k = featureKey(feat.base), src = `class:${c.name}:${k}`;
         if (replaced.has(k)) {
-          // Take out a replaced feature this button added, or one nobody has written in; keep edited ones
-          for (const x of list.filter(x => featureKey(x.name) === k && !String(x.src || '').startsWith('arch:'))) {
-            if (x.src || !String(x.text || '').trim() || x.text === feat.text) { list.splice(list.indexOf(x), 1); removed++; }
-            else kept.push(`${x.name} (replaced by ${replaced.get(k)})`);
+          for (const x of list.filter(x => featureKey(x.name) === k && !/^(arch|choice):/.test(x.src || '') && !(opts.adopt && !x.src))) {
+            if (x.src || !String(x.text || '').trim() || x.text === feat.text) { list.splice(list.indexOf(x), 1); res.removed++; }
+            else res.kept.push(`${x.name} (replaced by ${replaced.get(k)})`);
           }
           continue;
         }
-        const have = list.find(x => x.src === `class:${c.name}:${k}`) || list.find(x => !x.src && featureKey(x.name) === k);
+        wanted.add(src);
+        const have = list.find(x => x.src === src) || list.find(x => !x.src && featureKey(x.name) === k) || (opts.adopt ? list.find(x => !x.src && sameFeature(featureKey(x.name), k)) : null);
         if (have) {
-          if (have.name.toLowerCase() !== feat.name.toLowerCase() && /\d/.test(feat.name)) { have.name = cap(feat.name); updated++; }
-          if (!have.src) have.src = `class:${c.name}:${k}`;
+          if (have.src === src && have.name.toLowerCase() !== feat.name.toLowerCase() && /\d/.test(feat.name)) { have.name = cap(feat.name); res.updated++; }
+          if (!have.src) {
+            have.src = src;
+            if (opts.adopt && !(have.bonuses || []).length) { have.bonuses = std(feat.name, c.name); have.srcB = have.bonuses.length; }
+            if (!String(have.text || '').trim()) have.text = feat.text;
+          }
           continue;
         }
-        list.push({ name: cap(feat.name), text: feat.text, bonuses: [], src: `class:${c.name}:${k}` });
-        added++;
+        list.push(make(cap(feat.name), feat.text, src, c.name));
+        res.added++;
       }
-      for (const f of archFeats) {
-        wanted.add(f.src);
-        if (list.some(x => x.src === f.src)) continue;
-        list.push({ name: `${f.name} (${f.arch})`, text: f.text, bonuses: [], src: f.src, srcHash: textHash(f.text) });
-        added++;
-      }
-      // Class choices: path powers by level, talents, sub-picks, automatic deeds, and bonus spells
-      const chosen = (App.ch.classes.find(x => x.name === c.name) || {}).choices || [];
-      const all = SRD.choicesFor(c.name);
       const add = (name, text, src) => {
         wanted.add(src);
         if (list.some(x => x.src === src)) return;
-        list.push({ name, text, bonuses: [], src, srcHash: textHash(text) });
-        added++;
+        list.push(make(name, text, src, c.name));
+        res.added++;
       };
-      const caster = String(App.ch.spellcasting.className || '').toLowerCase() === String(c.name).toLowerCase();
+      archFeats.forEach(f => add(f.name, f.text, f.src));
+      // Class choices: path powers by level, talents, sub-picks, automatic deeds, and bonus spells
+      const all = SRD.choicesFor(c.name);
+      const caster = String(ch.spellcasting.className || '').toLowerCase() === String(c.name).toLowerCase();
       const addSpells = opt => {
         if (!caster || !opt.sp) return;
         for (const [lv, raw] of opt.sp) {
           const L = opt.st === 'spell' ? lv : (lv % 2 ? (lv - 1) / 2 : lv / 2);
           if (L < 0 || L > 9) continue;
-          if (opt.st === 'spell' ? !(App.d.spells.levels[L] && App.d.spells.levels[L].perDay > 0) : lv > c.level) continue;
+          if (opt.st === 'spell' ? !(d.spells.levels[L] && d.spells.levels[L].perDay > 0) : lv > c.level) continue;
           const name = raw.charAt(0).toUpperCase() + raw.slice(1);
           const tag = `${opt.g}:${opt.n}:${name.toLowerCase()}`;
           wantSpells.add(tag);
-          const lvl = App.ch.spellcasting.levels[L];
-          if (lvl.spells.some(s => s.srcTag === tag || s.name.toLowerCase() === name.toLowerCase())) continue;
+          const lvl = ch.spellcasting.levels[L];
+          if (lvl.spells.some(x => x.srcTag === tag || x.name.toLowerCase() === name.toLowerCase())) continue;
           lvl.spells.push({ id: M.uid(), name, prepared: '', notes: `${opt.g}: ${opt.n}`, srcTag: tag });
-          spellsAdded++;
+          res.spellsAdded++;
         }
       };
-      for (const p of chosen) {
-        if (p.parent) {
-          const par = all.find(x => x.n === p.parent && x.picks);
-          const pk = par && par.picks.find(x => x.n === p.n);
-          if (pk) add(`${pk.n} (${p.parent})`, pk.d, `choice:${p.g}:${p.parent}:${featureKey(pk.n)}`);
+      for (const pk of c.choices) {
+        if (pk.parent) {
+          const par = all.find(x => x.n === pk.parent && x.picks);
+          const it = par && par.picks.find(x => x.n === pk.n);
+          if (it) add(`${it.n} (${pk.parent})`, it.d, `choice:${pk.g}:${pk.parent}:${featureKey(it.n)}`);
           continue;
         }
-        const opt = all.find(x => x.g === p.g && x.n.toLowerCase() === p.n.toLowerCase());
-        if (!opt) { unknownArch.push(p.n); continue; }
+        const opt = all.find(x => x.g === pk.g && x.n.toLowerCase() === pk.n.toLowerCase());
+        if (!opt) { res.unknown.push(pk.n); continue; }
         if (opt.k === 'talent') { add(opt.n, opt.d, `choice:${opt.g}:${featureKey(opt.n)}`); continue; }
-        // Subdomain: its domain's powers, with the subdomain's replacement power, and its replacement spells
         let powers = opt.p || [], spellOpt = opt;
         if (opt.g === 'Subdomain' && opt.assoc) {
           const dom = all.find(x => x.g === 'Domain' && x.n.toLowerCase().startsWith(opt.assoc.toLowerCase()));
@@ -2244,23 +2265,145 @@
       }
       for (const opt of all.filter(x => x.k === 'auto' && x.l <= c.level)) add(opt.n, opt.d, `choice:${opt.g}:${featureKey(opt.n)}`);
     }
-    // Take out archetype/choice features and bonus spells no longer chosen (unless edited or given bonuses)
+    // Take out tagged features no longer earned or chosen (a level lowered, an archetype or choice removed), unless edited
+    const synced = new Set(classes.filter(c => SRD.classFeatures(c.name, c.level)).map(c => c.name));
     for (const x of list.slice()) {
-      if (!/^(arch|choice):/.test(x.src || '') || wanted.has(x.src)) continue;
-      if ((x.bonuses || []).length || (x.srcHash !== undefined && x.srcHash !== textHash(x.text))) { kept.push(`${x.name} (no longer chosen)`); continue; }
-      list.splice(list.indexOf(x), 1); removed++;
+      const m = String(x.src || '').match(/^(class|arch|choice):/);
+      if (!m || wanted.has(x.src)) continue;
+      if (m[1] === 'class' && !synced.has(x.src.split(':')[1]) && ch.classes.some(c => c.name === x.src.split(':')[1])) continue;   // a class this run didn't look at
+      const edited = x.srcHash === undefined || x.srcHash !== textHash(x.text) || (x.bonuses || []).length !== (x.srcB || 0);
+      if (edited) { if (m[1] !== 'class') res.kept.push(`${x.name} (no longer chosen)`); continue; }
+      list.splice(list.indexOf(x), 1); res.removed++;
     }
-    for (const lvl of App.ch.spellcasting.levels) {
+    for (const lvl of ch.spellcasting.levels) {
       const before = lvl.spells.length;
-      lvl.spells = lvl.spells.filter(s => !s.srcTag || wantSpells.has(s.srcTag) || s.prepared);
-      spellsRemoved += before - lvl.spells.length;
+      lvl.spells = lvl.spells.filter(x => !x.srcTag || wantSpells.has(x.srcTag) || x.prepared);
+      res.spellsRemoved += before - lvl.spells.length;
     }
-    if (added || updated || removed || spellsAdded || spellsRemoved) changed(true);
-    const parts = [added ? `added ${added}` : '', updated ? `updated ${updated} to your level` : '', removed ? `removed ${removed} that were replaced or unpicked` : '',
-      spellsAdded ? `${spellsAdded} bonus spell${spellsAdded === 1 ? '' : 's'} added to the Spells tab` : '', spellsRemoved ? `${spellsRemoved} bonus spell${spellsRemoved === 1 ? '' : 's'} removed` : ''].filter(Boolean);
-    const msg = parts.length ? 'Class features: ' + parts.join(', ') : 'Your class features are already listed';
-    toast(msg + (missing.length ? `. Not in the SRD tables: ${missing.join(', ')}` : '') + (unknownArch.length ? `. Not in the rules data: ${unknownArch.join(', ')}` : '')
-      + (kept.length ? `. Kept because you edited them: ${kept.join(', ')}` : '') + '.');
+    // Rage and Smite come with a switchable effect
+    if (opts.bonuses) {
+      for (const [re, kind, clsRe] of [[/^(greater |mighty )?(rage|bloodrage)$/, 'rage', /barbarian|bloodrager|skald/i], [/^smite (evil|good)$/, 'smite', /paladin/i]]) {
+        if (!list.some(x => re.test(featureKey(x.name)))) continue;
+        if (ch.effects.some(e => e.preset === kind || (kind === 'rage' ? e.name === 'Rage' : /^smite (evil|good)$/i.test(e.name)))) continue;
+        const cls = classes.find(c => clsRe.test(c.name));
+        ch.effects.unshift(M.classEffect(kind, cls ? E.classSlug(cls.name) : undefined));
+        res.effects = (res.effects || 0) + 1;
+      }
+    }
+    return res;
+  }
+  // Loose match for imported names: "stigmata: ac" ~ "stigmata", "channel positive energy" ~ "channel energy"
+  function sameFeature(have, want) {
+    if (have === want || have.startsWith(want + ' ') || have.startsWith(want + ':')) return true;
+    const words = x => x.split(/[^a-z']+/).filter(Boolean);
+    const w = words(want), h = new Set(words(have));
+    return w.length >= 2 && w.every(x => h.has(x));
+  }
+  function syncSummary(res) {
+    const parts = [res.added ? `added ${res.added}` : '', res.updated ? `updated ${res.updated} to your level` : '', res.removed ? `removed ${res.removed} replaced, unpicked or above your level` : '',
+      res.spellsAdded ? `${res.spellsAdded} bonus spell${res.spellsAdded === 1 ? '' : 's'} added to the Spells tab` : '', res.spellsRemoved ? `${res.spellsRemoved} bonus spell${res.spellsRemoved === 1 ? '' : 's'} removed` : '',
+      res.effects ? `${res.effects} effect${res.effects === 1 ? '' : 's'} added (Rage, Smite)` : ''].filter(Boolean);
+    return (parts.length ? 'Class features: ' + parts.join(', ') : '') + (res.missing.length ? `. Not in the SRD tables: ${res.missing.join(', ')}` : '')
+      + (res.unknown.length ? `. Not in the rules data: ${res.unknown.join(', ')}` : '') + (res.kept.length ? `. Kept because you edited them: ${res.kept.join(', ')}` : '');
+  }
+  async function addClassFeatures(auto) {
+    await SRD.ensure(['classes', 'archetypes', 'choices']);
+    if (!App.d.classes.some(c => c.name && c.level > 0)) { if (!auto) toast('Set your classes and levels on the Character tab first.'); return; }
+    const res = syncClassFeatures(App.ch, App.d, { bonuses: true });
+    const did = res.added || res.updated || res.removed || res.spellsAdded || res.spellsRemoved || res.effects;
+    if (did) changed(true);
+    const msg = syncSummary(res);
+    if (did || !auto) toast((msg || 'Your class features are already listed') + '.');
+  }
+  // Keep class features in step with classes, levels, archetypes and choices
+  let autoSyncTimer = null;
+  function autoSyncClassFeatures() {
+    clearTimeout(autoSyncTimer);
+    autoSyncTimer = setTimeout(() => addClassFeatures(true), 250);
+  }
+
+  // ----- Imports use the same systems: class choices recognized from the imported features, SRD class features
+  // (with archetypes, choices and standard bonuses), and SRD text for feats, traits and worn items left empty.
+  const CHOICE_PREFIX = { domain: 'Domain', bloodline: 'Bloodline', mystery: 'Mystery', 'arcane school': 'Arcane school', school: 'Arcane school', order: 'Order',
+    patron: 'Patron', spirit: 'Spirit', inquisition: 'Inquisition', blessing: 'Blessing', curse: 'Curse', subdomain: 'Subdomain' };
+  const GENERIC_POWER = /^(class skills?|skills|bonus feats?|bonus spells|bloodline arcana|edicts|challenge|final revelation|spirit (animal|ability)|greater spirit ability|true spirit ability|manifestation|.* patron spells)$/i;
+  function enrichImport(ch, warnings, source) {
+    if (!SRD || !SRD.loaded('classes')) return;
+    const hl = source === 'herolab';
+    const classNames = ch.classes.map(c => c.name).filter(Boolean);
+    // Imported names sometimes start with the class: "Paladin Channel Positive Energy 7d6"
+    for (const f of ch.classFeatures) for (const cn of classNames) if (f.name.toLowerCase().startsWith(cn.toLowerCase() + ' ')) f.name = f.name.slice(cn.length + 1);
+    // 1. Class choices recognized from the imported features
+    const chosenNames = [];
+    ch.classes.forEach(c => {
+      if (!c.name) return;
+      const all = SRD.choicesFor(c.name);
+      if (!all.length) return;
+      c.choices = c.choices || [];
+      const has = (g, n, parent) => c.choices.some(x => x.g === g && x.n === n && (x.parent || '') === (parent || ''));
+      const pick = (g, n, parent) => { if (!has(g, n, parent)) { c.choices.push(parent ? { g, n, parent } : { g, n }); chosenNames.push(n); } };
+      for (const f of ch.classFeatures.filter(x => !x.src)) {
+        const m = f.name.match(/^(domain|subdomain|bloodline|mystery|arcane school|school|order|patron|spirit|inquisition|blessing|curse)s?\s*[:\-\u2013]\s*(.+)$/i);
+        if (m) {
+          const g = CHOICE_PREFIX[m[1].toLowerCase()], want = m[2].trim().toLowerCase();
+          const opt = all.find(x => x.g === g && (x.n.toLowerCase() === want || x.n.toLowerCase().startsWith(want + ' ') || x.n.toLowerCase().replace(/^order of the /, '') === want));
+          if (opt) { pick(opt.g, opt.n); f.src = `choice-label:${opt.g}:${opt.n}`; }
+          continue;
+        }
+        const k = featureKey(f.name);
+        const talent = all.find(x => x.k === 'talent' && featureKey(x.n) === k);
+        if (talent) { pick(talent.g, talent.n); continue; }
+        const path = all.find(x => x.k === 'path' && (x.p || []).some(pw => !GENERIC_POWER.test(pw.n) && featureKey(pw.n) === k));
+        if (path) pick(path.g, path.n);
+      }
+      // Revelations / hexes of the chosen paths
+      for (const f of ch.classFeatures.filter(x => !x.src)) {
+        const k = featureKey(f.name);
+        for (const p of c.choices.filter(x => !x.parent)) {
+          const opt = all.find(x => x.g === p.g && x.n === p.n && x.picks);
+          const it = opt && opt.picks.find(x => featureKey(x.n) === k);
+          if (it) pick(opt.pg, it.n, opt.n);
+        }
+      }
+    });
+    // 2. SRD class features with archetypes, choices and standard bonuses
+    const before = new Set(ch.classFeatures);
+    const oldBonuses = new Set(ch.classFeatures.flatMap(f => f.bonuses || []));
+    const d = E.compute(ch);
+    const res = syncClassFeatures(ch, d, { bonuses: hl, adopt: hl });
+    // 3. An archetype or choice feature that the import already listed: keep the imported one (its name has the current numbers)
+    for (const s of ch.classFeatures.filter(x => !before.has(x) && /^(arch|choice):/.test(x.src || ''))) {
+      const k = featureKey(s.name);
+      const same = ch.classFeatures.filter(x => before.has(x) && !/^(class|arch|choice):/.test(x.src || '') && featureKey(x.name) === k);
+      if (!same.length) continue;
+      if (same.length === 1) {
+        const x = same[0];
+        x.src = s.src; x.srcHash = textHash(x.text); x.srcB = 0;
+        if (!(x.bonuses || []).length && (s.bonuses || []).length) { x.bonuses = s.bonuses; x.srcB = s.bonuses.length; }
+        if (String(s.text || '').length > String(x.text || '').length) { x.text = s.text; x.srcHash = textHash(x.text); }
+      }
+      ch.classFeatures.splice(ch.classFeatures.indexOf(s), 1);
+      res.added--;
+    }
+    for (const x of ch.classFeatures) if (/^choice-label:/.test(x.src || '')) delete x.src;
+    // 4. Hero Lab's base speed already includes Fast Movement and the like: take out what the new bonuses add
+    if (hl) {
+      const vars = E.compute(ch).formulaVars;
+      const extra = ch.classFeatures.flatMap(f => f.bonuses || []).filter(b => !oldBonuses.has(b) && b.target === 'speed' && b.active !== false)
+        .reduce((t, b) => t + (E.evalBonus(b.value, vars) || 0), 0);
+      if (extra) ch.info.speeds.base = Math.max(0, Number(ch.info.speeds.base || 0) - extra);
+    }
+    // 5. Rules text for feats, traits and worn items left empty
+    let texts = 0;
+    for (const f of ch.feats) if (!String(f.text || '').trim()) { const it = SRD.find('feats', f.name); if (it) { f.text = (it.p ? `Prerequisites: ${it.p}\n` : '') + (it.b || it.d); texts++; } }
+    for (const t of ch.traits) if (!String(t.text || '').includes(':')) { const it = SRD.find('traits', t.text); if (it) { t.text = `${t.text}: ${it.d}`; texts++; } }
+    for (const w of ch.slots) if (String(w.item || '').trim() && !String(w.text || '').trim()) { const it = SRD.find('items', w.item); if (it && it.d) { w.text = it.d; texts++; } }
+    const parts = [];
+    if (chosenNames.length) parts.push(`class choices recognized: ${chosenNames.join(', ')}`);
+    const sum = syncSummary(res);
+    if (sum) parts.push(sum.replace(/^Class features: /, 'class features from the SRD: ').replace(/^\. /, ''));
+    if (texts) parts.push(`rules text added to ${texts} feat${texts === 1 ? '' : 's'}, trait${texts === 1 ? '' : 's'} or item${texts === 1 ? '' : 's'}`);
+    if (parts.length) warnings.push(parts.map((x, i) => i ? x : x.charAt(0).toUpperCase() + x.slice(1)).join('; ') + '.');
   }
 
   // ----- Worn magic items: put each item in its body slot's row

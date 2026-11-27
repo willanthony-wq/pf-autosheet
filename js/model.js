@@ -126,6 +126,23 @@
     const t = COMMON_EFFECTS.find(x => x.preset === preset);
     return t ? Object.assign(JSON.parse(JSON.stringify(t)), { id: uid(), active: !!active }) : null;
   }
+  // Switchable effects that come with a class feature (Rage, Smite Evil). Values scale with the class level.
+  function classEffect(kind, cls) {
+    const B = (label, target, value, type, text) => ({ label, target, value, type, skill: '', weapon: '', text: text || '', active: true });
+    if (kind === 'rage') {
+      const c = cls || 'barbarian', big = `${c} >= 20 ? 8 : ${c} >= 11 ? 6 : 4`, will = `${c} >= 20 ? 4 : ${c} >= 11 ? 3 : 2`;
+      return { id: uid(), name: 'Rage', type: 'Morale', active: false, v: { str: big, con: big, will, ac: -2 }, text: '', preset: 'rage' };
+    }
+    if (kind === 'smite') {
+      const good = cls === 'antipaladin';
+      return { id: uid(), name: good ? 'Smite Good' : 'Smite Evil', type: 'Untyped (stacks)', active: false, v: {}, text: '', preset: 'smite', bonuses: [
+        B('Smite: attack', 'atk', 'max(0, cha)', 'Untyped (stacks)'), B('Smite: damage', 'dmg', cls || 'paladin', 'Untyped (stacks)'),
+        B('Smite: AC', 'ac', 'max(0, cha)', 'Deflection'),
+        B('', 'note', '', 'Untyped (stacks)', 'Smite: only against the chosen target; the first hit\'s damage bonus doubles against evil outsiders, dragons and undead'),
+      ] };
+    }
+    return null;
+  }
   // Pre-merge saves kept these in ch.toggles; normalize() turns them into effects.
   function defaultToggles() {
     return [
@@ -313,6 +330,6 @@
   window.PF_MODEL = {
     ABILITIES, ABILITY_NAMES, ABBR_TO_KEY, EFFECT_COLS, BONUS_TYPES, BONUS_TARGETS, STACKING_TYPES, SIZES, AGE, XP,
     HP_FORMULAS, SKILL_SYSTEMS, SPECIALTY_SKILLS, ITEM_SLOTS, BACKGROUND_QUESTIONS,
-    blankCharacter, blankEffect, COMMON_EFFECTS, commonEffect, blankWeapon, isBlankWeapon, defaultToggles, normalize, uid,
+    blankCharacter, blankEffect, COMMON_EFFECTS, commonEffect, classEffect, blankWeapon, isBlankWeapon, defaultToggles, normalize, uid,
   };
 })();

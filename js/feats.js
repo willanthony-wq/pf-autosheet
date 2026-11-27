@@ -121,6 +121,46 @@
     const hit = skillNames.find(s => s.toLowerCase() === t) || skillNames.find(s => s.toLowerCase().startsWith(t.slice(0, 5)));
     return hit || text;
   }
+  // Class features: numbers where the feature always applies, reminders where it's situational.
+  // `cls` is the class slug (paladin, monk...), for features that differ by class.
+  const FEATURES = [
+    ['divine grace', () => [{ target: 'saves', value: 'max(0, cha)', type: U }]],
+    ['unholy resilience', () => [{ target: 'saves', value: 'max(0, cha)', type: U }]],
+    ['nature sense', () => [{ target: 'skill', skill: 'Kn. Nature', value: 2, type: U }, { target: 'skill', skill: 'Survival', value: 2, type: U }]],
+    ['fast movement', (n, cls) => cls === 'monk'
+      ? [{ target: 'speed', value: 'floor(monk/3)*10', type: U, text: 'Only without armor or a medium/heavy load' }]
+      : [{ target: 'speed', value: 10, type: U, text: 'Not in heavy armor or with a heavy load' }]],
+    ['bravery', () => note('+1 on Will saves against fear at 2nd level, +1 more every 4 levels after')],
+    ['trapfinding', (n, cls) => note(`+1/2 ${cls || 'rogue'} level (min +1) on Perception to find traps and on Disable Device`)],
+    ['trap sense', () => note('Bonus on Reflex saves and dodge bonus to AC against traps')],
+    ['danger sense', () => note('Bonus on Reflex saves and AC against traps, and on Perception to avoid surprise')],
+    ['evasion', () => note('Successful Reflex save for half damage: take none instead (light or no armor)')],
+    ['improved evasion', () => note('Failed Reflex save for half damage: take only half')],
+    ['uncanny dodge', () => note('Not flat-footed when surprised or against invisible attackers')],
+    ['improved uncanny dodge', () => note('Can\'t be flanked except by a rogue 4+ levels higher')],
+    ['sneak attack', () => note('Extra damage when flanking or the target is denied its Dex bonus')],
+    ['track', (n, cls) => note(`+1/2 ${cls || 'ranger'} level on Survival to follow tracks`)],
+    ['wild empathy', () => note('Improve an animal\'s attitude like Diplomacy (1d20 + level + Cha)')],
+    ['favored enemy', () => note('Bonus on attack, damage, Bluff, Knowledge, Perception, Sense Motive and Survival against favored enemies')],
+    ['favored terrain', () => note('Bonus on initiative, Knowledge (geography), Perception, Stealth and Survival in favored terrain')],
+    ['armor training', () => note('Lower armor check penalty and higher max Dex in armor (set on the Combat tab)')],
+    ['weapon training', () => note('Bonus on attack and damage with the chosen weapon groups (add as a weapon bonus)')],
+    ['channel energy', () => note('Channel positive or negative energy: dice heal or harm in a 30-ft. burst')],
+    ['channel positive energy', () => note('Channel positive energy: dice heal or harm in a 30-ft. burst')],
+    ['lay on hands', () => note('Heal 1d6 per 2 paladin levels as a standard action (swift on yourself)')],
+    ['still mind', () => note('+2 on saves against enchantment spells and effects')],
+    ['divine health', () => note('Immune to diseases')],
+    ['aura of courage', () => note('Immune to fear; allies within 10 ft. get +4 morale on saves against fear')],
+    ['aura of resolve', () => note('Immune to charm; allies within 10 ft. get +4 morale on saves against charm')],
+    ['resist nature', () => note('+4 on saves against fey spell-like and supernatural abilities')],
+    ['woodland stride', () => note('Move through natural undergrowth at normal speed without harm')],
+    ['poison resistance', () => note('Bonus on saves against poison')],
+    ['stalwart', () => note('Successful Fortitude or Will save for a partial effect: no effect instead')],
+    ['mettle', () => note('Successful Fortitude or Will save for a partial effect: no effect instead')],
+    ['inspire courage', () => note('Allies get a competence bonus on attack and weapon damage rolls and saves against fear')],
+    ['bardic knowledge', (n, cls) => note(`+1/2 ${cls || 'bard'} level on all Knowledge checks; can make them untrained`)],
+  ];
+
   function lookup(list, name) {
     const n = String(name || '').trim().toLowerCase();
     if (!n) return null;
@@ -128,11 +168,14 @@
     return hit ? hit[1] : null;
   }
   // Returns an array of bonuses for a feat/trait name, or null if unknown.
-  function suggest(kind, name, skills) {
+  function suggest(kind, name, skills, cls) {
     skillNames = skills || [];
-    const fn = lookup(kind === 'trait' ? TRAITS : kind === 'item' ? ITEMS : kind === 'evolution' ? EVOLUTIONS : FEATS, name);
+    const list = kind === 'trait' ? TRAITS : kind === 'item' ? ITEMS : kind === 'evolution' ? EVOLUTIONS : kind === 'feature' ? FEATURES : FEATS;
+    // Class features: compare without trailing numbers or details ("Fast movement +10" -> "fast movement")
+    const nm = kind === 'feature' ? String(name || '').toLowerCase().replace(/\s*[+\u2212-]?\d.*$/, '').replace(/\s*\(.*$/, '').trim() : name;
+    const fn = kind === 'feature' ? (FEATURES.find(([k]) => nm === k) || [])[1] : lookup(list, name);
     if (!fn) return null;
-    return fn(name).map(b => Object.assign({ label: '', skill: '', weapon: '', text: '', active: true }, b));
+    return fn(name, cls).map(b => Object.assign({ label: '', skill: '', weapon: '', text: '', active: true }, b));
   }
 
   window.PF_FEATS = { suggest };

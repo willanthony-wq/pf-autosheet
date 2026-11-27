@@ -58,7 +58,7 @@
   }
   function archetypesIn(className) {
     const m = String(className || '').match(/\(([^)]+)\)\s*$/);
-    return m ? m[1].split(/\s*[,/]\s*/).map(x => x.trim()).filter(x => x && !/^(unchained|core)$/i.test(x)).map(x => x.replace(/\w/g, ch => ch.toUpperCase())) : [];
+    return m ? m[1].split(/\s*[,/]\s*/).map(x => x.trim()).filter(x => x && !/^(unchained|core)$/i.test(x)).map(x => x.replace(/\b\w/g, ch => ch.toUpperCase())) : [];
   }
   function stripItem(name) { return lc(name).replace(/^\+\d+\s+/, '').replace(/^(masterwork|mwk)\s+/, '').replace(/\s*\(.*\)$/, '').trim(); }
   const MATERIAL_WORDS = /\b(mithral|adamantine|darkwood|dragonhide|cold iron|alchemical silver|silver|elysian bronze|angelskin|eel hide|griffon mane|living steel|bulette)\b/g;
@@ -229,9 +229,14 @@
     for (const t of kids(kid(C, 'flaws'), 'flaw')) ch.traits.push({ kind: 'Drawback', text: `${at(t, 'name')}: ${txt(kid(t, 'description'))}`, bonuses: [] });
 
     // Class features and other special abilities (every <special>, except spell-like abilities)
-    const seen = new Set(), sla = new Set(all(kid(C, 'spelllike'), 'special'));
+    // Item properties (arrow catching, ghost touch...) are listed as specials inside the gear; they aren't class features
+    const itemSpecials = new Set(['magicitems', 'gear', 'defenses', 'melee', 'ranged'].flatMap(t => all(kid(C, t), 'special')));
+    const seen = new Set(), sla = new Set(all(kid(C, 'spelllike'), 'special').concat([...itemSpecials]));
+    // Item properties also show up in the general list, with no source or type, named after the item or its property
+    const itemNames = ['magicitems', 'gear', 'defenses', 'melee', 'ranged'].flatMap(t => all(kid(C, t), 'item').concat(all(kid(C, t), 'weapon'), all(kid(C, t), 'armor'))).map(x => lc(at(x, 'name')));
+    const isItemSpecial = s => { if (at(s, 'sourcetext') || at(s, 'type')) return false; const n = lc(at(s, 'name')).replace(/\s*\(.*$/, ''); return !!n && itemNames.some(x => x.includes(n)); };
     for (const s of all(C, 'special')) {
-      if (sla.has(s)) continue;
+      if (sla.has(s) || isItemSpecial(s)) continue;
       const name = (at(s, 'shortname') || at(s, 'name')).replace(/\s*\((Ex|Su|Sp)\)$/, '');
       if (!name || seen.has(lc(at(s, 'name')))) continue;
       seen.add(lc(at(s, 'name')));
@@ -240,9 +245,9 @@
     }
     // Rage as a switchable effect
     const rageName = [...seen].find(n => /^(mighty |greater )?rage\b/.test(n));
-    if (rageName) {
-      const b = /mighty/.test(rageName) || ch.classFeatures.some(f => /mighty rage/i.test(f.name)) ? 8 : ch.classFeatures.some(f => /greater rage/i.test(f.name)) ? 6 : 4;
-      ch.effects.unshift({ id: M.uid(), name: 'Rage', type: 'Morale', active: false, v: { str: b, con: b, will: b / 2, ac: -2 }, text: '' });
+    if (rageName && !ch.effects.some(e => e.preset === 'rage' || e.name === 'Rage')) {
+      const cls = ch.classes.find(c => /barbarian|bloodrager|skald/i.test(c.name));
+      ch.effects.unshift(M.classEffect('rage', cls ? cls.name.toLowerCase() : 'barbarian'));
     }
 
     // Spell-like abilities
@@ -313,6 +318,7 @@
     if (all(kid(C, 'minions'), 'character').length) warnings.push('Companions (animal companions, familiars, eidolons) aren\'t imported. Add them on the Companion tab.');
 
     applyRace(ch, at(kid(C, 'race'), 'racetext') || at(kid(C, 'race'), 'name'), opts, warnings);
+    if (opts && opts.enrich) opts.enrich(ch, warnings);   // SRD class features, archetypes, choices, rules text
     activeEffects(ch, C, [...melee, ...ranged].map(w => at(w, 'attack')), warnings);
     const saveT = {};
     for (const sv of kids(kid(C, 'saves'), 'save')) { const k = lc(at(sv, 'abbr')); if (['fort', 'ref', 'will'].includes(k)) saveT[k] = firstNum(at(sv, 'save')); }
@@ -405,12 +411,9 @@
     if (smite) {
       const cls = /good/i.test(smite.name) ? 'antipaladin' : 'paladin';
       const smiteOn = chaMod > 0 && num(at(ac, 'fromdeflect')) === chaMod;
-      ch.effects.unshift({ id: M.uid(), name: smite.name.replace(/\s*\(.*$/, ''), type: 'Untyped (stacks)', active: smiteOn, v: {}, text: '', bonuses: [
-        { label: 'Smite: attack', target: 'atk', value: 'max(0, cha)', type: 'Untyped (stacks)', skill: '', weapon: '', text: '', active: true },
-        { label: 'Smite: damage', target: 'dmg', value: cls, type: 'Untyped (stacks)', skill: '', weapon: '', text: '', active: true },
-        { label: 'Smite: AC', target: 'ac', value: 'max(0, cha)', type: 'Deflection', skill: '', weapon: '', text: '', active: true },
-        { label: '', target: 'note', value: '', type: 'Untyped (stacks)', skill: '', weapon: '', text: 'Smite: only against the chosen target; the first hit\'s damage bonus doubles against evil outsiders, dragons and undead', active: true },
-      ] });
+      let eff = ch.effects.find(e => e.preset === 'smite' || /^smite (evil|good)$/i.test(e.name));
+      if (!eff) { eff = M.classEffect('smite', cls); ch.effects.unshift(eff); }
+      eff.active = smiteOn;
       if (smiteOn) on.push('Smite');
     }
     // Vindicator's Shield: sacred (or profane) bonus to AC while channeled energy is stored in the shield
@@ -744,6 +747,7 @@
     ch.notes = [ch.notes, txtNotes(sect)].filter(Boolean).join('\n\n');
 
     applyRace(ch, ch.info.race, opts, warnings);
+    if (opts && opts.enrich) opts.enrich(ch, warnings);
     calibrate(ch, {
       hpTarget: hpM ? +hpM[1] : 0, target, wTargets, saves, init: firstNum(field(head, 'Init')) ?? firstNum((head.find(l => /^Init /.test(l)) || '').slice(5)),
       ac: acM ? +acM[1] : null, cmb: firstNum((stats.join(' ').match(/CMB\s+([+-]\d+)/) || [])[1]), cmd: firstNum((stats.join(' ').match(/CMD\s+(\d+)/) || [])[1]), speed: spd,
