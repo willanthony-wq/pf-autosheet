@@ -68,7 +68,36 @@ def clean(n):
     return re.sub(r'\s+', ' ', html.unescape(n or '')).strip()
 
 
-feats, traits, spells, items, gear, weapons, armor, classes, archetypes, choices = {}, {}, {}, {}, {}, {}, {}, {}, {}, {}
+feats, traits, spells, items, gear, weapons, armor, classes, archetypes, choices, races = {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}
+
+SKILLS = ['Acrobatics', 'Appraise', 'Bluff', 'Climb', 'Diplomacy', 'Disable Device', 'Disguise', 'Escape Artist', 'Fly', 'Handle Animal', 'Heal', 'Intimidate',
+          'Linguistics', 'Perception', 'Ride', 'Sense Motive', 'Sleight of Hand', 'Spellcraft', 'Stealth', 'Survival', 'Swim', 'Use Magic Device']
+ABIL = {'strength': 'str', 'dexterity': 'dex', 'constitution': 'con', 'intelligence': 'int', 'wisdom': 'wis', 'charisma': 'cha'}
+
+
+def race_singular(n):
+    n = clean(n)
+    if n.endswith('men'):
+        return n[:-3] + 'man'
+    if n.lower() in ('dwarves', 'elves', 'half-elves'):
+        return n[:-3] + 'f'
+    if n.endswith('s') and n.lower() not in ('catfolk', 'ratfolk', 'merfolk', 'svirfneblin', 'kitsune', 'strix', 'nagaji', 'drow', 'duergar'):
+        return n[:-1]
+    return n
+
+
+def skill_names(lst):
+    out = []
+    for part in re.split(r',\s*(?:and\s+)?|\s+and\s+', lst):
+        part = part.strip()
+        k = re.match(r'^Knowledge \((\w+)\)$', part)
+        if k:
+            out.append('Kn. ' + k.group(1).capitalize())
+        elif part in SKILLS:
+            out.append(part)
+        else:
+            return None   # Craft (alchemy), a skill of their choice...: not a plain bonus
+    return out
 
 # Class choices: (heading, kind, label). 'path' = pick one (or two) with powers by level; 'talent' = pick several; 'auto' = gained by level.
 CHOICE_GROUPS = [
@@ -354,6 +383,80 @@ for book, abbr in BOOKS:
             if key not in choices:
                 choices[key] = opt
 
+    # ---- races (Advanced Race Guide): ability modifiers, size, speed, senses, languages, bonuses and features
+    for r in c.execute("select * from sections where type='race'"):
+        if abbr != 'ARG':   # the Advanced Race Guide has every race, written the same way
+            continue
+        rn = race_singular(r['name'])
+        if rn.lower() in races:
+            continue
+        rt = c.execute("select section_id from sections where parent_id=? and name like '%Racial Traits' and name not like 'Alternate%'", (r['section_id'],)).fetchone()
+        if not rt:
+            continue
+        race = {'n': rn, 's': abbr, 'cat': (r['subtype'] or '').replace('_race', ''), 'size': 'Medium', 'speed': 30, 'speeds': {}, 'mods': {}, 'flex': False,
+                'senses': [], 'languages': '', 'ranks': 0, 'bonuses': [], 'features': []}
+        for k in kids(rt[0]):
+            kn, kt = clean(k['name'] or ''), text(k['body'] or k['description'])
+            sm = re.search(r'base speed of (\d+) feet', kt)   # also in "Slow and Steady"
+            if sm:
+                race['speed'] = int(sm.group(1))
+                if re.search(r'never modified by armor or encumbrance', kt):
+                    race['slow'] = True
+            pairs = re.findall(r'([+\-\u2013\u2212])(\d+)\s+(Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma)', kn)
+            if pairs:
+                for sg, v, ab in pairs:
+                    race['mods'][ABIL[ab.lower()]] = int(v) * (1 if sg == '+' else -1)
+                if re.search(r'one ability score of (her|his|their) choice', kt, re.I):
+                    race['flex'] = True
+                continue
+            if re.match(r'^\+2 to one ability score', kn, re.I):
+                race['flex'] = True
+                continue
+            if kn in ('Fine', 'Diminutive', 'Tiny', 'Small', 'Medium', 'Large', 'Huge'):
+                race['size'] = kn
+                continue
+            if re.search(r'speed', kn, re.I):
+                m = re.search(r'base speed of (\d+) feet', kt)
+                if m:
+                    race['speed'] = int(m.group(1))
+                for mode in ('fly', 'swim', 'climb', 'burrow'):
+                    mm = re.search(mode + r' speed of (\d+) feet', kt)
+                    if mm:
+                        race['speeds'][mode] = int(mm.group(1))
+                race['features'].append([kn, kt])
+                continue
+            if re.match(r'^(superior darkvision|darkvision|low-light vision|see in darkness)$', kn, re.I):
+                m = re.search(r'(\d+) feet', kt)
+                race['senses'].append(kn.title() + (f' {m.group(1)} ft.' if m and 'darkvision' in kn.lower() else ''))
+                continue
+            if kn.lower() == 'languages':
+                m = re.search(r'begin play speaking ([^.]+)\.', kt)
+                if m:
+                    race['languages'] = re.sub(r',?\s+and\s+', ', ', m.group(1))
+                continue
+            if re.search(r'additional skill rank', kt):
+                race['ranks'] = 1
+            found = False
+            for m in re.finditer(r'\+(\d+) racial bonus on ([A-Z][\w ()]*?(?:,\s*(?:and\s+)?[A-Z][\w ()]*?)*(?:,?\s+and\s+[A-Z][\w ()]*?)?)(?: checks?)?(?=[.;]|\s+due\b|$)', kt):
+                sk = skill_names(m.group(2))
+                if sk:
+                    for x in sk:
+                        race['bonuses'].append({'label': kn, 'target': 'skill', 'skill': x, 'value': int(m.group(1))})
+                    found = True
+            m = re.search(r'\+(\d+) racial bonus on all saving throws\.', kt)
+            if m:
+                race['bonuses'].append({'label': kn, 'target': 'saves', 'value': int(m.group(1))})
+                found = True
+            m = re.search(r'\+(\d+) natural armor bonus', kt)
+            if m:
+                race['bonuses'].append({'label': kn, 'target': 'nat', 'value': int(m.group(1))})
+                found = True
+            if not found and re.search(r'bonus|penalty|resistance \d|immune', kt, re.I) and len(kt) < 400:
+                race['bonuses'].append({'label': kn, 'target': 'note', 'value': '', 'text': kt})
+            race['features'].append([kn, kt])
+        race['senses'] = ', '.join(race['senses'])
+        races[rn.lower()] = race
+
     # ---- class features by level (base classes)
     for cl in c.execute("select * from sections where type='class' and subtype in ('core','base','hybrid','prestige')"):
         cname = clean(cl['name'])
@@ -394,5 +497,5 @@ def dump(name, store, sort=True):
     print(f'{name:8} {len(store):5}  {os.path.getsize(os.path.join(OUT, name + ".json")) / 1024:.0f} KB')
 
 
-for n, s in [('feats', feats), ('traits', traits), ('spells', spells), ('items', items), ('gear', gear), ('weapons', weapons), ('armor', armor), ('classes', classes), ('archetypes', archetypes), ('choices', choices)]:
+for n, s in [('feats', feats), ('traits', traits), ('spells', spells), ('items', items), ('gear', gear), ('weapons', weapons), ('armor', armor), ('classes', classes), ('archetypes', archetypes), ('choices', choices), ('races', races)]:
     dump(n, s)

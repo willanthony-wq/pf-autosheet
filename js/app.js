@@ -888,10 +888,11 @@
   // ----- Race
   function renderRace() {
     const ch = App.ch, r = ch.race, R = window.PF_RACES;
-    const presetOpts = Object.keys(R.RACES).map(n => `<option value="${esc(n)}"${r.preset === n ? ' selected' : ''}>${esc(n)}</option>`).join('');
+    if (!R.loaded()) R.load().then(() => { if (App.tab === 'race') render(); });
+    const presetOpts = R.groups().map(([g, names]) => `<optgroup label="${esc(g)}">${names.map(n => `<option value="${esc(n)}"${r.preset === n ? ' selected' : ''}>${esc(n)}</option>`).join('')}</optgroup>`).join('');
     const main = card('Race', `<div class="fields">
         ${field('Race', inp('info/race', { ph: 'e.g. Tiefling' }))}
-        <label class="field">Start from a core race<span class="inline" style="flex-wrap:nowrap"><select id="race-preset" aria-label="Core race preset"><option value="">— choose —</option>${presetOpts}</select><button class="btn small" data-action="apply-race">Apply</button></span></label>
+        <label class="field">Start from a race<span class="inline" style="flex-wrap:nowrap"><select id="race-preset" aria-label="Race preset"><option value="">— choose —</option>${presetOpts}</select><button class="btn small" data-action="apply-race">Apply</button></span></label>
         ${field('Size', sel('info/size', M.SIZES.map(s => s.name), { blank: false }))}
         ${field('Base speed (ft)', inp('info/speeds/base', { type: 'num' }))}
         ${field('Senses', inp('race/senses', { ph: 'e.g. darkvision 60 ft.' }))}
@@ -907,7 +908,7 @@
       { cls: 'span-2' });
 
     const bonusHtml = bonusEditor('race/bonuses', r.bonuses, { fixedType: 'Racial', label: true });
-    const bonuses = card('Racial Bonuses', (bonusHtml || '<p class="small muted">No racial bonuses yet. Apply a core race above, or add your own.</p>') +
+    const bonuses = card('Racial Bonuses', (bonusHtml || '<p class="small muted">No racial bonuses yet. Apply a race above, or add your own.</p>') +
       `<p class="small muted">These count as racial bonuses: two racial bonuses to the same thing don't stack, but they stack with every other type. "Situational" entries are reminders shown on the Play tab and don't change any numbers.</p>`,
       { tools: `<button class="btn small" data-action="add-bonus" data-list="race/bonuses" data-type="Racial">+ Bonus</button>`, cls: 'span-2' });
 
@@ -916,14 +917,16 @@
     return `<div class="grid two">${main}${bonuses}${feats}</div>`;
   }
   async function applyRacePreset(name) {
-    const p = window.PF_RACES.RACES[name];
-    if (!p) { toast('Choose a race first.'); return; }
+    await window.PF_RACES.load();
+    const hit = window.PF_RACES.find(name);
+    if (!hit) { toast('Choose a race first.'); return; }
+    const p = hit.preset; name = hit.name;
     const ch = App.ch, r = ch.race;
     const imported = ch.source === 'autosheet-xlsx';
     const choice = await choiceDialog(`Apply ${name}`,
       `<p class="small">${imported ? 'This character was imported from the spreadsheet, where racial ability modifiers and bonus skill ranks are already part of the base scores. ' : ''}Anything already on the Race tab is replaced.</p>`,
       [
-        { v: 'all', l: 'Everything', desc: 'Ability modifiers, bonus skill ranks, racial bonuses, size, speed, senses and features. Best for a new character.' },
+        { v: 'all', l: 'Everything', desc: `Ability modifiers, bonus skill ranks, racial bonuses, size, speed, senses and features. Best for a new character.${p.source ? ` (${p.source}: check situational traits, which come in as reminders.)` : ''}` },
         { v: 'nomods', l: 'Everything except ability modifiers and skill ranks', desc: 'For characters whose base scores already include their race (imported from the spreadsheet).' },
         { v: 'features', l: 'Features and senses only', desc: 'Adds the racial features text. No numbers change.' },
       ], imported ? 'nomods' : 'all');
@@ -936,6 +939,7 @@
     if (choice !== 'features') {
       r.bonuses = p.bonuses.map(b => Object.assign({ label: '', active: true, skill: '', weapon: '', text: '' }, b));
       ch.info.size = p.size; ch.info.speeds.base = p.speed;
+      for (const [mode, ft] of Object.entries(p.speeds || {})) ch.info.speeds[mode] = ft;
       if (p.slowAndSteady) ch.movement.ignoreArmor = 'Slow and Steady (ignore Encumbrance/Heavy/Medium)';
       else if (String(ch.movement.ignoreArmor || '').startsWith('Slow and Steady')) ch.movement.ignoreArmor = '';
     }
@@ -1557,9 +1561,11 @@
         // Rules data fills in weights, prices, weapon details and feat/trait text the file doesn't carry
         const S = window.PF_SRD;
         if (S) await S.ensure(['gear', 'weapons', 'armor', 'items', 'feats', 'traits']);
+        await window.PF_RACES.load();
+        const lookupRace = name => window.PF_RACES.find(name);
         const lookupItem = name => { const hit = S && S.findAny(['weapons', 'armor', 'gear', 'items'], name); if (!hit) return null; const it = hit.item; return { w: it.w, cost: S.priceOf(it, name), k: it.k, ty: it.ty, rg: it.rg }; };
         const lookupText = (kind, name) => { const it = S && S.find(kind, name); return it ? (kind === 'feats' ? (it.b || it.d) : it.d) : ''; };
-        const results = window.PF_HEROLAB.importHeroLab(await file.arrayBuffer(), file.name, { lookupItem, lookupText });
+        const results = window.PF_HEROLAB.importHeroLab(await file.arrayBuffer(), file.name, { lookupItem, lookupText, lookupRace });
         if (App.ch) saveNow();
         App.tab = 'play';
         for (const r of results) {
@@ -1580,6 +1586,14 @@
       } else if (/\.xlsx$/i.test(file.name)) {
         const res = window.PF_IMPORT.importXlsxBuffer(await file.arrayBuffer());
         ch = res.character; warnings = res.warnings;
+        await window.PF_RACES.load();
+        const race = ch.info.race && window.PF_RACES.find(ch.info.race);
+        if (race) {
+          ch.race.preset = race.name;
+          if (!ch.racialFeatures.length) ch.racialFeatures = race.preset.features.map(([n, t]) => ({ name: n, text: t }));
+          if (!ch.race.senses) ch.race.senses = race.preset.senses || '';
+          warnings.push(`Race recognized as ${race.name}: its features and senses were added. The spreadsheet's scores and skills already include racial modifiers, so no numbers changed; to add racial bonuses as bonuses, use Apply on the Race tab ("Everything except ability modifiers").`);
+        }
       } else throw new Error('Choose a .xlsx (Google Sheets download), a Hero Lab portfolio (.por) or a .json file exported from this sheet.');
       if (App.ch) saveNow();
       if (!ch.id || App.roster.ids.includes(ch.id)) ch.id = M.uid();

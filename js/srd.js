@@ -2,7 +2,7 @@
 // Data files in data/srd/ are built by tools/build_srd.py and loaded only when a tab needs them.
 (() => {
   'use strict';
-  const KINDS = ['feats', 'traits', 'spells', 'items', 'gear', 'weapons', 'armor', 'classes', 'archetypes', 'choices'];
+  const KINDS = ['feats', 'traits', 'spells', 'items', 'gear', 'weapons', 'armor', 'classes', 'archetypes', 'choices', 'races'];
   const cache = {}, pending = {};
   const ver = (document.querySelector('script[src*="js/srd.js"]') || { src: '' }).src.split('?v=')[1] || '1';
 

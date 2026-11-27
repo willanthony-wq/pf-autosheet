@@ -83,7 +83,7 @@
   const opt = (cat, part) => (cat ? cat.options.find(o => o.label.includes(part)) : null) || (cat ? cat.options[0] : null);
 
   // ---------- one character from a statblock XML document
-  function convert(xmlText, statText) {
+  function convert(xmlText, statText, opts) {
     const doc = parseXml(xmlText);
     const C = all(doc, 'character')[0];
     if (!C) throw new Error('No character found. Use a Hero Lab portfolio (.por) or a Hero Lab XML export.');
@@ -312,6 +312,7 @@
     if (at(hero, 'enabled') === 'yes') ch.heroPoints.current = num(at(hero, 'total'));
     if (all(kid(C, 'minions'), 'character').length) warnings.push('Companions (animal companions, familiars, eidolons) aren\'t imported. Add them on the Companion tab.');
 
+    applyRace(ch, at(kid(C, 'race'), 'racetext') || at(kid(C, 'race'), 'name'), opts, warnings);
     activeEffects(ch, C, [...melee, ...ranged].map(w => at(w, 'attack')), warnings);
     const saveT = {};
     for (const sv of kids(kid(C, 'saves'), 'save')) { const k = lc(at(sv, 'abbr')); if (['fort', 'ref', 'will'].includes(k)) saveT[k] = firstNum(at(sv, 'save')); }
@@ -356,6 +357,29 @@
       }
     }
     return out;
+  }
+
+  // ---------- race: set the preset, take fixed racial ability modifiers out of the base scores (totals don't change),
+  // and add racial bonuses, features and senses. Hero Lab's size, speed and languages are kept.
+  function applyRace(ch, raceName, opts, warnings) {
+    const hit = raceName && opts && opts.lookupRace ? opts.lookupRace(raceName) : null;
+    if (!hit) { if (raceName) warnings.push(`Race "${raceName}" isn't in the sheet's race list; its traits weren't applied.`); return; }
+    const p = hit.preset, r = ch.race;
+    r.preset = hit.name;
+    r.abilityMods = Object.assign({ str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 }, p.abilityMods || {});
+    for (const [k, v] of Object.entries(p.abilityMods || {})) ch.abilities[k].base = Number(ch.abilities[k].base || 0) - v;
+    r.flex = false; r.flexAbility = '';
+    r.skillRanksPerLevel = p.skillRanksPerLevel || 0;
+    r.bonuses = (p.bonuses || []).map(b => Object.assign({ label: '', active: true, skill: '', weapon: '', text: '' }, b));
+    if (!r.senses) r.senses = p.senses || '';
+    ch.racialFeatures = (p.features || []).map(([n, t]) => ({ name: n, text: t }));
+    if (p.slowAndSteady) ch.movement.ignoreArmor = 'Slow and Steady (ignore Encumbrance/Heavy/Medium)';
+    // Racial traits Hero Lab listed among the special abilities would now appear twice
+    const racial = new Set(ch.racialFeatures.map(f => lc(f.name)));
+    ch.classFeatures = ch.classFeatures.filter(f => !racial.has(lc(f.name).replace(/\s*\(.*$/, '')));
+    const mods = Object.entries(p.abilityMods || {}).filter(([, v]) => v).map(([k, v]) => `${v > 0 ? '+' : ''}${v} ${k.toUpperCase()}`);
+    warnings.push(`Race set to ${hit.name}${mods.length ? ` (${mods.join(', ')} moved from the base scores to the Race tab)` : ''}, with its racial bonuses and features.` +
+      (p.flex ? ` Its +2 to one ability score is still part of the base scores (Hero Lab doesn't record which one).` : ''));
   }
 
   // ---------- class abilities that change numbers, and what Hero Lab has switched on
@@ -719,6 +743,7 @@
     if (spd && spd > 30) ch.info.speeds.base = spd;
     ch.notes = [ch.notes, txtNotes(sect)].filter(Boolean).join('\n\n');
 
+    applyRace(ch, ch.info.race, opts, warnings);
     calibrate(ch, {
       hpTarget: hpM ? +hpM[1] : 0, target, wTargets, saves, init: firstNum(field(head, 'Init')) ?? firstNum((head.find(l => /^Init /.test(l)) || '').slice(5)),
       ac: acM ? +acM[1] : null, cmb: firstNum((stats.join(' ').match(/CMB\s+([+-]\d+)/) || [])[1]), cmd: firstNum((stats.join(' ').match(/CMD\s+(\d+)/) || [])[1]), speed: spd,
@@ -764,13 +789,13 @@
   function importHeroLab(buf, fileName, opts) {
     const bytes = new Uint8Array(buf);
     const isZip = bytes[0] === 0x50 && bytes[1] === 0x4b;   // "PK"
-    if (/\.por$/i.test(fileName) && isZip) return readPortfolio(buf).map(x => convert(x.xml, x.text));
+    if (/\.por$/i.test(fileName) && isZip) return readPortfolio(buf).map(x => convert(x.xml, x.text, opts));
     // Older portfolios and XML exports are plain XML; read the declared encoding
     const headText = new TextDecoder('latin1').decode(bytes.slice(0, 200));
     const enc = (headText.match(/encoding="([^"]+)"/i) || [])[1] || 'utf-8';
     const text = new TextDecoder(/8859-1|latin|1252/i.test(enc) ? 'windows-1252' : 'utf-8').decode(bytes);
     if (/<document[^>]*signature="Hero Lab Portfolio"/.test(text.slice(0, 500))) return convertLegacy(text, opts);
-    return [convert(text)];
+    return [convert(text, '', opts)];
   }
 
   window.PF_HEROLAB = { parseXml, convert, convertStatblock, importHeroLab };

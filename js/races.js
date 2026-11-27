@@ -1,4 +1,4 @@
-// Core Rulebook race presets. Applying one fills the Race tab; everything stays editable.
+// Race presets: the seven core races by hand, plus the Advanced Race Guide races from data/srd/races.json. Applying one fills the Race tab; everything stays editable.
 // Bonus targets: saves, fort, ref, will, ac, nat, atk, mAtk, rAtk, init, skill (with `skill`), skills, cl, note (situational, no math).
 (function () {
   'use strict';
@@ -110,5 +110,35 @@
 
   const BONUS_TARGETS = window.PF_MODEL.BONUS_TARGETS;
 
-  window.PF_RACES = { RACES, BONUS_TARGETS };
+  // Advanced Race Guide races from the rules data (data/srd/races.json), in the same shape as the presets above.
+  // The core seven keep their hand-made presets.
+  function fromSrd(x) {
+    return {
+      size: x.size, speed: x.speed, slowAndSteady: !!x.slow, abilityMods: x.mods || {}, flex: !!x.flex, senses: x.senses || '',
+      languages: x.languages || '', skillRanksPerLevel: x.ranks || 0, speeds: x.speeds || {}, cat: x.cat, source: x.s,
+      bonuses: (x.bonuses || []).map(b => Object.assign({}, b)), features: (x.features || []).map(f => f.slice()),
+    };
+  }
+  function srdCache() { return (window.PF_SRD._racesList = window.PF_SRD._racesList || []); }
+  const key = s => String(s || '').toLowerCase().replace(/\s*\(.*\)\s*$/, '').trim();
+  // Find a race by name: "Human", "human", "Human (Varisian)", "Tieflings", "half orc"
+  function find(name) {
+    const k = key(name).replace(/\s+/g, '-');
+    const core = Object.keys(RACES).find(n => n.toLowerCase() === k || n.toLowerCase() + 's' === k || (k === 'dwarves' && n === 'Dwarf') || (k === 'elves' && n === 'Elf') || (k === 'half-elves' && n === 'Half-Elf'));
+    if (core) return { name: core, preset: RACES[core] };
+    const srd = srdCache().find(x => x.n.toLowerCase() === k || x.n.toLowerCase() + 's' === k || x.n.toLowerCase().replace(/\s+/g, '-') === k);
+    return srd ? { name: srd.n, preset: fromSrd(srd) } : null;
+  }
+  // Names for the Race tab, grouped
+  function groups() {
+    const extra = srdCache().filter(x => !RACES[x.n]);
+    return [['Core', Object.keys(RACES)], ['Featured', extra.filter(x => x.cat === 'featured').map(x => x.n)], ['Uncommon', extra.filter(x => x.cat !== 'featured').map(x => x.n)]].filter(g => g[1].length);
+  }
+  // Loads the rules-data races once; resolves when find()/groups() can see them
+  function load() {
+    if (!window.PF_SRD) return Promise.resolve();
+    return window.PF_SRD.load('races').then(c => { if (c) window.PF_SRD._racesList = c.list; });
+  }
+
+  window.PF_RACES = { RACES, BONUS_TARGETS, find, groups, load, loaded: () => !!(window.PF_SRD && window.PF_SRD._racesList) };
 })();
