@@ -1001,7 +1001,11 @@
     const abil = card('Ability Scores', `<table><thead><tr><th class="l">Ability</th><th>Base</th><th title="Ability increases, templates">Adj.</th><th title="From buffs, feats, gear, evolutions">Bonus</th><th>Score</th><th>Mod</th></tr></thead><tbody>${abRows}</tbody></table>
       <p class="small muted">Type <span class="kbd">-</span> for a score the creature doesn't have (a construct's Con or Int).${dc.physBonus ? ` Str and Dex include the +${dc.physBonus} bonus from its level.` : ''}</p>`);
 
-    const saveRow = (k, label) => `<tr><td class="l">${label}</td><td>${rollBtn(label + ' save', `${dp}/saves/${k}/total`, { who })}</td>
+    // Hover or click a number to see what makes it (same breakdowns as the companion's Play card)
+    const xi = ' <span class="explain-i" aria-hidden="true">ⓘ</span>';
+    const xa = (k, l) => `data-explain="c${ci}:${k}" tabindex="0" aria-label="${l}: show what makes this number"`;
+    const xTile = (l, k, inner) => `<div class="tile explain" ${xa(k, l)}><div class="label">${l}${xi}</div><div class="value">${inner}</div></div>`;
+    const saveRow = (k, label) => `<tr><td class="l explain" ${xa(k, label + ' save')}>${label}${xi}</td><td>${rollBtn(label + ' save', `${dp}/saves/${k}/total`, { who })}</td>
       <td>${out(`${dp}/saves/${k}/base`, 'sign')}</td><td>${out(`${dp}/saves/${k}/ability`, 'sign')}</td><td>${out(`${dp}/saves/${k}/bonus`, 'sign')}</td><td>${inp(`${p}/saveMisc/${k}`, { type: 'num', aria: label + ' misc' })}</td></tr>`;
     const defense = card('Defense', `
       <div class="inline"><span class="big"><span data-out="${dp}/hp/current">${dc.hp.current}</span> / <span data-out="${dp}/hp/max">${dc.hp.max}</span> HP</span></div>
@@ -1012,12 +1016,12 @@
         ${field('Bonus HP', inp(`${p}/hpMisc`, { type: 'num', title: 'Toughness, construct size bonus, etc.' }))}${field('Max HP override', inp(`${p}/hpOverride`, { type: 'num', ph: 'auto', title: 'Replaces the calculated maximum, including HP bonuses from feats and buffs. Leave blank to calculate.' }))}
       </div>
       <div class="tiles" style="margin-top:10px">
-        <div class="tile"><div class="label">AC</div><div class="value">${out(`${dp}/ac/total`, '', '')}</div></div>
-        <div class="tile"><div class="label">Touch</div><div class="value">${out(`${dp}/ac/touch`, '', '')}</div></div>
-        <div class="tile"><div class="label">Flat-footed</div><div class="value">${out(`${dp}/ac/flat`, '', '')}</div></div>
-        <div class="tile"><div class="label">CMD</div><div class="value">${out(`${dp}/cmd`, '', '')}</div></div>
-        <div class="tile"><div class="label">CMB</div><div class="value">${rollBtn('Combat maneuver', `${dp}/cmb`, { who })}</div></div>
-        <div class="tile"><div class="label">Initiative</div><div class="value">${rollBtn('Initiative', `${dp}/init`, { who })}</div></div>
+        ${xTile('AC', 'ac', out(`${dp}/ac/total`, '', ''))}
+        ${xTile('Touch', 'touch', out(`${dp}/ac/touch`, '', ''))}
+        ${xTile('Flat-footed', 'flat', out(`${dp}/ac/flat`, '', ''))}
+        ${xTile('CMD', 'cmd', out(`${dp}/cmd`, '', ''))}
+        ${xTile('CMB', 'cmb', rollBtn('Combat maneuver', `${dp}/cmb`, { who }))}
+        ${xTile('Initiative', 'init', rollBtn('Initiative', `${dp}/init`, { who }))}
       </div>
       <div class="fields" style="margin-top:8px">
         ${field('Natural armor (species)', inp(`${p}/natural`, { type: 'num' }))}${field('Armor / barding', inp(`${p}/armor`, { type: 'num' }))}
