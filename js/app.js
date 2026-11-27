@@ -440,7 +440,8 @@
       else detail = inp(`${p}/text`, { ph: b.target === 'note' ? 'When it applies' : 'Notes (optional)', aria: 'Notes' });
       const V = o.varsPath ? (dget(o.varsPath + '/formulaVars') || {}) : App.d.formulaVars;
       const bad = E.isValidBonus(b.value, V) ? '' : ' bad';
-      return `<div class="bonus-row${o.label ? ' with-label' : ''}${b.active === false ? ' inactive' : ''}">
+      const sitBtn = b.target === 'note' ? '' : `<button class="icon-btn sit-btn${b.situational ? ' on' : ''}" data-action="toggle-sit-flag" data-path="${p}" aria-pressed="${b.situational ? 'true' : 'false'}" title="${b.situational ? 'Situational: switched on and off from the Play tab. Click to make it always on.' : 'Click to make this situational: it gets a switch on the Play tab.'}">◐</button>`;
+      return `<div class="bonus-row${o.label ? ' with-label' : ''}${b.active === false ? ' inactive' : ''}${b.situational ? ' situational' : ''}">
         <input type="checkbox" data-bind="${p}/active" data-type="bool" data-rerender aria-label="Bonus on"${b.active === false ? '' : ' checked'}>
         ${o.label ? inp(`${p}/label`, { ph: 'Name', aria: 'Bonus name' }) : ''}
         ${o.fixedType ? `<span class="sub">${esc(o.fixedType)}</span>` : sel(`${p}/type`, M.BONUS_TYPES, { blank: false, aria: 'Bonus type' })}
@@ -448,7 +449,7 @@
         ${detail}
         ${b.target === 'note' ? '<span></span>' : `<span class="val-cell">${inp(`${p}/value`, { ph: '2 or a formula', aria: 'Value', cls: 'bonus-value' + bad, title: 'A number, or a formula. Click the ? for help.' })
           .replace('<input ', `<input data-target="${esc(b.target)}" data-skill="${esc(b.skill || '')}"${o.varsPath ? ` data-vars="${esc(o.varsPath)}"` : ''} `)}<span class="bonus-result"></span>${formulaHelp(!!o.varsPath)}</span>`}
-        ${removeBtn(listPath, i, 'bonus')}</div>`;
+        <span class="bonus-end">${sitBtn}${removeBtn(listPath, i, 'bonus')}</span></div>`;
     }).join('');
     return rows ? `<div class="bonus-list">${rows}</div>` : '';
   }
@@ -491,6 +492,39 @@
     item.bonuses = (item.bonuses || []).concat(res);
     changed(true);
     toast(`Added ${res.length} bonus${res.length === 1 ? '' : 'es'} for ${name}.`);
+  }
+  // Situational bonuses (Point-Blank Shot, Hatred, Inspire Courage...), one switch per feature.
+  // Bonuses that share a source and label switch together.
+  function situationalGroups(lists) {
+    const out = [], byKey = new Map();
+    for (const [path, name, kind] of lists) {
+      (pathGet(App.ch, path) || []).forEach((b, i) => {
+        if (!b || !b.situational || b.target === 'note') return;
+        const label = String(b.label || '').trim() || name, key = path + '|' + label;
+        let g = byKey.get(key);
+        if (!g) { g = { name: label, kind, paths: [], texts: [], on: false }; byKey.set(key, g); out.push(g); }
+        g.paths.push(`${path}/${i}`);
+        if (b.active !== false) g.on = true;
+        if (b.text && !g.texts.includes(b.text)) g.texts.push(b.text);
+      });
+    }
+    return out;
+  }
+  function mySituationalLists() {
+    const ch = App.ch, L = [['race/bonuses', ch.info.race || 'Race', 'Race']];
+    ch.traits.forEach((t, i) => L.push([`traits/${i}/bonuses`, String(t.text || 'Trait').split(':')[0].trim(), 'Trait']));
+    ch.feats.forEach((f, i) => L.push([`feats/${i}/bonuses`, f.name || 'Feat', 'Feat']));
+    ch.classFeatures.forEach((f, i) => L.push([`classFeatures/${i}/bonuses`, f.name || 'Class feature', 'Class feature']));
+    ch.slots.forEach((s, i) => L.push([`slots/${i}/bonuses`, s.item || s.slot || 'Worn item', 'Worn item']));
+    return L;
+  }
+  function compSituationalLists(ci) {
+    const c = App.ch.companions[ci], L = [];
+    ['feats', 'gear', 'evolutions'].forEach(k => (c[k] || []).forEach((x, i) => L.push([`companions/${ci}/${k}/${i}/bonuses`, x.name || x.item || 'Feature', k === 'gear' ? 'Gear' : k === 'feats' ? 'Feat' : 'Evolution'])));
+    return L;
+  }
+  function situationalChips(groups) {
+    return groups.map(g => `<button class="chip sit${g.on ? ' on' : ''}" data-action="toggle-situational" data-paths="${esc(g.paths.join('|'))}" aria-pressed="${g.on}" title="${esc(g.kind)}${g.texts.length ? ': ' + esc(g.texts.join(' / ')) : ''}. Click to switch ${g.on ? 'off' : 'on'}.">◐ ${esc(g.name)}</button>`).join('');
   }
   function situationalNotes() {
     const out = [];
@@ -565,8 +599,11 @@
       { cls: 'span-2', tools: `<button class="btn small ghost" data-action="tab" data-tab="combat">Edit</button>` });
 
     const others = D.conditions.filter(c => !ch.conditions.includes(c.name));
+    const sitGroups = situationalGroups(mySituationalLists());
     const buffs = card('Buffs & Conditions', `<div class="chips">
       ${ch.effects.map((e, i) => `<label class="chip${e.active ? ' on' : ''}" title="Effect (Effects tab). Click to switch ${e.active ? 'off' : 'on'}."><input type="checkbox" data-bind="effects/${i}/active" data-type="bool" data-rerender${e.active ? ' checked' : ''}>${esc(e.name || 'Effect')}</label>`).join('')}</div>
+      ${sitGroups.length ? `<h3 style="margin:10px 0 6px">Situational</h3><div class="chips">${situationalChips(sitGroups)}</div>
+      <p class="small muted" style="margin:4px 0 0">Feats, traits, class features, racial traits and items that only apply sometimes. Switch one on while it applies (hover for when).</p>` : ''}
       <h3 style="margin:10px 0 6px">Conditions</h3>
       <div class="chips">${ch.conditions.map(n => `<button class="chip cond on" data-action="toggle-condition" data-name="${esc(n)}" title="Click to remove">${esc(n)} ✕</button>`).join('')}
         <select id="add-condition" aria-label="Add a condition" style="width:auto"><option value="">+ Add condition…</option>${others.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('')}</select></div>
@@ -668,7 +705,7 @@
     const summary = [
       `HD <strong>${dc.hd}</strong>`, `BAB <strong>${sign(dc.bab)}</strong>`,
       `Base saves <strong>${sign(dc.baseSaves.fort)} / ${sign(dc.baseSaves.ref)} / ${sign(dc.baseSaves.will)}</strong>`,
-      `Skill ranks <strong>${dc.skillRanks.used} / ${dc.skillRanks.available}</strong>`, `Feats <strong>${dc.featsAllowed}</strong>`,
+      c.kind === 'Familiar' ? `Skill ranks <strong>master's</strong>` : `Skill ranks <strong>${dc.skillRanks.used} / ${dc.skillRanks.available}</strong>`, `Feats <strong>${dc.featsAllowed}</strong>`,
       dc.tricks !== null && dc.tricks !== undefined ? `Bonus tricks <strong>${dc.tricks}</strong>` : '',
       dc.natBonus ? `Natural armor bonus <strong>+${dc.natBonus}</strong>` : '', dc.physBonus ? `Str/Dex bonus <strong>+${dc.physBonus}</strong>` : '',
       dc.evolutionPool !== undefined ? `Evolution points <strong>${dc.evolutionsUsed} / ${dc.evolutionPool}</strong>` : '',
@@ -760,7 +797,7 @@
         <td>${inp(`${p}/skills/${i}/ranks`, { type: 'num', aria: 'Ranks' })}</td><td>${inp(`${p}/skills/${i}/misc`, { type: 'num', aria: 'Misc' })}</td>
         <td>${s.name ? rollBtn(s.name, `${dp}/skills/${i}/total`, { who }) : ''}</td><td>${removeBtn(`${p}/skills`, i, 'skill')}</td></tr>`).join('');
     const skills = card('Skills', `${skRows ? `<table><thead><tr><th class="l">Skill</th><th title="Class skill">CS</th><th>Ranks</th><th>Misc</th><th>Total</th><th></th></tr></thead><tbody>${skRows}</tbody></table>` : '<p class="muted small">No skills yet.</p>'}
-      <p class="small muted">Ranks: ${dc.skillRanks.used} / ${dc.skillRanks.available}.${c.kind === 'Animal Companion' ? ' Animal companion class skills (●) are filled in automatically.' : ''}</p>`,
+      <p class="small muted">${c.kind === 'Familiar' ? 'A familiar uses your skill ranks (or its own, whichever is better): enter the ranks it gets from you.' : `Ranks: ${dc.skillRanks.used} / ${dc.skillRanks.available}.`}${c.kind === 'Animal Companion' ? ' Animal companion class skills (●) are filled in automatically.' : ''}</p>`,
       { tools: `<button class="btn small" data-action="comp-add-skill" data-c="${ci}">+ Skill</button>` });
 
     // Bonus-bearing lists: buffs, feats, gear, evolutions (same bonus editor as the character)
@@ -839,7 +876,7 @@
           <div><div class="save-row">${save('fort', 'Fort')}${save('ref', 'Reflex')}${save('will', 'Will')}</div>
             <div class="inline" style="margin-top:8px"><span class="small">Init</span>${rollBtn('Initiative', `${dp}/init`, { who })}<span class="small">CMB</span>${rollBtn('Combat maneuver', `${dp}/cmb`, { who })}</div>
             <div class="chips" style="margin-top:8px"><label class="chip${c.powerAttack ? ' on' : ''}"><input type="checkbox" data-bind="companions/${ci}/powerAttack" data-type="bool" data-rerender${c.powerAttack ? ' checked' : ''}>Power Attack</label>
-              ${c.buffs.map((b, bi) => `<label class="chip${b.active ? ' on' : ''}" title="Buff (Companion tab)"><input type="checkbox" data-bind="companions/${ci}/buffs/${bi}/active" data-type="bool" data-rerender${b.active ? ' checked' : ''}>${esc(b.name || 'Buff')}</label>`).join('')}</div>
+              ${c.buffs.map((b, bi) => `<label class="chip${b.active ? ' on' : ''}" title="Buff (Companion tab)"><input type="checkbox" data-bind="companions/${ci}/buffs/${bi}/active" data-type="bool" data-rerender${b.active ? ' checked' : ''}>${esc(b.name || 'Buff')}</label>`).join('')}${situationalChips(situationalGroups(compSituationalLists(ci)))}</div>
             <div class="chips" style="margin-top:6px">${c.conditions.map(nm => `<button class="chip cond on" data-action="comp-toggle-condition" data-c="${ci}" data-name="${esc(nm)}" title="Click to remove">${esc(nm)} ✕</button>`).join('')}
               <select class="comp-add-condition" data-c="${ci}" aria-label="Add a condition" style="width:auto"><option value="">+ Condition…</option>${D.conditions.filter(x => !c.conditions.includes(x.name)).map(x => `<option>${esc(x.name)}</option>`).join('')}</select></div>
             ${res}</div>
@@ -927,7 +964,7 @@
     const choice = await choiceDialog(`Apply ${name}`,
       `<p class="small">${imported ? 'This character was imported from the spreadsheet, where racial ability modifiers and bonus skill ranks are already part of the base scores. ' : ''}Anything already on the Race tab is replaced.</p>`,
       [
-        { v: 'all', l: 'Everything', desc: `Ability modifiers, bonus skill ranks, racial bonuses, size, speed, senses and features. Best for a new character.${p.source ? ` (${p.source}: check situational traits, which come in as reminders.)` : ''}` },
+        { v: 'all', l: 'Everything', desc: `Ability modifiers, bonus skill ranks, racial bonuses, size, speed, senses and features. Best for a new character.${p.source ? ` (${p.source}: check the racial traits; situational ones come in switched off, with a switch on the Play tab.)` : ''}` },
         { v: 'nomods', l: 'Everything except ability modifiers and skill ranks', desc: 'For characters whose base scores already include their race (imported from the spreadsheet).' },
         { v: 'features', l: 'Features and senses only', desc: 'Adds the racial features text. No numbers change.' },
       ], imported ? 'nomods' : 'all');
@@ -1475,6 +1512,19 @@
       'remove-archetype': () => { const c = App.ch.classes[+el.dataset.i]; (c.archetypes || []).splice(+el.dataset.k, 1); changed(true); autoSyncClassFeatures(); },
       'sort-worn': () => sortWornItems(),
       'remove': () => { const arr = get(el.dataset.list); if (Array.isArray(arr)) { arr.splice(+el.dataset.i, 1); changed(true); } },
+      'toggle-situational': () => {
+        const paths = el.dataset.paths.split('|'), list = paths.map(get).filter(Boolean);
+        const on = list.some(b => b.active !== false);
+        list.forEach(b => { b.active = !on; });
+        changed(true);
+      },
+      'toggle-sit-flag': () => {
+        const b = get(el.dataset.path);
+        if (!b) return;
+        b.situational = !b.situational;
+        changed(true);
+        toast(b.situational ? 'Situational: switch it on and off from Buffs & Conditions on the Play tab.' : 'No longer situational: it counts whenever it is ticked.');
+      },
       'toggle-condition': () => {
         const n = el.dataset.name, c = App.ch.conditions, i = c.indexOf(n);
         if (i >= 0) c.splice(i, 1); else c.push(n);
@@ -1544,7 +1594,8 @@
 
   function changed(rerender) { recompute(); scheduleSave(); if (rerender) render(); else updateOutputs(); }
 
-  $('#roster') && $('#roster').addEventListener('change', e => { saveNow(); loadCharacter(e.target.value); });
+  // Read the choice before saving: saving redraws this list, which resets it to the current character
+  $('#roster') && $('#roster').addEventListener('change', e => { const id = e.target.value; saveNow(); loadCharacter(id); });
   $('#dice-expr').addEventListener('keydown', e => { if (e.key === 'Enter') rollFree(e.target.value, e.shiftKey); });
 
   // ---------- Actions ----------
@@ -1596,10 +1647,12 @@
           const n = await fillSpellsFromSrd();
           if (n) { r.warnings.push(`Set up ${n} spell${n === 1 ? '' : 's'} from the SRD (dice, saves, touch attacks, buffs).`); changed(false); saveNow(); }
         }
-        const last = results[results.length - 1];
-        showImportResult(last.character, results.length > 1
-          ? [`Imported ${results.length} characters: ${results.map(r => r.character.info.name).join(', ')}. Notes for the last one:`].concat(last.warnings)
-          : last.warnings, 'Hero Lab');
+        // Open the first one (the leader, with any familiar or companion); cohorts are in the character list
+        const first = results[0];
+        if (results.length > 1) { saveNow(); loadCharacter(first.character.id); }
+        showImportResult(first.character, results.length > 1
+          ? [`Imported ${results.length} characters: ${results.map(r => r.character.info.name).join(', ')}. Switch between them with the character list at the top. Notes for ${first.character.info.name}:`].concat(first.warnings)
+          : first.warnings, 'Hero Lab');
         return;
       }
       if (/\.json$/i.test(file.name)) {
@@ -2063,7 +2116,7 @@
   function standardBonuses(o, kind, name) {
     if ((o.bonuses || []).length) return 0;
     const firstClass = (App.ch.classes.find(c => c.name) || {}).name;
-    const res = window.PF_FEATS.suggest(kind, name, skillNameList(), firstClass ? E.classSlug(firstClass) : undefined);
+    const res = window.PF_FEATS.suggest(kind, name, skillNameList(), firstClass ? E.classSlug(firstClass) : undefined, o.text);
     if (!res || !res.length) return 0;
     o.bonuses = res;
     return 1;
@@ -2174,8 +2227,8 @@
     const cap = x => x.charAt(0).toUpperCase() + x.slice(1);
     const skills = d.skills.map(x => x.name).concat(M.SPECIALTY_SKILLS);
     const list = ch.classFeatures;
-    const std = (name, cls) => (opts.bonuses ? (window.PF_FEATS.suggest('feature', name, skills, E.classSlug(cls)) || []) : []);
-    const make = (name, text, src, cls) => { const bonuses = std(name, cls); return { name, text, bonuses, src, srcHash: textHash(text), srcB: bonuses.length }; };
+    const std = (name, cls, text) => (opts.bonuses ? (window.PF_FEATS.suggest('feature', name, skills, E.classSlug(cls), text) || []) : []);
+    const make = (name, text, src, cls) => { const bonuses = std(name, cls, text); return { name, text, bonuses, src, srcHash: textHash(text), srcB: bonuses.length }; };
     const wanted = new Set(), wantSpells = new Set();
     for (const c of classes) {
       const r = SRD.classFeatures(c.name, c.level);
@@ -2210,7 +2263,7 @@
           if (have.src === src && have.name.toLowerCase() !== feat.name.toLowerCase() && /\d/.test(feat.name)) { have.name = cap(feat.name); res.updated++; }
           if (!have.src) {
             have.src = src;
-            if (opts.adopt && !(have.bonuses || []).length) { have.bonuses = std(feat.name, c.name); have.srcB = have.bonuses.length; }
+            if (opts.adopt && !(have.bonuses || []).length) { have.bonuses = std(feat.name, c.name, have.text || feat.text); have.srcB = have.bonuses.length; }
             if (!String(have.text || '').trim()) have.text = feat.text;
           }
           continue;

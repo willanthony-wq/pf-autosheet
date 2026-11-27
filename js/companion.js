@@ -121,7 +121,8 @@
     } else if (c.kind === 'Familiar') {
       hd = lvl;
       bab = master ? master.bab : Math.floor(hd * 3 / 4);
-      const own = { fort: good(hd), ref: good(hd), will: poor(hd) };
+      const ownHd = Math.max(1, Math.floor(n(c.hd)) || 1);   // the creature's own Hit Dice (1 for most familiars)
+      const own = { fort: good(ownHd), ref: good(ownHd), will: poor(ownHd) };
       const ms = master ? master.baseSaves : own;
       base = { fort: Math.max(own.fort, ms.fort), ref: Math.max(own.ref, ms.ref), will: Math.max(own.will, ms.will) };
       natBonus = Math.ceil(lvl / 2);

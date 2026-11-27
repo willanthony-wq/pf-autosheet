@@ -88,6 +88,9 @@
     const doc = parseXml(xmlText);
     const C = all(doc, 'character')[0];
     if (!C) throw new Error('No character found. Use a Hero Lab portfolio (.por) or a Hero Lab XML export.');
+    return convertCharacter(C, statText, opts);
+  }
+  function convertCharacter(C, statText, opts) {
     const ch = M.normalize(M.blankCharacter());
     const warnings = [];
     ch.source = 'herolab';
@@ -220,13 +223,14 @@
     }
 
     // Feats, traits, drawbacks
-    const suggest = (kind, name) => (window.PF_FEATS ? window.PF_FEATS.suggest(kind, name, Object.keys(D.skillMeta)) || [] : []);
+    const suggest = (kind, name, text) => (window.PF_FEATS ? window.PF_FEATS.suggest(kind, name, Object.keys(D.skillMeta), undefined, text) || [] : []);
     for (const f of kids(kid(C, 'feats'), 'feat')) {
       if (at(f, 'profgroup') === 'yes') continue;   // armor and weapon proficiencies granted by the class
       const name = at(f, 'name').replace(/\s+[-+]\d+\/[-+]\d+$/, '');   // 'Power Attack -3/+6' -> 'Power Attack'
-      ch.feats.push({ level: '', name, text: txt(kid(f, 'description')), bonuses: suggest('feat', name) });
+      const text = txt(kid(f, 'description'));
+      ch.feats.push({ level: '', name, text, bonuses: suggest('feat', name, text) });
     }
-    for (const t of kids(kid(C, 'traits'), 'trait')) ch.traits.push({ kind: 'Trait', text: `${at(t, 'name')}: ${txt(kid(t, 'description'))}`, bonuses: suggest('trait', at(t, 'name')) });
+    for (const t of kids(kid(C, 'traits'), 'trait')) ch.traits.push({ kind: 'Trait', text: `${at(t, 'name')}: ${txt(kid(t, 'description'))}`, bonuses: suggest('trait', at(t, 'name'), txt(kid(t, 'description'))) });
     for (const t of kids(kid(C, 'flaws'), 'flaw')) ch.traits.push({ kind: 'Drawback', text: `${at(t, 'name')}: ${txt(kid(t, 'description'))}`, bonuses: [] });
 
     // Class features and other special abilities (every <special>, except spell-like abilities)
@@ -316,7 +320,6 @@
     ch.resources = kids(kid(C, 'trackedresources'), 'trackedresource').map(r => ({ name: at(r, 'name'), uses: num(at(r, 'left')), max: num(at(r, 'max')) }));
     const hero = kid(C, 'heropoints');
     if (at(hero, 'enabled') === 'yes') ch.heroPoints.current = num(at(hero, 'total'));
-    if (all(kid(C, 'minions'), 'character').length) warnings.push('Companions (animal companions, familiars, eidolons) aren\'t imported. Add them on the Companion tab.');
 
     // Conditions Hero Lab has on (its situational modifiers name them, e.g. source="Shaken")
     const condNames = new Map(D.conditions.map(c => [lc(c.name), c.name]));
@@ -341,7 +344,170 @@
       load: { 'light load': 'Light', 'medium load': 'Medium', 'heavy load': 'Heavy', overloaded: 'Overloaded' }[lc(at(kid(C, 'encumbrance'), 'level'))] || null,
       carried: at(kid(C, 'encumbrance'), 'carried'), speed: num(at(kid(kid(C, 'movement'), 'speed'), 'value')) || null,
     }, warnings);
-    return { character: ch, warnings };
+
+    // Minions: familiars, animal companions and eidolons go on the Companion tab; anyone with class levels
+    // (a cohort or follower) becomes a character of their own, since they need the full sheet.
+    const extra = [];
+    for (const X of kids(kid(C, 'minions'), 'character')) {
+      const name = at(X, 'name');
+      // The portfolio's text statblock for this minion (it has no XML file of its own)
+      const statOf = (opts && opts.statTexts || []).find(t => t.trim().toLowerCase().startsWith(lc(name))) || '';
+      if (num(at(kid(X, 'classes'), 'level')) > 0) {
+        const r = convertCharacter(X, statOf, opts);
+        r.character.notes = [`Cohort/follower of ${ch.info.name}, imported from the same Hero Lab portfolio.`, r.character.notes].filter(Boolean).join('\n\n');
+        r.warnings.unshift(`Imported from ${ch.info.name}'s portfolio as a character of its own (it has class levels).`);
+        extra.push(r);
+        warnings.push(`${name}: has class levels (${at(kid(X, 'classes'), 'summary') || 'cohort'}), so it's imported as a separate character. Pick it from the character list at the top.`);
+        continue;
+      }
+      try {
+        const c = convertCompanion(X, ch, statOf);
+        ch.companions.push(c);
+        warnings.push(`${c.kind} added on the Companion tab: ${c.name}${c.species && c.species !== c.name ? ` (${c.species})` : ''}. Its numbers match Hero Lab; differences went to misc fields and an "${COMP_ADJ}" buff you can edit.`);
+      } catch (err) {
+        warnings.push(`${name}: couldn't be imported as a companion (${err.message}). Add it on the Companion tab.`);
+      }
+    }
+    return { character: ch, warnings, extra };
+  }
+
+  // ---------- Companions (familiars, animal companions, eidolons, other minions without class levels)
+  const COMP_ADJ = 'Import adjustments (Hero Lab)';
+  function companionKind(X) {
+    const t = lc(at(X, 'type'));
+    if (/familiar/.test(t)) return 'Familiar';
+    if (/eidolon/.test(t)) return 'Eidolon';
+    if (/animal companion|companion/.test(t)) return 'Animal Companion';
+    return 'Other';
+  }
+  function convertCompanion(X, ch, statText) {
+    const P = window.PF_COMPANION, E = window.PF_ENGINE;
+    const kind = companionKind(X);
+    const c = P.normalize(P.blankCompanion(kind));
+    const cap = s => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
+    c.name = at(X, 'name');
+    c.species = cap(at(kid(X, 'race'), 'racetext') || at(kid(X, 'race'), 'name'));
+    const size = at(kid(X, 'size'), 'name');
+    if (M.SIZES.some(s => s.name === size)) c.size = size;
+    // Abilities: Hero Lab's base, matched to its final scores below
+    const want = {};
+    for (const a of kids(kid(X, 'attributes'), 'attribute')) {
+      const k = ABIL[lc(at(a, 'name'))];
+      if (!k) continue;
+      const v = kid(a, 'attrvalue');
+      if (String(at(v, 'text')).trim() === '-') { c.abilities[k] = { base: '-', adj: 0 }; continue; }
+      c.abilities[k] = { base: num(at(v, 'base')), adj: 0 };
+      want[k] = num(at(v, 'modified') || at(v, 'base'));
+    }
+    // Hit dice: the creature's own (familiars use it for their own base saves)
+    const h = kid(X, 'health');
+    const hdm = String(at(h, 'hitdice')).match(/(\d+)d(\d+)/);
+    if (hdm) { c.hd = +hdm[1]; c.hdSize = +hdm[2]; }
+    const bab = firstNum(at(kid(X, 'attack'), 'baseattack')) || 0;
+    if (kind === 'Other') {
+      c.babProg = bab >= c.hd ? 'full' : bab <= Math.floor(c.hd / 2) ? 'poor' : 'medium';
+      const goodSave = 2 + Math.floor(c.hd / 2);
+      for (const sv of kids(kid(X, 'saves'), 'save')) { const k = lc(at(sv, 'abbr')); if (['fort', 'ref', 'will'].includes(k)) c.goodSaves[k] = num(at(sv, 'base')) >= goodSave; }
+    }
+    c.damage = num(at(h, 'damage'));
+    const ac = kid(X, 'armorclass');
+    c.armor = num(at(ac, 'fromarmor')); c.deflect = num(at(ac, 'fromdeflect')); c.dodge = num(at(ac, 'fromdodge'));
+    c.acMisc = num(at(ac, 'fromshield')) + num(at(ac, 'frommisc'));
+    // Senses, resistances, speeds and special abilities as text
+    const specials = el => kids(el, 'special');
+    c.senses = specials(kid(X, 'senses')).map(s => at(s, 'shortname') || at(s, 'name')).join(', ');
+    c.dr = specials(kid(X, 'resistances')).concat(specials(kid(X, 'damagereduction')), specials(kid(X, 'immunities'))).map(s => {
+      const n = at(s, 'name'), sh = at(s, 'shortname') || n;
+      if (/^spell resistance/i.test(n)) return `SR ${firstNum(n) || ''}`.trim();
+      if (/^energy resistance/i.test(n)) return `resist ${sh}`;
+      return sh;
+    }).join(', ');
+    const all2 = all(X, 'special');
+    const moves = all2.map(s => at(s, 'name').match(/^(Fly|Swim|Climb|Burrow) \((\d+) feet(?:, (\w+))?\)/i)).filter(Boolean)
+      .map(m => `${m[1].toLowerCase()} ${m[2]} ft.${m[3] ? ` (${m[3].toLowerCase()})` : ''}`);
+    const spd = num(at(kid(kid(X, 'movement'), 'speed'), 'value'));
+    c.speed = [spd ? `${spd} ft.` : '', ...[...new Set(moves)]].filter(Boolean).join(', ');
+    // The text statblock has every speed (fly, swim...), which the XML doesn't always list
+    const spLine = String(statText || '').match(/^Speed (.+)$/m);
+    if (spLine) c.speed = spLine[1].trim();
+    const seen = new Set();
+    c.special = all2.filter(s => !/^(Darkvision|Low-Light Vision|Energy Resistance|Spell Resistance|Fly|Swim|Climb|Burrow)\b/i.test(at(s, 'name'))).map(s => {
+      const n = at(s, 'name');
+      if (seen.has(n)) return null;
+      seen.add(n);
+      const d = txt(kid(s, 'description')).split(/(?<=\.)\s/)[0];
+      return d ? `${n}: ${d}` : n;
+    }).filter(Boolean).join('\n');
+    c.resources = kids(kid(X, 'trackedresources'), 'trackedresource').map(r => ({ name: at(r, 'name'), uses: num(at(r, 'left')), max: num(at(r, 'max')) }));
+    const langs = kids(kid(X, 'languages'), 'language').map(l => at(l, 'name')).join(', ');
+    c.notes = [langs ? `Languages: ${langs}` : '', txt(kid(kid(X, 'personal'), 'description'))].filter(Boolean).join('\n');
+    // Feats, with their usual bonuses (situational ones start off)
+    const skillList = Object.keys(D.skillMeta);
+    for (const f of kids(kid(X, 'feats'), 'feat')) {
+      const name = at(f, 'name'), text = txt(kid(f, 'description'));
+      c.feats.push({ name, text, bonuses: (window.PF_FEATS && window.PF_FEATS.suggest('feat', name, skillList, undefined, text)) || [] });
+    }
+    // Gear (magic items worn)
+    for (const it of kids(kid(X, 'magicitems'), 'item')) c.gear.push({ slot: lc(kid(it, 'itemslot') ? txt(kid(it, 'itemslot')) : ''), item: at(it, 'name'), text: txt(kid(it, 'description')), bonuses: [] });
+    // Skills with ranks, or that Hero Lab lists with a bonus beyond the ability
+    const skillT = [];
+    for (const s of kids(kid(X, 'skills'), 'skill')) {
+      const name = skillName(at(s, 'name'));
+      if (!D.skillMeta[name] || /:$/.test(name)) continue;
+      const ranks = num(at(s, 'ranks')), value = firstNum(at(s, 'value')) || 0;
+      if (!ranks && value === num(at(s, 'attrbonus'))) continue;
+      c.skills.push({ name, ranks, misc: 0, classSkill: at(s, 'classskill') === 'yes' });
+      skillT.push(value);
+    }
+    // Attacks
+    const atkT = [];
+    const addAttack = (w, ranged) => {
+      const dmg = at(w, 'damage'), list = String(at(ranged ? kid(w, 'rangedattack') || w : w, 'attack') || at(w, 'attack')).split('/').map(firstNum).filter(x => x !== null);
+      const iterative = list.length > 1 && list.every((v, i) => !i || v === list[i - 1] - 5);
+      c.attacks.push({ name: at(w, 'name').replace(/\s*\(([^)]*)\)\s*$/, (m, inner) => (c.species && (lc(inner).includes(lc(c.species)) || lc(c.species).includes(lc(inner))) ? '' : m)), dice: (dmg.match(/\d+d\d+/) || [''])[0],
+        ability: ranged ? 'dex' : 'str', misc: 0, dmgMisc: 0, secondary: false, ranged, count: iterative ? 1 : Math.max(1, list.length), iterative });
+      atkT.push({ atk: list[0] || 0, dmg: firstNum(dmg.replace(/^\d+d\d+/, '')) || 0 });
+    };
+    kids(kid(X, 'melee'), 'weapon').forEach(w => addAttack(w, false));
+    kids(kid(X, 'ranged'), 'weapon').forEach(w => addAttack(w, true));
+
+    // ---- Match Hero Lab's numbers
+    const d = E.compute(ch);
+    const run = () => P.compute(c, d);
+    let o = run();
+    for (const [k, v] of Object.entries(want)) { const diff = v - o.abilities[k].score; if (diff) c.abilities[k].adj = diff; }
+    o = run();
+    c.natural = num(at(ac, 'fromnatural')) - o.natBonus;
+    o = run();
+    const acT = num(at(ac, 'ac'));
+    if (acT && o.ac.total !== acT) { c.acMisc += acT - o.ac.total; o = run(); }
+    const hpT = num(at(h, 'hitpoints'));
+    if (hpT && o.hp.max !== hpT) { c.hpMisc = hpT - o.hp.max; o = run(); }
+    for (const sv of kids(kid(X, 'saves'), 'save')) {
+      const k = lc(at(sv, 'abbr'));
+      if (!['fort', 'ref', 'will'].includes(k)) continue;
+      const diff = (firstNum(at(sv, 'save')) || 0) - o.saves[k].total;
+      if (diff) c.saveMisc[k] = diff;
+    }
+    const initT = firstNum(at(kid(X, 'initiative'), 'total'));
+    if (initT !== null) c.initMisc = initT - (o.init - c.initMisc);
+    o = run();
+    // Attacks: the ability that fits best (Weapon Finesse uses Dex), then the rest as misc
+    c.attacks.forEach((a, i) => {
+      const t = atkT[i], r = o.attacks[i];
+      if (!a.ranged && o.mods.dex > o.mods.str && Math.abs(t.atk - r.attackBonus - (o.mods.dex - o.mods.str)) < Math.abs(t.atk - r.attackBonus)) a.ability = 'dex';
+    });
+    o = run();
+    c.attacks.forEach((a, i) => { a.misc = atkT[i].atk - o.attacks[i].attackBonus; a.dmgMisc = atkT[i].dmg - o.attacks[i].damageBonus; });
+    o = run();
+    c.skills.forEach((s, i) => { s.misc = skillT[i] - o.skills[i].total; });
+    // CMB and CMD have no misc field: they go on an editable buff, like the character's import adjustments
+    const man = kid(X, 'maneuvers'), adj = [];
+    const cmbT = firstNum(at(man, 'cmb')), cmdT = firstNum(at(man, 'cmd'));
+    if (cmbT !== null && cmbT !== o.cmb) adj.push({ label: 'CMB to match Hero Lab', target: 'cmb', value: cmbT - o.cmb, type: 'Untyped (stacks)', skill: '', weapon: '', text: '', active: true });
+    if (cmdT !== null && cmdT !== o.cmd) adj.push({ label: 'CMD to match Hero Lab', target: 'cmd', value: cmdT - o.cmd, type: 'Untyped (stacks)', skill: '', weapon: '', text: '', active: true });
+    if (adj.length) c.buffs.push({ name: COMP_ADJ, active: true, bonuses: adj });
+    return c;
   }
 
   // Spell names compared loosely: "Restoration, Lesser" = "lesser restoration"
@@ -696,7 +862,7 @@
     // Feats, traits, skills, languages
     const featNames = splitList(field(stats, 'Feats')).map(f => f.replace(/\s+[-+]\/?[-+]?\d+(\/[-+]\d+)?$/, '').replace(/\s+\+\/-\d+$/, ''));
     const traitNames = splitList(field(stats, 'Traits'));
-    const suggest = (kind, name) => (window.PF_FEATS ? window.PF_FEATS.suggest(kind, name, Object.keys(D.skillMeta)) || [] : []);
+    const suggest = (kind, name, text) => (window.PF_FEATS ? window.PF_FEATS.suggest(kind, name, Object.keys(D.skillMeta), undefined, text) || [] : []);
     for (const f of featNames) ch.feats.push({ level: '', name: f, text: '', bonuses: suggest('feat', f) });
     for (const t of traitNames) ch.traits.push({ kind: 'Trait', text: t, bonuses: suggest('trait', t) });
     ch.languages = field(stats, 'Languages');
@@ -801,19 +967,22 @@
     const files = zip.FileIndex.map((f, i) => ({ f, path: zip.FullPaths[i] })).filter(x => /statblocks_xml\/[^/]+\.xml$/i.test(x.path) && x.f.content);
     if (!files.length) throw new Error('No characters found in this portfolio. In Hero Lab, save the portfolio (.por) and try again.');
     const textFor = path => { const want = path.replace('statblocks_xml/', 'statblocks_text/').replace(/\.xml$/i, '.txt'); const i = zip.FullPaths.findIndex(p => p.toLowerCase() === want.toLowerCase()); return i >= 0 && zip.FileIndex[i].content ? utf8(zip.FileIndex[i].content) : ''; };
-    return files.map(x => ({ xml: utf8(x.f.content), text: textFor(x.path) }));
+    const texts = zip.FileIndex.map((f, i) => (/statblocks_text\/[^/]+\.txt$/i.test(zip.FullPaths[i]) && f.content ? utf8(f.content) : null)).filter(Boolean);
+    return files.map(x => ({ xml: utf8(x.f.content), text: textFor(x.path), texts }));
   }
   // opts.lookupItem(name) -> { w, cost, k, ty, rg } from the rules data, used for weights and weapon details in older portfolios
   function importHeroLab(buf, fileName, opts) {
     const bytes = new Uint8Array(buf);
     const isZip = bytes[0] === 0x50 && bytes[1] === 0x4b;   // "PK"
-    if (/\.por$/i.test(fileName) && isZip) return readPortfolio(buf).map(x => convert(x.xml, x.text, opts));
+    // Cohorts with class levels come back as extra characters after their leader
+    const flat = rs => rs.flatMap(r => [r].concat(r.extra || []));
+    if (/\.por$/i.test(fileName) && isZip) return flat(readPortfolio(buf).map(x => convert(x.xml, x.text, Object.assign({}, opts, { statTexts: x.texts }))));
     // Older portfolios and XML exports are plain XML; read the declared encoding
     const headText = new TextDecoder('latin1').decode(bytes.slice(0, 200));
     const enc = (headText.match(/encoding="([^"]+)"/i) || [])[1] || 'utf-8';
     const text = new TextDecoder(/8859-1|latin|1252/i.test(enc) ? 'windows-1252' : 'utf-8').decode(bytes);
     if (/<document[^>]*signature="Hero Lab Portfolio"/.test(text.slice(0, 500))) return convertLegacy(text, opts);
-    return [convert(text, '', opts)];
+    return flat([convert(text, '', opts)]);
   }
 
   window.PF_HEROLAB = { parseXml, convert, convertStatblock, importHeroLab };

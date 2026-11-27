@@ -110,13 +110,25 @@
 
   const BONUS_TARGETS = window.PF_MODEL.BONUS_TARGETS;
 
+  // Situational racial traits ("+2 on saving throws against poison") become real bonuses that start switched off;
+  // you switch them on from the Play tab when they apply. Notes with no number to read stay notes.
+  function situate(bonuses) {
+    const F = window.PF_FEATS;
+    return bonuses.flatMap(b => {
+      if (b.target !== 'note' || !F || !b.text) return [Object.assign({}, b)];
+      const found = F.detect(b.text, 'Racial', b.label);
+      return found.length ? found.map(x => Object.assign(x, { text: b.text })) : [Object.assign({}, b)];
+    });
+  }
+  const withSituational = p => Object.assign({}, p, { bonuses: situate(p.bonuses || []) });
+
   // Advanced Race Guide races from the rules data (data/srd/races.json), in the same shape as the presets above.
   // The core seven keep their hand-made presets.
   function fromSrd(x) {
     return {
       size: x.size, speed: x.speed, slowAndSteady: !!x.slow, abilityMods: x.mods || {}, flex: !!x.flex, senses: x.senses || '',
       languages: x.languages || '', skillRanksPerLevel: x.ranks || 0, speeds: x.speeds || {}, cat: x.cat, source: x.s,
-      bonuses: (x.bonuses || []).map(b => Object.assign({}, b)), features: (x.features || []).map(f => f.slice()),
+      bonuses: situate(x.bonuses || []), features: (x.features || []).map(f => f.slice()),
     };
   }
   function srdCache() { return (window.PF_SRD._racesList = window.PF_SRD._racesList || []); }
@@ -125,7 +137,7 @@
   function find(name) {
     const k = key(name).replace(/\s+/g, '-');
     const core = Object.keys(RACES).find(n => n.toLowerCase() === k || n.toLowerCase() + 's' === k || (k === 'dwarves' && n === 'Dwarf') || (k === 'elves' && n === 'Elf') || (k === 'half-elves' && n === 'Half-Elf'));
-    if (core) return { name: core, preset: RACES[core] };
+    if (core) return { name: core, preset: withSituational(RACES[core]) };
     const srd = srdCache().find(x => x.n.toLowerCase() === k || x.n.toLowerCase() + 's' === k || x.n.toLowerCase().replace(/\s+/g, '-') === k);
     return srd ? { name: srd.n, preset: fromSrd(srd) } : null;
   }

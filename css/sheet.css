@@ -231,14 +231,20 @@ select.class-select { min-width: 190px; }
 
 /* ---------- Bonus editors ---------- */
 .bonus-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; container-type: inline-size; }  /* rows wrap by their own width, e.g. in half-width cards */
-.bonus-row { display: grid; grid-template-columns: 18px minmax(110px, 1fr) minmax(120px, 1fr) minmax(120px, 1.3fr) minmax(150px, 1.1fr) 28px; gap: 4px; align-items: center; }
-.bonus-row.with-label { grid-template-columns: 18px minmax(100px, 1fr) 56px minmax(120px, 1fr) minmax(120px, 1.3fr) minmax(150px, 1.1fr) 28px; }
+.bonus-row { display: grid; grid-template-columns: 18px minmax(110px, 1fr) minmax(120px, 1fr) minmax(120px, 1.3fr) minmax(150px, 1.1fr) 52px; gap: 4px; align-items: center; }
+.bonus-row.with-label { grid-template-columns: 18px minmax(100px, 1fr) 56px minmax(120px, 1fr) minmax(120px, 1.3fr) minmax(150px, 1.1fr) 52px; }
+.bonus-end { display: flex; justify-content: flex-end; align-items: center; }
+.icon-btn.sit-btn { font-size: 14px; }
+.icon-btn.sit-btn:hover { color: var(--accent); }
+.icon-btn.sit-btn.on { color: var(--accent); background: var(--calc); }
+.bonus-row.situational { border-left: 3px solid var(--accent); padding-left: 3px; }
+.chip.sit:not(.on) { border-style: dashed; }
 .bonus-row.inactive > *:not(input[type=checkbox]):not(.icon-btn) { opacity: .5; }
 /* Narrow lists: two lines per bonus. Line 1: on, type, applies to, remove. Line 2: detail, value. */
 @container (max-width: 700px) {
-  .bonus-row, .bonus-row.with-label { grid-template-columns: 18px minmax(0, 1fr) minmax(0, 1fr) 28px; row-gap: 3px; }
+  .bonus-row, .bonus-row.with-label { grid-template-columns: 18px minmax(0, 1fr) minmax(0, 1fr) 52px; row-gap: 3px; }
   .bonus-row > :nth-child(1) { grid-area: 1 / 1; }
-  .bonus-row > .icon-btn { grid-area: 1 / 4; }
+  .bonus-row > .bonus-end { grid-area: 1 / 4; }
   .bonus-row:not(.with-label) > :nth-child(2) { grid-area: 1 / 2; }
   .bonus-row:not(.with-label) > :nth-child(3) { grid-area: 1 / 3; }
   .bonus-row:not(.with-label) > :nth-child(4) { grid-area: 2 / 2; }
