@@ -482,7 +482,7 @@
     return ch[key].map((x, i) => {
       let head, desc = '', kind = null, defType = 'Untyped (stacks)';
       if (key === 'feats') {
-        head = `${inp(`feats/${i}/level`, { ph: 'Lvl', aria: 'Level gained' })}${inp(`feats/${i}/name`, { ph: 'Power Attack', list: 'srd-feats' })}`;
+        head = `${inp(`feats/${i}/level`, { ph: 'Lvl', aria: 'Level gained' })}${inp(`feats/${i}/name`, { ph: 'Power Attack', list: featListId() })}${featTags(x)}`;
         desc = area(`feats/${i}/text`, { rows: 3, ph: 'Description' }); kind = 'feat';
       } else if (key === 'slots') {
         head = `${inp(`slots/${i}/slot`, { ph: 'slot', aria: 'Slot' })}${inp(`slots/${i}/item`, { ph: 'empty', aria: 'Item', list: 'srd-worn' }).replace('<input ', '<input data-rerender-blur ')}`;
@@ -490,7 +490,7 @@
         if (String(x.item || '').trim() || String(x.text || '').trim()) desc = `<div class="worn-desc">${area(`slots/${i}/text`, { rows: 3, ph: 'Description' })}</div>`;
         kind = 'item'; defType = 'Enhancement';
       } else if (key === 'traits') {
-        head = `${sel(`traits/${i}/kind`, ['Trait', 'Drawback', 'DB'], { blank: false })}${inp(`traits/${i}/text`, { ph: 'Reactionary: +2 Initiative', list: 'srd-traits' })}`;
+        head = `${sel(`traits/${i}/kind`, ['Trait', 'Drawback', 'DB'], { blank: false })}${inp(`traits/${i}/text`, { ph: 'Reactionary: +2 Initiative', list: 'srd-traits' })}${traitTag(x)}`;
         kind = 'trait'; defType = 'Trait';
       } else {
         head = `${inp(`classFeatures/${i}/name`, { ph: 'Channel Energy', list: 'classfeat-names' })}`;
@@ -506,6 +506,65 @@
       return `<div class="feature-item"><div class="feature-head ${key}">${head}${removeBtn(key, i)}</div>${desc}
         ${tail}</div>`;
     }).join('') || '<p class="small muted">None yet.</p>';
+  }
+  // ----- Feat types and prerequisites, trait categories (from the SRD data)
+  const FEAT_TYPES = ['Combat', 'Critical', 'General', 'Item Creation', 'Metamagic', 'Mythic', 'Style', 'Teamwork', 'Story', 'Grit', 'Panache', 'Performance', 'Monster'];
+  function featListId() { return App.featType ? `srd-feats-${App.featType.toLowerCase().replace(/\W+/g, '-')}` : 'srd-feats'; }
+  function srdFeat(name) { return SRD && SRD.loaded('feats') && String(name || '').trim() ? SRD.find('feats', name) : null; }
+  // Prerequisites: { met: [...], unmet: [...] }; parts the sheet can't check are left out
+  function featPrereqs(it) {
+    const out = { met: [], unmet: [] };
+    const text = String((it && it.p) || '').replace(/\.$/, '');
+    if (!text) return out;
+    const ch = App.ch, d = App.d;
+    const haveFeat = n => ch.feats.some(f => featureKey(f.name) === featureKey(n) || SRD.key(f.name) === SRD.key(n));
+    const rank = n => {
+      const k = SRD.key(n).replace(/^knowledge \((\w+)\)$/, 'kn. $1');
+      const sk = d.skills.concat(d.specialty || []).filter(x => SRD.key(x.label || x.name) === k || SRD.key(x.name) === k || SRD.key(x.label || '').startsWith(k + ' ') || SRD.key(x.label || '').startsWith(k + ':'));
+      return sk.length ? Math.max(...sk.map(x => x.ranks || 0)) : 0;
+    };
+    const ABIL = { str: 'str', dex: 'dex', con: 'con', int: 'int', wis: 'wis', cha: 'cha' };
+    const one = c => {
+      c = c.trim().replace(/^and\s+/i, '');
+      let m;
+      if ((m = c.match(/^(str|dex|con|int|wis|cha)\w*\s+(\d+)$/i))) { const a = d.abilities[ABIL[m[1].toLowerCase()]]; return a ? (a.score || 0) >= +m[2] : null; }
+      if ((m = c.match(/^base attack bonus \+?(\d+)$/i))) return d.bab >= +m[1];
+      if ((m = c.match(/^caster level (\d+)(st|nd|rd|th)?$/i))) return (d.spells && d.spells.cl || 0) >= +m[1];
+      if ((m = c.match(/^character level (\d+)(st|nd|rd|th)?$/i))) return d.level >= +m[1];
+      if ((m = c.match(/^([a-z][a-z ]+?) level (\d+)(st|nd|rd|th)?$/i))) {
+        const cl = ch.classes.filter(x => x.name && SRD.key(x.name).startsWith(SRD.key(m[1]))).reduce((a, x) => a + (+x.level || 0), 0);
+        return cl ? cl >= +m[2] : (/^(fighter|monk|rogue|paladin|ranger|barbarian|cleric|wizard|sorcerer|bard|druid|cavalier|gunslinger|magus|alchemist|inquisitor|oracle|summoner|witch|brawler|swashbuckler|slayer|investigator|hunter|warpriest|bloodrager|arcanist|shaman|skald)$/i.test(m[1]) ? false : null);
+      }
+      if ((m = c.match(/^(.+?) (\d+) ranks?$/i))) return rank(m[1]) >= +m[2];
+      if (SRD.find('feats', c) && !/\bor\b/i.test(c)) return haveFeat(c);
+      return null;
+    };
+    for (const clause of text.split(/[,;]\s*(?![^(]*\))/)) {
+      const alts = clause.split(/\s+or\s+/i);
+      const res = alts.map(one);
+      if (res.every(r => r === null)) continue;
+      (res.some(r => r === true) ? out.met : out.unmet).push(clause.trim());
+    }
+    return out;
+  }
+  function featTags(x) {
+    const it = srdFeat(x.name);
+    if (!it) return '';
+    const pr = featPrereqs(it);
+    const type = it.t ? `<span class="tag" title="Feat type">${esc(it.t)}</span>` : '';
+    const pre = pr.unmet.length ? `<span class="tag warn" title="Prerequisites not met: ${esc(pr.unmet.join('; '))}">⚠ ${esc(pr.unmet.join('; '))}</span>`
+      : pr.met.length ? `<span class="tag ok" title="Prerequisites met: ${esc(pr.met.join('; '))}">✓ prereqs</span>` : '';
+    return type || pre ? `<span class="feat-tags">${type}${pre}</span>` : '';
+  }
+  function srdTrait(t) { const n = String(t || '').split(':')[0].trim(); return SRD && SRD.loaded('traits') && n ? SRD.find('traits', n) : null; }
+  // Trait category, plus a warning when two traits share one (you can't take two traits of the same category)
+  function traitCategory(it) { return it && it.t ? it.t.replace(/^racial\b.*/, 'race').replace(/^religion$/, 'faith').replace(/^region(al)?$/, 'regional') : ''; }
+  function traitTag(x) {
+    if (x.kind && x.kind !== 'Trait') return '';
+    const cat = traitCategory(srdTrait(x.text));
+    if (!cat) return '';
+    const same = App.ch.traits.filter(y => y !== x && (!y.kind || y.kind === 'Trait') && traitCategory(srdTrait(y.text)) === cat).length;
+    return `<span class="feat-tags"><span class="tag${same ? ' warn' : ''}" title="${same ? 'Two traits of the same category: normally only one is allowed' : 'Trait category'}">${esc(cat)}${same ? ' ⚠ twice' : ''}</span></span>`;
   }
   // Standard bonuses (js/feats.js); null if that file didn't load
   function featSuggest(...args) { return window.PF_FEATS ? window.PF_FEATS.suggest(...args) : null; }
@@ -615,7 +674,7 @@
       ${d.spells.data ? `<div class="inline" style="margin-top:8px"><span class="small">Caster level</span>${rollBtn('Caster level check', 'spells/cl')}<span class="small">Concentration</span>${rollBtn('Concentration', 'spells/concentration')}</div>` : ''}`);
 
     const atkRows = ch.weapons.map((w, i) => `<tr>
-        <td class="l"><strong>${esc(w.name || 'Unnamed weapon')}</strong><div class="sub">${esc(w.crit || '20')}/${esc(w.mult || 'x2')}${w.range ? ' · ' + esc(w.range) + ' ft' : ''}${w.type ? ' · ' + esc(w.type) : ''}</div></td>
+        <td class="l"><strong>${esc(w.name || 'Unnamed weapon')}</strong><div class="sub">${esc(w.crit || '20')}/${esc(w.mult || 'x2')}${w.range ? ' · ' + esc(w.range) + ' ft' : ''}${w.type ? ' · ' + esc(w.type) : ''}${weaponSpecial(w) ? ' · ' + esc(weaponSpecial(w)) : ''}</div></td>
         <td><span class="atk-text" data-out="weapons/${i}/attackText" data-fmt="">${esc(fmt(d.weapons[i] && d.weapons[i].attackText))}</span><div class="sub" data-out="weapons/${i}/damageText" data-fmt="">${esc(fmt(d.weapons[i] && d.weapons[i].damageText))}</div></td>
         <td><span class="inline" style="flex-wrap:nowrap;justify-content:flex-end">
           <button class="btn small primary" data-action="attack" data-i="${i}" data-mode="full" title="Shift-click for a private roll">Full</button>
@@ -982,7 +1041,7 @@
     const basics = card(c.name || 'Companion', `<div class="fields">
         ${field('Name', inp(`${p}/name`, { ph: 'Rex' }))}
         ${field('Kind', sel(`${p}/kind`, kindOpts, { blank: false, rerender: true }))}
-        ${field('Species / type', inp(`${p}/species`, { ph: 'Wolf, construct…' }))}
+        ${field('Species / type', inp(`${p}/species`, { ph: 'Wolf, construct…', list: 'srd-creatures', title: 'Pick an animal or creature to fill in its size, speed, senses, natural armor, ability scores and attacks (only fields still at their defaults)' }))}
         ${field('Size', sel(`${p}/size`, M.SIZES.map(s => s.name), { blank: false }))}
         ${lvlLabel ? field(lvlLabel, inp(`${p}/level`, { type: 'num', ph: String(dc.effLevel), title: 'Leave blank to follow your level' })) : ''}
         ${c.kind === 'Eidolon' ? field('Base form', sel(`${p}/baseForm`, Object.keys(CP().BASE_FORMS), { blank: false })) : ''}
@@ -1330,6 +1389,7 @@
         <div class="weapon-grid2">
           ${field('Damage dice', inp(`weapons/${i}/dice`, { ph: '1d8' }))}${field('Crit range', inp(`weapons/${i}/crit`, { ph: '19-20' }))}
           ${field('Multiplier', inp(`weapons/${i}/mult`, { ph: 'x2' }))}${field('Range', inp(`weapons/${i}/range`))}${field('Type', inp(`weapons/${i}/type`, { ph: 'S, P, B' }))}
+          ${field('Special', inp(`weapons/${i}/special`, { ph: weaponSpecial(w, true) || 'trip, reach…', title: 'Special weapon qualities (trip, reach, brace, disarm…). Blank shows the rules\' list in grey.' }))}
           ${field('Damage override', inp(`weapons/${i}/dmgOverride`, { ph: 'e.g. 2d6+5', title: 'Replaces the calculated damage' }))}
           ${field('Weight', inp(`weapons/${i}/weight`, { type: 'num', ph: 'lb', title: 'Counts toward your load while carried' }))}
           <label class="field">Carried<input type="checkbox" data-bind="weapons/${i}/carried" data-type="bool"${w.carried !== false ? ' checked' : ''} title="Uncheck for weapons left behind (they stop counting toward your load)"></label>
@@ -1426,11 +1486,11 @@
         const sum = spellSummary(s);
         return `<div class="spell-row">
           ${inp(`spellcasting/levels/${L}/spells/${i}/prepared`, { ph: 'x', aria: 'Prepared marks', title: 'Prepared count, e.g. x or xx' })}
-          ${inp(`spellcasting/levels/${L}/spells/${i}/name`, { ph: 'Spell name', aria: 'Spell', list: 'srd-spells' })}
+          ${inp(`spellcasting/levels/${L}/spells/${i}/name`, { ph: 'Spell name', aria: 'Spell', list: spellListId(L) })}
           <button class="btn small" data-action="cast" data-l="${L}" data-i="${i}" title="Cast: uses a slot, rolls configured dice, switches on its buff (Shift-click: private)">Cast</button>
           <button class="btn small ghost${open ? ' on' : ''}" data-action="spell-config" data-id="${esc(s.id)}" title="Set up damage, attack roll or buff for this spell" aria-label="Spell setup">⚙</button>
           ${removeBtn(`spellcasting/levels/${L}/spells`, i, 'spell')}
-          ${sum ? `<span class="spell-sum">${esc(sum)}</span>` : ''}
+          ${sum || spellLevelNote(s, L) ? `<span class="spell-sum">${esc([spellSchool(s), sum].filter(Boolean).join(' · '))}${spellLevelNote(s, L) ? ` <span class="warn-text">${esc(spellLevelNote(s, L))}</span>` : ''}</span>` : ''}
           ${open ? spellConfig(L, i) : ''}</div>`;
       }).join('');
       return `<div class="spell-level">
@@ -1514,8 +1574,9 @@
     return `<p class="small muted span-2" style="margin:0">Give ${what} a <strong>bonus</strong> and it changes your numbers: pick what it applies to and a value. Values can be formulas such as <span class="kbd">max(3, level)</span> (Toughness), <span class="kbd">max(1, floor(rogue/2))</span> (Trapfinding: half your rogue levels, at least 1) or <span class="kbd">ranks >= 10 ? 6 : 3</span> (Skill Focus). Click the <strong>?</strong> next to any value for the full list of variables, and the result appears beside it. The <strong>◐</strong> button makes a bonus situational, with a switch on the Play tab. <strong>Add standard bonuses</strong> fills them in for common feats, traits and magic items.</p>`;
   }
   function renderFeats() {
+    const filter = `<label class="inline small">Suggest <select id="feat-type-filter" aria-label="Feat types to suggest" style="width:auto"><option value="">all feats</option>${FEAT_TYPES.map(t => `<option${App.featType === t ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></label>`;
     const feats = card('Feats', featureList('feats'),
-      { cls: 'span-2', tools: `<button class="btn small" data-action="add" data-list="feats">+ Feat</button>` });
+      { cls: 'span-2', tools: `${filter}<button class="btn small" data-action="add" data-list="feats">+ Feat</button>` });
     return `<div class="grid two">${bonusHelp('a feat')}${feats}</div>`;
   }
   function renderFeatures() {
@@ -1736,6 +1797,7 @@
   document.addEventListener('change', e => {
     const el = e.target;
     if (el.id === 'add-condition' && el.value) { App.ch.conditions.push(el.value); changed(true); return; }
+    if (el.id === 'feat-type-filter') { App.featType = el.value || ''; render(); return; }
     if (el.classList && el.classList.contains('choice-add') && el.value) {
       const c = App.ch.classes[+el.dataset.i];
       const [g, n, parent] = el.value.split('::');
@@ -2127,8 +2189,30 @@
     return { total, text: parts.join(' + ') };
   }
   // ----- Spell setup: damage/healing dice, touch attack, buff
+  // SRD details of a spell by name (casting time, school, class levels), once the spell data has loaded
+  function srdSpell(s) { return SRD && SRD.loaded('spells') && s && s.name ? SRD.find('spells', s.name) : null; }
+  function spellCastTime(s) {
+    const it = srdSpell(s), ct = String((it && it.ct) || '').trim().toLowerCase();
+    if (!ct || /^1 standard action$/.test(ct)) return '';
+    return ct.replace(/^1 (swift|immediate|move) action$/, '$1').replace(/^1 full-round action$/, 'full-round').replace(/^1 round$/, '1 round');
+  }
+  function spellSchool(s) { const it = srdSpell(s); return it && it.sc ? it.sc : ''; }
+  // "Level 2 for Wizard" when the spell sits on a different level than your class's list says
+  function spellLevelNote(s, L) {
+    const it = srdSpell(s), cls = App.ch.spellcasting.className;
+    if (!it || !cls) return '';
+    const lv = SRD.spellLevel(it, cls);
+    if (lv === null) return SRD.hasSpellList(cls) ? `not on the ${cls} list` : '';
+    return lv !== L ? `level ${lv} for ${cls}` : '';
+  }
+  function spellListId(L) {
+    const cls = App.ch && App.ch.spellcasting.className;
+    return cls ? `srd-spells-${E.classSlug(SRD ? SRD.classKey(cls) : cls)}-${L}` : 'srd-spells';
+  }
   function spellSummary(s) {
     const bits = [];
+    const ct = spellCastTime(s);
+    if (ct) bits.push(ct);
     if (s.attack) bits.push(s.attack === 'rtouch' ? 'ranged touch' : 'melee touch');
     if (s.dmgDie) bits.push(`${String(s.dmgCount || '1').trim()}d${s.dmgDie}${s.dmgBonus ? ' + ' + s.dmgBonus : ''}${s.tempHp ? ' temp HP' : s.healing ? ' healing' : s.dmgType ? ' ' + s.dmgType : ''}${s.rays && String(s.rays).trim() && String(s.rays).trim() !== '1' ? ' per ray' : ''}`);
     if (s.save) bits.push(s.save);
@@ -2411,15 +2495,28 @@
     if (!SRD) return;
     const want = {
       features: [['srd-worn', ['items'], x => x.slot && x.slot !== 'none'], ['srd-gear', ['gear', 'weapons', 'armor', 'items']], ['srd-misc', ['items'], x => !x.slot || /^none/i.test(x.slot)]],
-      feats: [['srd-feats', ['feats']]],
+      feats: [['srd-feats', ['feats']]].concat(App.featType ? [[featListId(), ['feats'], x => String(x.t || '').split(/,\s*/).includes(App.featType)]] : []),
       character: [['srd-traits', ['traits']]],
       overview: [['srd-traits', ['traits']]],
       combat: [['srd-weapons', ['weapons']]],
-      spells: [['srd-spells', ['spells']]],
-      companion: [['srd-feats', ['feats']], ['srd-spells', ['spells']], ['srd-worn', ['items'], x => x.slot && x.slot !== 'none']],
+      spells: [['srd-spells', ['spells']]].concat(App.ch && App.ch.spellcasting.className ? Array.from({ length: 10 }, (_, L) => {
+        const cls = App.ch.spellcasting.className;
+        return [spellListId(L), ['spells'], x => !SRD.hasSpellList(cls) || SRD.spellLevel(x, cls) === L];
+      }) : []),
+      companion: [['srd-creatures', ['companions', 'monsters']], ['srd-feats', ['feats']], ['srd-spells', ['spells']], ['srd-worn', ['items'], x => x.slot && x.slot !== 'none']],
     }[tab] || [];
     if ((tab === 'character' || tab === 'overview') && (!SRD.loaded('archetypes') || !SRD.loaded('choices'))) SRD.ensure(['archetypes', 'choices']).then(() => { if (App.tab === tab) render(); });
     want.forEach(([id, kinds, filter]) => SRD.datalist(id, kinds, filter));
+    // Feat types, prerequisites and trait categories show once their data has loaded
+    // (and weapons' special qualities)
+    for (const [t, kind] of [['feats', 'feats'], ['character', 'traits'], ['overview', 'traits'], ['play', 'weapons'], ['combat', 'weapons']]) {
+      if (kind === 'weapons' && !(App.ch && App.ch.weapons.length)) continue;
+      if (tab === t && !SRD.loaded(kind)) SRD.load(kind).then(() => { if (App.tab === tab) render(); });
+    }
+    // Casting times and schools in spell summaries need the spell data
+    if ((tab === 'play' || tab === 'spells' || tab === 'companion') && !SRD.loaded('spells') && App.ch && (App.ch.spellcasting.levels.some(l => l.spells.length) || App.ch.spellcasting.className)) {
+      SRD.load('spells').then(() => { if (App.tab === tab) render(); });
+    }
   }
   const blankish = v => v === undefined || v === null || String(v).trim() === '';
   const SRD_RULES = [
@@ -2442,6 +2539,8 @@
     { re: /^inventory\/\d+\/name$/, kinds: ['gear', 'weapons', 'armor', 'items'], fill: (o, it, f) => f('weight', it.w || 0) + f('value', SRD.priceOf(it, o.name)) },
     { re: /^weapons\/\d+\/name$/, kinds: ['weapons'], fill: fillWeapon },
     { re: /^(spellcasting\/levels\/\d+\/spells|spellcasting\/sla\/\d+\/items|companions\/\d+\/spells)\/\d+\/name$/, kinds: ['spells'], fill: fillSpell },
+    // Companion species: animal companion statistics (Core Rulebook, APG, Bestiaries) or a Bestiary stat block
+    { re: /^companions\/\d+\/species$/, kinds: ['companions', 'monsters'], lookup: creatureLookup, fill: fillSpecies },
   ];
   function srdRule(path) { return SRD ? SRD_RULES.find(r => r.re.test(path)) : null; }
   // Set up every spell and spell-like ability (yours and companions') that hasn't been set up from the SRD yet
@@ -2522,10 +2621,120 @@
     if (nFilled && !quiet) toast(`${cleared ? 'Replaced with' : 'Filled in from'} the SRD: ${it.n}${it.s ? ' (' + it.s + ')' : ''}.`);
     return nFilled + cleared;
   }
+  // Special qualities (trip, reach...): what you typed, else the rules' entry for the weapon's name
+  function weaponSpecial(w, srdOnly) {
+    if (!srdOnly && String(w.special || '').trim()) return String(w.special).trim();
+    const it = SRD && SRD.loaded('weapons') && w.name ? SRD.find('weapons', w.name) : null;
+    const sp = it && it.sp && !/^see text$/i.test(it.sp) ? it.sp : '';
+    return sp;
+  }
+  // ----- Companion species from the rules data
+  // "Lion" finds "Cat, Big (Lion, Tiger)"; "Eagle" finds "Bird (Eagle/Hawk/Owl)"
+  function creatureLookup(name) {
+    const k = SRD.key(name).replace(/\s*\(.*\)$/, '');
+    if (!k) return null;
+    const names = x => { const out = [SRD.key(x.n)]; const m = x.n.match(/^(.*?)\s*\((.*)\)$/); if (m) { out.push(SRD.key(m[1])); m[2].split(/[\/,]/).forEach(v => out.push(SRD.key(v))); } const cm = x.n.match(/^([^,(]+),\s*([^(]+)/); if (cm) { out.push(SRD.key(`${cm[2]} ${cm[1]}`)); if (/^familiar$/i.test(cm[1].trim())) out.push(SRD.key(cm[2])); } return out; };
+    // A familiar's own stat block ("Familiar, Hawk") comes before the full-size animal
+    if (App.compIdx !== undefined && (App.ch.companions[App.compIdx] || {}).kind === 'Familiar') {
+      const fam = SRD.list('monsters').find(x => SRD.key(x.n) === `familiar, ${k}`);
+      if (fam) return { n: fam.n, s: fam.s, ac: null, mon: fam };
+    }
+    const ac = SRD.find('companions', name) || SRD.list('companions').find(x => names(x).includes(k)) || null;
+    const mon = SRD.find('monsters', name) || SRD.list('monsters').find(x => names(x).includes(k)) || null;
+    if (!ac && !mon) return null;
+    return { n: (ac || mon).n, s: (ac || mon).s, ac, mon };
+  }
+  const ABIL_ORDER = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+  const PRIMARY_NATURAL = /^(bite|claws?|gore|slam|sting|talons?|tentacles?)$/i;
+  // "bite (1d6), 2 claws (1d4)" or "bite +2 (1d6+1 plus trip), 2 claws +3 (1d4/19-20)" -> companion attacks
+  function parseNaturalAttacks(text) {
+    const first = String(text || '').split(/\s+or\s+/i)[0];
+    const out = [];
+    for (const part of first.split(/,\s*(?![^(]*\))|\s+and\s+(?![^(]*\))/)) {
+      const m = part.trim().match(/^(?:(\d+)\s+)?([a-z][a-z' -]*?)\s*(?:[+-]\d+(?:\/[+-]\d+)*\s*)?(?:touch\s*)?\(([^)]*)\)/i);
+      if (!m) continue;
+      const inner = m[3], dice = (inner.match(/(\d+d\d+)/) || [])[1] || '';
+      const crit = (inner.match(/\/(\d+)[-\u2013](20)/) || [])[1];
+      const mult = (inner.match(/[\u00d7x](\d)/) || [])[1];
+      const extra = (inner.match(/\bplus\s+(.+)$/i) || [])[1] || '';
+      let nm = m[2].trim().replace(/\b(\w)/, c => c.toUpperCase());
+      const single = nm.replace(/s$/i, '');
+      out.push({ name: nm, count: +(m[1] || 1), secondary: out.length && !PRIMARY_NATURAL.test(single) && !PRIMARY_NATURAL.test(nm) ? 'true' : 'false',
+        ability: 'str', dmgMult: '', dice, crit: crit ? `${crit}-20` : '20', mult: mult ? 'x' + mult : 'x2', misc: 0, dmgMisc: 0, iterative: false, ranged: false, notes: extra });
+    }
+    return out;
+  }
+  function fillSpecies(c, hit, f, path) {
+    const ci = +path.split('/')[1], dc = App.d.companions[ci];
+    // Animal companion statistics for an animal companion (or when there's no stat block to use)
+    const isAC = !!hit.ac && (c.kind === 'Animal Companion' || !hit.mon);
+    const it = isAC ? hit.ac : (hit.mon || hit.ac);
+    let n = 0;
+    const blankAbil = Object.values(blankCompanionAbilities(c.kind));
+    const abilDefault = ABIL_ORDER.every((a, i) => +c.abilities[a].base === +blankAbil[i] && !+c.abilities[a].adj);
+    const setAbil = vals => { if (!abilDefault) return; ABIL_ORDER.forEach((a, i) => { if (vals[i] !== undefined) { c.abilities[a].base = vals[i]; n++; } }); };
+    const addSpecial = t => { t = String(t || '').trim().replace(/\.$/, ''); if (t && !String(c.special || '').includes(t)) { c.special = (c.special ? c.special + '\n' : '') + t; n++; } };
+    const sizeDefault = c.size === (c.kind === 'Familiar' ? 'Tiny' : 'Medium');
+    if (isAC) {
+      const st = it.start || {}, adv = it.adv;
+      const nat = b => +(String((b && b.ac) || '').match(/([+-]?\d+)\s*natural/) || [0, 0])[1];
+      const scores = String(st.ab || '').match(/(Str|Dex|Con|Int|Wis|Cha)\s+(\d+|\u2014|-)/gi) || [];
+      const vals = []; scores.forEach(x => { const m = x.match(/(\w+)\s+(.+)/); vals[ABIL_ORDER.indexOf(m[1].toLowerCase())] = /\d/.test(m[2]) ? +m[2] : '-'; });
+      setAbil(vals);
+      if (sizeDefault && st.size) { c.size = st.size; n++; }
+      n += f('speed', st.speed || '');
+      if (!+c.natural && nat(st)) { c.natural = nat(st); n++; }
+      if (!c.attacks.length) { c.attacks = parseNaturalAttacks(st.atk); n += c.attacks.length; }
+      n += f('senses', String(st.sq || '').replace(/\.$/, ''));
+      if (st.sa) addSpecial(`Special attacks: ${st.sa}`);
+      if (st.spab) addSpecial(st.spab);
+      // Its 4th- or 7th-level advancement, applied once the companion's level reaches it
+      if (adv) {
+        const advText = `${adv.l}th-level advancement: ` + [adv.size ? `size ${adv.size}` : '', adv.ac || '', adv.atk ? `attack ${adv.atk}` : '', adv.ab ? `ability scores ${adv.ab}` : '', adv.sq ? adv.sq.replace(/\.$/, '') : '', adv.sa || ''].filter(Boolean).join('; ');
+        addSpecial(advText);
+        if (dc && dc.effLevel >= adv.l) {
+          if (adv.size) { c.size = adv.size; n++; }
+          if (nat(adv)) { c.natural = (+c.natural || 0) + nat(adv); n++; }
+          (String(adv.ab || '').match(/(Str|Dex|Con|Int|Wis|Cha)\s*([+-]\d+)/gi) || []).forEach(x => { const m = x.match(/(\w+)\s*([+-]\d+)/); const a = c.abilities[m[1].toLowerCase()]; if (a) { a.adj = (+a.adj || 0) + +m[2]; n++; } });
+          if (adv.atk) { const up = parseNaturalAttacks(adv.atk); c.attacks.forEach(a => { const u = up.find(x => SRD.key(x.name).replace(/s$/, '') === SRD.key(a.name).replace(/s$/, '')); if (u && u.dice) a.dice = u.dice; }); }
+        }
+      }
+      return n;
+    }
+    // A Bestiary stat block
+    setAbil((it.ab || []).map(v => (/^\d+$/.test(String(v).trim()) ? +v : '-')));
+    if (sizeDefault && it.size) { c.size = it.size; n++; }
+    n += f('speed', it.speed || '');
+    n += f('senses', String(it.senses || '').replace(/;?\s*Perception [+-]\d+.*$/i, ''));
+    if (!+c.natural && it.nat) { c.natural = it.nat; n++; }
+    if (!c.attacks.length) { c.attacks = parseNaturalAttacks(it.melee); n += c.attacks.length; }
+    n += f('dr', [it.dr ? `DR ${it.dr}` : '', it.resist ? `resist ${it.resist}` : '', it.immune ? `immune ${it.immune}` : '', it.sr ? `SR ${it.sr}` : ''].filter(Boolean).join('; '));
+    if (it.sa) addSpecial(`Special attacks: ${it.sa}`);
+    if (it.da) addSpecial(`Defensive abilities: ${it.da}`);
+    if (it.sq) addSpecial(`Special qualities: ${it.sq}`);
+    if (it.ranged) addSpecial(`Ranged: ${it.ranged}`);
+    if (c.kind === 'Other' && it.hd) {
+      // Hit dice, BAB by creature type, and good saves worked out from its listed saves
+      if (+c.hd === 1) { c.hd = it.hd; n++; }
+      if (it.hdie && +c.hdSize === 8) { c.hdSize = it.hdie; n++; }
+      const type = String(it.type || '').toLowerCase();
+      const prog = /construct|dragon|magical beast|monstrous humanoid|outsider/.test(type) ? 'full' : /fey/.test(type) ? 'poor' : 'medium';
+      if (c.babProg === 'medium' && prog !== 'medium') { c.babProg = prog; n++; }
+      const mod = v => (/^\d+$/.test(String(v)) ? Math.floor((+v - 10) / 2) : 0);
+      const ab = it.ab || [];
+      const good = 2 + Math.floor(it.hd / 2);
+      const base = { fort: parseInt(it.f, 10) - mod(ab[2]), ref: parseInt(it.r, 10) - mod(ab[1]), will: parseInt(it.w, 10) - mod(ab[4]) };
+      const gs = {}; for (const k of ['fort', 'ref', 'will']) gs[k] = Number.isFinite(base[k]) && base[k] >= good;
+      if (JSON.stringify(gs) !== JSON.stringify(c.goodSaves)) { c.goodSaves = gs; n++; }
+    }
+    return n;
+  }
+  function blankCompanionAbilities(kind) { return window.PF_COMPANION.blankCompanion(kind).abilities ? Object.fromEntries(ABIL_ORDER.map(a => [a, window.PF_COMPANION.blankCompanion(kind).abilities[a].base])) : {}; }
   function fillWeapon(w, it, f) {
-    if (!blankish(w.dice)) return 0;                // already set up by hand
+    const special = it.sp && !/^see text$/i.test(it.sp) ? f('special', it.sp) : 0;
+    if (!blankish(w.dice)) return special;          // already set up by hand
     const small = ['Fine', 'Diminutive', 'Tiny', 'Small'].includes(App.d.size.name);
-    let c = f('dice', small ? it.ds : it.dm);
+    let c = special + f('dice', small ? it.ds : it.dm);
     const crit = it.cr || '20';
     if (w.crit !== crit) { w.crit = crit; c++; }
     if (w.mult !== it.x) { w.mult = it.x; c++; }

@@ -161,7 +161,7 @@
   }
 
   function blankWeapon() {
-    return { name: '', mAtk: 0, mDmg: 0, enh: '0', category: '', formula: '', dice: '', crit: '20', mult: 'x2', range: '', type: '', dmgOverride: '', weight: '', carried: true };
+    return { name: '', mAtk: 0, mDmg: 0, enh: '0', category: '', formula: '', dice: '', crit: '20', mult: 'x2', range: '', type: '', special: '', dmgOverride: '', weight: '', carried: true };
   }
 
   function blankCharacter() {

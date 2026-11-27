@@ -6,12 +6,22 @@ Reference Document, which is Open Game Content under the OGL 1.0a (see OGL.txt).
 Usage:
     python tools/build_srd.py <folder with book-*.db files> data/srd
 
-Books read: cr, apg, um, uc, arg, acg, ucampaign, ue (earlier books win when a name repeats).
+Books read: cr, apg, um, uc, arg, acg, ucampaign, ue, then the Bestiaries (b1-b4), Technology Guide, Mythic Adventures,
+Monster Codex, NPC Codex and GameMastery Guide (earlier books win when a name repeats).
+Creatures come from Bestiary 1-4 (monsters.json); animal companion starting statistics from every book (companions.json).
 """
 import html, json, os, re, sqlite3, sys
 
 SRC, OUT = sys.argv[1], sys.argv[2]
-BOOKS = [('cr', 'CRB'), ('apg', 'APG'), ('um', 'UM'), ('uc', 'UC'), ('arg', 'ARG'), ('acg', 'ACG'), ('ucampaign', 'UCa'), ('ue', 'UE')]
+BOOKS = [('cr', 'CRB'), ('apg', 'APG'), ('um', 'UM'), ('uc', 'UC'), ('arg', 'ARG'), ('acg', 'ACG'), ('ucampaign', 'UCa'), ('ue', 'UE'),
+         ('b1', 'B1'), ('b2', 'B2'), ('b3', 'B3'), ('b4', 'B4'), ('tech', 'TG'), ('ma', 'MA'), ('mc', 'MC'), ('npc', 'NPC'), ('gmg', 'GMG')]
+BESTIARIES = ('B1', 'B2', 'B3', 'B4')
+# Body slot from the section an item sits in, when the item's own slot field is empty (Ultimate Equipment files
+# wondrous items under "Feet Slot Wondrous Items" and so on)
+SLOT_SECTIONS = [(r'\bbelts?\b', 'belt'), (r'\bbody\b', 'body'), (r'\bchest\b', 'chest'), (r'\beyes?\b', 'eyes'), (r'\bfeet\b', 'feet'),
+                 (r'\bhands?\b', 'hands'), (r'\bheadbands?\b', 'headband'), (r'\bhead\b', 'head'), (r'\bneck\b', 'neck'),
+                 (r'\bshoulders?\b', 'shoulders'), (r'\bwrists?\b', 'wrists'), (r'^rings$|\brings\b', 'ring'), (r'slotless', 'none'),
+                 (r'^specific (magic )?armors?$|^specific armor', 'armor'), (r'^specific (magic )?shields?$', 'shield')]
 os.makedirs(OUT, exist_ok=True)
 
 
@@ -69,6 +79,7 @@ def clean(n):
 
 
 feats, traits, spells, items, gear, weapons, armor, classes, archetypes, choices, races = {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}
+monsters, companions = {}, {}
 
 SKILLS = ['Acrobatics', 'Appraise', 'Bluff', 'Climb', 'Diplomacy', 'Disable Device', 'Disguise', 'Escape Artist', 'Fly', 'Handle Animal', 'Heal', 'Intimidate',
           'Linguistics', 'Perception', 'Ride', 'Sense Motive', 'Sleight of Hand', 'Spellcraft', 'Stealth', 'Survival', 'Swim', 'Use Magic Device']
@@ -199,7 +210,23 @@ for book, abbr in BOOKS:
         if not desc:
             k = c.execute("select body from sections where parent_id=? and name='Description'", (r['section_id'],)).fetchone()
             desc = k[0] if k else ''
-        keep(items, name, {'n': name, 's': abbr, 'slot': (r['slot'] or '').strip(), 'p': prices(r['price']), 'w': num_weight(r['weight']),
+        slot = (r['slot'] or '').strip()
+        if not slot:
+            pid = r['parent_id']
+            while pid and not slot:
+                a = c.execute('select parent_id, name from sections where section_id=?', (pid,)).fetchone()
+                if not a:
+                    break
+                an = clean(a[1]).lower()
+                for rx, sl in SLOT_SECTIONS:
+                    if re.search(rx, an):
+                        slot = sl
+                        break
+                pid = a[0]
+        # One spelling per slot ("None", "none (see below)", "wrist", stray "<")
+        slot = slot.lower().replace('<', '').strip()
+        slot = 'none' if slot.startswith('none') else 'wrists' if slot == 'wrist' else slot
+        keep(items, name, {'n': name, 's': abbr, 'slot': slot, 'p': prices(r['price']), 'w': num_weight(r['weight']),
                            'cl': text(r['cl']), 'd': text(desc, 320)})
 
     # ---- equipment tables (weapons, armor, goods)
@@ -383,6 +410,49 @@ for book, abbr in BOOKS:
             if key not in choices:
                 choices[key] = opt
 
+    # ---- creatures (Bestiaries): the numbers a companion, familiar, mount or summoned creature needs
+    if abbr in BESTIARIES:
+        for r in c.execute("select s.name, s.description, d.* from sections s join creature_details d on d.section_id=s.section_id where s.type='creature'"):
+            name = clean(r['name'])
+            if not name or name.lower() in monsters:
+                continue
+            ac = text(r['ac'])
+            nat = re.search(r'([+-]\d+) natural', ac)
+            hd = re.search(r'\((\d+)d(\d+)', r['hp'] or '')
+            g = lambda k: text(r[k]) if r[k] else ''
+            m = {'n': name, 's': abbr, 'cr': g('cr'), 'size': g('size'), 'type': g('creature_type'), 'sub': g('creature_subtype'),
+                 'ac': ac, 'nat': int(nat.group(1)) if nat else 0, 'hp': g('hp'), 'hd': int(hd.group(1)) if hd else None, 'hdie': int(hd.group(2)) if hd else None,
+                 'f': g('fortitude'), 'r': g('reflex'), 'w': g('will'), 'init': g('init'), 'speed': g('speed'), 'melee': g('melee'), 'ranged': g('ranged'),
+                 'space': g('space'), 'reach': g('reach'), 'sa': g('special_attacks'),
+                 'ab': [g(k) for k in ('strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma')],
+                 'bab': g('base_attack'), 'cmb': g('cmb'), 'cmd': g('cmd'), 'feats': g('feats'), 'skills': g('skills'), 'senses': g('senses'),
+                 'sq': g('special_qualities'), 'dr': g('dr'), 'resist': g('resist'), 'immune': g('immune'), 'sr': g('sr'), 'da': g('defensive_abilities'),
+                 'weak': g('weaknesses'), 'lang': g('languages'), 'al': g('alignment'), 'd': text(r['description'], 200)}
+            monsters[name.lower()] = {k: v for k, v in m.items() if v not in ('', None, [])}
+
+    # ---- animal companion statistics: starting form and its advancement (4th or 7th level)
+    for r in c.execute("select s.section_id, s.name, s.parent_id, d.* from sections s join animal_companion_details d on d.section_id=s.section_id order by s.lft"):
+        par = c.execute('select name from sections where section_id=?', (r['parent_id'],)).fetchone()
+        name = clean(r['name'])
+        if re.match(r'^(\d+(st|nd|rd|th)[- ]level advancement|starting statistics|animal companions?)$', name, re.I) and par:
+            name = clean(par[0])
+        name = re.sub(r'\s*\(animal companion\)$', '', name, flags=re.I)
+        if not name:
+            continue
+        g = lambda k: text(r[k]) if r[k] else ''
+        k = name.lower()
+        e = companions.setdefault(k, {'n': name, 's': abbr})
+        if e['s'] != abbr and 'start' in e and 'adv' in e:
+            continue
+        block = {x: g(y) for x, y in (('size', 'size'), ('speed', 'speed'), ('ac', 'ac'), ('atk', 'attack'), ('ab', 'ability_scores'), ('sq', 'special_qualities'),
+                                      ('sa', 'special_attacks'), ('spab', 'special_abilities'), ('feat', 'bonus_feat'), ('cmd', 'cmd')) if g(y)}
+        lv = re.match(r'(\d+)', g('level'))
+        if lv:
+            if 'adv' not in e:
+                e['adv'] = dict(block, l=int(lv.group(1)))
+        elif 'start' not in e:
+            e['start'] = block
+
     # ---- races (Advanced Race Guide): ability modifiers, size, speed, senses, languages, bonuses and features
     for r in c.execute("select * from sections where type='race'"):
         if abbr != 'ARG':   # the Advanced Race Guide has every race, written the same way
@@ -497,5 +567,6 @@ def dump(name, store, sort=True):
     print(f'{name:8} {len(store):5}  {os.path.getsize(os.path.join(OUT, name + ".json")) / 1024:.0f} KB')
 
 
-for n, s in [('feats', feats), ('traits', traits), ('spells', spells), ('items', items), ('gear', gear), ('weapons', weapons), ('armor', armor), ('classes', classes), ('archetypes', archetypes), ('choices', choices), ('races', races)]:
+companions = {k: v for k, v in companions.items() if 'start' in v}
+for n, s in [('feats', feats), ('traits', traits), ('spells', spells), ('items', items), ('gear', gear), ('weapons', weapons), ('armor', armor), ('classes', classes), ('archetypes', archetypes), ('choices', choices), ('races', races), ('monsters', monsters), ('companions', companions)]:
     dump(n, s)

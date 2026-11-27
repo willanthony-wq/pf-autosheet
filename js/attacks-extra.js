@@ -55,4 +55,10 @@
     if (/Caster Level|Concentration|Spell-Based|CL \+/.test(label)) return 'Spellcasting';
     return 'Other';
   };
+
+  // Shields from the rules data that the spreadsheet's table doesn't list (same format: ACP as a positive number, ASF as a fraction)
+  const shields = window.PF_DATA.shields;
+  for (const sh of [{ name: 'Quickdraw Shield (light, wood or steel)', ac: 1, maxDex: null, acp: 2, asf: 0.05, type: 'Light' }]) {
+    if (!shields.some(x => x.name === sh.name)) shields.splice(Math.max(1, shields.findIndex(x => x.type === 'Heavy')), 0, sh);
+  }
 })();

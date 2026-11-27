@@ -3,7 +3,7 @@
 // Third-party material (data/3pp/, e.g. the Machinesmith) is added after the SRD's own entries.
 (() => {
   'use strict';
-  const KINDS = ['feats', 'traits', 'spells', 'items', 'gear', 'weapons', 'armor', 'classes', 'archetypes', 'choices', 'races'];
+  const KINDS = ['feats', 'traits', 'spells', 'items', 'gear', 'weapons', 'armor', 'classes', 'archetypes', 'choices', 'races', 'monsters', 'companions'];
   const cache = {}, pending = {};
   const ver = (document.querySelector('script[src*="js/srd.js"]') || { src: '' }).src.split('?v=')[1] || '1';
 
@@ -23,9 +23,12 @@
         return r.json();
       }).catch(err => { if (optional) return []; throw err; });
       pending[kind] = Promise.all([get('srd'), THIRD_PARTY.includes(kind) ? get('3pp', true) : []]).then(([raw, extra]) => {
-        const list = asList(raw).concat(asList(extra));
+        // Entries marked "add" only extend an existing entry (a third-party class's levels for an SRD spell)
+        const more = asList(extra), adds = more.filter(x => x.add);
+        const list = asList(raw).concat(more.filter(x => !x.add));
         const map = new Map();
         list.forEach(x => { const k = key(x.n); if (!map.has(k)) map.set(k, x); });
+        adds.forEach(a => { const hit = map.get(key(a.n)); if (hit && a.lv) hit.lv = hit.lv ? `${hit.lv}; ${a.lv}` : a.lv; });
         cache[kind] = { list, map };
         return cache[kind];
       }).catch(err => { delete pending[kind]; console.warn('SRD data not loaded', err); return null; });
@@ -186,5 +189,34 @@
     return '';
   }
 
-  window.PF_SRD = { CUSTOM, USE_SRD, KINDS, load, ensure, narrow, archetypesFor, archetype, choicesFor, choice, find, findAny, priceOf, enhOf, datalist, classFeatures, classFeatureText, key, loaded: k => !!cache[k] };
+  // Spell lists: a spell's level for a class ("Sorcerer/wizard 3", "Cleric/oracle: 2" -> per class), or null
+  const lvCache = new WeakMap();
+  function spellLevels(sp) {
+    let m = lvCache.get(sp);
+    if (m) return m;
+    m = {};
+    for (const part of String(sp.lv || '').split(/[;,]/)) {
+      const x = part.trim().match(/^(.+?)\s*:?\s*(\d)\b/);
+      if (!x) continue;
+      for (const nm of x[1].split('/')) { const k = alias(key(nm)); if (!(k in m)) m[k] = +x[2]; }
+    }
+    lvCache.set(sp, m);
+    return m;
+  }
+  function spellLevel(sp, className) {
+    const v = sp ? spellLevels(sp)[classKey(className)] : undefined;
+    return v === undefined ? null : v;
+  }
+  // Does any spell name this class? (a class with no list gets the full spell list)
+  let listClasses = null;
+  function hasSpellList(className) {
+    const c = cache.spells;
+    if (!c || !className) return false;
+    if (!listClasses) { listClasses = new Set(); c.list.forEach(sp => Object.keys(spellLevels(sp)).forEach(k => listClasses.add(k))); }
+    return listClasses.has(classKey(className));
+  }
+
+  const list = kind => (cache[kind] ? cache[kind].list : []);
+
+  window.PF_SRD = { spellLevel, hasSpellList, classKey, list, CUSTOM, USE_SRD, KINDS, load, ensure, narrow, archetypesFor, archetype, choicesFor, choice, find, findAny, priceOf, enhOf, datalist, classFeatures, classFeatureText, key, loaded: k => !!cache[k] };
 })();

@@ -216,7 +216,11 @@ skey = lambda n: n.lower().replace(', improved', ' (improved)')
 for sp in spells:
     if 'Machinesmith' not in sp['lv'] and skey(sp['n']) in plv:
         sp['lv'] = f"Machinesmith: {plv[skey(sp['n'])]}; " + sp['lv']
-print('prototype list entries that must be core SRD spells:', sorted(k for k in plv if not any(k == skey(s_['n']) for s_ in spells)))
+core = sorted(k for k in plv if not any(k == skey(s_['n']) for s_ in spells))
+print('prototype list entries that must be core SRD spells:', core)
+# Core spells on the prototype list: add "Machinesmith: N" to the SRD spell's levels (srd.js merges entries marked add)
+for k in core:
+    spells.append({'n': k, 'lv': f'Machinesmith: {plv[k]}', 'add': True})
 json.dump(classes, open(os.path.join(OUT, 'classes.json'), 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
 json.dump(paths + tricks, open(os.path.join(OUT, 'choices.json'), 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
 json.dump(archetypes, open(os.path.join(OUT, 'archetypes.json'), 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
