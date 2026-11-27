@@ -256,7 +256,7 @@ select.class-select { min-width: 190px; }
 .chip.sit:not(.on) { border-style: dashed; }
 /* Misc magic items: name, then small labelled number fields */
 .feature-head.misc-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: end; }
-.feature-head.misc-head > input[type=text] { flex: 1 1 220px; min-width: 160px; }
+.feature-head.misc-head > input[type=text] { flex: 1 1 100%; min-width: 160px; font-weight: 600; }   /* name on its own line, bold like worn items */
 .mini-field { display: flex; flex-direction: column; font-size: 11px; color: var(--muted); gap: 2px; }
 .mini-field input[type=text], .mini-field input:not([type]) { width: 64px; }
 .mini-field .counter input { width: 48px; }

@@ -498,9 +498,12 @@
       const hasBonuses = (x.bonuses || []).length > 0;
       // An empty item slot doesn't need bonus buttons until something is in it.
       const emptySlot = key === 'slots' && !String(x.item || '').trim() && !hasBonuses;
+      let tail = `${bonusEditor(`${key}/${i}/bonuses`, x.bonuses)}
+        ${emptySlot ? '' : addBonusButtons(`${key}/${i}/bonuses`, defType, hasBonuses ? null : kind, i, key)}`;
+      // Worn items: bonuses line up under the description, beside the slot name like the item
+      if (key === 'slots' && tail.trim()) tail = `<div class="worn-desc">${tail}</div>`;
       return `<div class="feature-item"><div class="feature-head ${key}">${head}${removeBtn(key, i)}</div>${desc}
-        ${bonusEditor(`${key}/${i}/bonuses`, x.bonuses)}
-        ${emptySlot ? '' : addBonusButtons(`${key}/${i}/bonuses`, defType, hasBonuses ? null : kind, i, key)}</div>`;
+        ${tail}</div>`;
     }).join('') || '<p class="small muted">None yet.</p>';
   }
   // Standard bonuses (js/feats.js); null if that file didn't load
@@ -1313,7 +1316,7 @@
         ${addBonusButtons(`${p}/bonuses`, 'Enhancement', has ? null : 'item', i, 'miscItems')}</div>`;
     }).join('');
     return card('Misc Magic Items', `<p class="small muted" style="margin-top:0">Magic items you carry but don't wear: wands, staves, rods, ioun stones, a bag of holding, potions and scrolls. Picking a known item fills in its description, weight and price. Their weight and value count with your gear. <strong>Collect from inventory</strong> moves magic items listed in your inventory here.</p>${rows || '<p class="small muted">None yet.</p>'}`,
-      { cls: 'span-2', fold: 'gear:misc', summary: (() => { const n = (ch.miscItems || []).length; return `${n} item${n === 1 ? '' : 's'}`; })(),
+      { fold: 'gear:misc', summary: (() => { const n = (ch.miscItems || []).length; return `${n} item${n === 1 ? '' : 's'}`; })(),
         tools: `<button class="btn small ghost" data-action="collect-misc" title="Move magic items that aren't worn from the inventory to this card">Collect from inventory</button><button class="btn small" data-action="add" data-list="miscItems">+ Item</button>` });
   }
   // A magic item that isn't worn: the SRD lists it as slotless, or its name says so (wands, staves, potions...)
