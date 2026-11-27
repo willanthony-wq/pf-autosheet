@@ -107,15 +107,17 @@
   }
 
   // Combat quick toggles. `auto` marks values that the engine recomputes from BAB / speed.
+  const STUDIED = '1 + floor(slayer/5)';
   function defaultToggles() {
     return [
       { id: 'powerAttack', name: 'Power Attack', type: 'Untyped (stacks)', active: false, auto: 'powerAttack', v: {}, text: '' },
       { id: 'combatExpertise', name: 'Combat Expertise', type: 'Dodge (stacks)', active: false, auto: 'combatExpertise', v: {}, text: '' },
       { id: 'deadlyAim', name: 'Deadly Aim', type: 'Untyped (stacks)', active: false, auto: 'deadlyAim', v: {}, text: '' },
-      { id: 'heroism', name: 'Heroism', type: 'Morale', active: false, v: { fort: 2, ref: 2, will: 2, mAtk: 2, rAtk: 2, skills: 2 }, text: 'Initiative +2' },
+      { id: 'heroism', name: 'Heroism', type: 'Morale', active: false, v: { fort: 2, ref: 2, will: 2, mAtk: 2, rAtk: 2, skills: 2 }, text: '' },
       { id: 'haste', name: 'Haste', type: 'Dodge (stacks)', active: false, auto: 'haste', v: { ac: 1, ref: 1, mAtk: 1, rAtk: 1, xMelee: 1, xRanged: 1 }, text: '' },
       { id: 'rapidShot', name: 'Rapid Shot', type: 'Untyped (stacks)', active: false, v: { rAtk: -2, xRanged: 1 }, text: '' },
-      { id: 'studiedTarget', name: 'Studied Target', type: 'Untyped (stacks)', active: false, v: { mAtk: 1, mDmg: 1 }, text: '' },
+      // Slayer: +1 on weapon attack and damage rolls, +1 more at 5th level and every 5 levels after
+      { id: 'studiedTarget', name: 'Studied Target', type: 'Untyped (stacks)', active: false, v: { mAtk: STUDIED, mDmg: STUDIED, rAtk: STUDIED, rDmg: STUDIED }, text: '' },
       { id: 'custom8', name: '(Custom Effect 8)', type: 'Untyped (stacks)', active: false, v: {}, text: '' },
       { id: 'custom9', name: '(Custom Effect 9)', type: 'Untyped (stacks)', active: false, v: {}, text: '' },
       { id: 'custom10', name: '(Custom Effect 10)', type: 'Untyped (stacks)', active: false, v: {}, text: '' },
@@ -211,6 +213,11 @@
     if ((ch.schema || 1) < 2) { ch.weapons = ch.weapons.filter(w => !isBlankWeapon(w)); ch.schema = 2; }
     const have = new Set(ch.toggles.map(t => t.id));
     defaultToggles().forEach(t => { if (!have.has(t.id)) ch.toggles.push(t); });
+    // Older defaults copied from the spreadsheet: a flat melee-only Studied Target, and Heroism adding to Initiative.
+    const st = ch.toggles.find(t => t.id === 'studiedTarget');
+    if (st && JSON.stringify(st.v) === JSON.stringify({ mAtk: 1, mDmg: 1 })) st.v = { mAtk: STUDIED, mDmg: STUDIED, rAtk: STUDIED, rDmg: STUDIED };
+    const he = ch.toggles.find(t => t.id === 'heroism');
+    if (he && String(he.text).trim() === 'Initiative +2') he.text = '';
     ch.effects.forEach(e => { if (!e.id) e.id = uid(); if (!e.v) e.v = {}; });
     migrateLegacyTypes(ch);
     magicItemsToEffects(ch);

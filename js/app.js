@@ -1064,13 +1064,25 @@
   // ----- Effects
   function effectCells(listPath, i, row, auto) {
     return M.EFFECT_COLS.map(c => {
-      if (auto && autoKeys(row).includes(c.key)) return `<td><span class="calc small" title="Calculated">${esc(autoValue(row, c.key))}</span></td>`;
+      if (auto && autoKeys(row).includes(c.key)) return `<td><span class="calc small" title="${esc(autoTitle(row))}">${esc(autoValue(row, c.key))}</span></td>`;
       const v = row.v ? row.v[c.key] : '';
-      return `<td><input class="n" data-bind="${listPath}/${i}/v/${c.key}" data-type="fx" value="${esc(v === undefined ? '' : v)}" aria-label="${esc(c.group + ' ' + c.label)}"${c.title ? ` title="${esc(c.title)}"` : ''}></td>`;
+      const isF = typeof v === 'string' && /[a-z(]/i.test(v) && !/^\s*x/i.test(v);
+      const res = isF ? E.evalBonus(v, App.d.formulaVars) : null;
+      const title = isF ? (res === null ? `"${v}" isn't a formula the sheet understands` : `${v} = ${res}`) : c.title;
+      return `<td><input class="n${isF ? ' fx-formula' : ''}${isF && res === null ? ' bad' : ''}" data-bind="${listPath}/${i}/v/${c.key}" data-type="fx" value="${esc(v === undefined ? '' : v)}" aria-label="${esc(c.group + ' ' + c.label)}"${title ? ` title="${esc(title)}"` : ''}>${isF && res !== null ? `<span class="fx-result">${esc(sign(res))}</span>` : ''}</td>`;
     }).join('');
   }
   function autoKeys(t) {
     return { powerAttack: ['mAtk', 'mDmg', 'ohDmg', 'thDmg'], combatExpertise: ['ac', 'mAtk'], deadlyAim: ['rAtk', 'rDmg'], haste: ['speed', 'fly', 'swim', 'burrow', 'climb'] }[t.auto] || [];
+  }
+  function autoTitle(t) {
+    const bab = App.d.bab, pa = Math.floor(bab / 4) + 1;
+    return {
+      powerAttack: `Calculated from your BAB (${sign(bab)}): −${pa} on melee attacks and CMB, +${2 * pa} melee damage (+${3 * pa} two-handed, +${pa} off-hand). Grows every 4 BAB; Strength is added separately by the weapon's formula.`,
+      combatExpertise: `Calculated from your BAB (${sign(bab)}): −${pa} on melee attacks and CMB, +${pa} dodge bonus to AC.`,
+      deadlyAim: `Calculated from your BAB (${sign(bab)}): −${pa} on ranged attacks, +${2 * pa} ranged damage.`,
+      haste: 'Calculated: +30 ft to each speed you have, up to double that speed.',
+    }[t.auto] || 'Calculated';
   }
   function autoValue(t, key) {
     const pa = Math.floor(App.d.bab / 4) + 1;
@@ -1103,7 +1115,8 @@
       <td style="min-width:150px">${typeSel(`toggles/${i}/type`)}</td>
       ${effectCells('toggles', i, t, true)}
       <td style="min-width:180px">${inp(`toggles/${i}/text`)}</td><td></td></tr>`).join('');
-    const toggles = card('Combat Toggles', `<div class="scroll-x"><table class="effects-table">${head}<tbody>${togRows}</tbody></table></div>`);
+    const toggles = card('Combat Toggles', `<p class="small muted" style="margin-top:0">Power Attack, Combat Expertise and Deadly Aim follow your BAB, and Haste's speed follows your base speed. Any cell here or in the Effects table can be a formula, like on bonuses: <span class="kbd">1 + floor(slayer/5)</span> (Studied Target), <span class="kbd">floor(level/2)</span>, <span class="kbd">max(1, floor(cl/3))</span>. The calculated value shows under the cell.</p>
+      <div class="scroll-x"><table class="effects-table">${head}<tbody>${togRows}</tbody></table></div>`);
 
     const where = { race: 'Race tab', trait: 'trait, Features & Gear tab', feat: 'feat, Features & Gear tab', feature: 'class feature, Features & Gear tab',
       worn: 'worn item, Features & Gear tab', item: 'magic item', condition: 'condition, Play or Combat tab' };
@@ -1222,6 +1235,7 @@
       const v = el.value.trim();
       if (v === '') return undefined;
       if (/^x\s*\d*\.?\d+$/i.test(v)) return v.replace(/\s+/g, '').toLowerCase();
+      if (/[a-z(]/i.test(v)) return v;   // a formula such as 1 + floor(slayer/5)
       const x = parseFloat(v);
       return Number.isFinite(x) ? x : undefined;
     }

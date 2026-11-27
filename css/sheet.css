@@ -332,3 +332,7 @@ table.inventory td.l:first-child input { min-width: 170px; }
 table.mini { width: 100%; }
 table.mini td { padding: 2px 4px; }
 table.mini tr.total td { border-top: 1px solid var(--line); font-weight: 700; }
+
+/* Formulas in effect and toggle cells */
+.effects-table td input.fx-formula { min-width: 9ch; font-size: 12px; }
+.effects-table td .fx-result { display: block; font-size: 11px; color: var(--muted); text-align: center; }

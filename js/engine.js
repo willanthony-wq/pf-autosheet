@@ -233,9 +233,20 @@
   // ---------- Effect rows ----------
   function buildEffectRows(ch, ctx) {
     const rows = [];
-    for (const e of ch.effects) if (e.active) rows.push({ src: 'effect', name: e.name, type: e.type, v: e.v || {}, text: e.text || '' });
-    // Bonuses attached to race, traits, feats and class features
     const V = ctx.vars || {};
+    // Effect and toggle cells can hold formulas (e.g. 1 + floor(slayer/5)); "x2"-style multipliers stay as text.
+    const evalV = v => {
+      const out = {};
+      for (const [k, x] of Object.entries(v || {})) {
+        if (typeof x === 'string' && !/^\s*x/i.test(x) && !/^\s*[-+]?\d+(\.\d+)?\s*$/.test(x)) {
+          const r = evalBonus(x, V);
+          if (r !== null) out[k] = r;
+        } else out[k] = x;
+      }
+      return out;
+    };
+    for (const e of ch.effects) if (e.active) rows.push({ src: 'effect', name: e.name, type: e.type, v: evalV(e.v), text: e.text || '' });
+    // Bonuses attached to race, traits, feats and class features
     // Effects can also carry bonuses (e.g. created by casting a buff spell)
     for (const e of ch.effects) if (e.active && e.bonuses && e.bonuses.length) pushBonuses(rows, e.bonuses, 'effect', b => b.label || e.name || 'Effect', 'Untyped (stacks)', V);
     pushBonuses(rows, (ch.race && ch.race.bonuses) || [], 'race', b => b.label || 'Racial bonus', 'Racial', V, true);
@@ -247,7 +258,7 @@
     const pa = Math.floor(ctx.bab / 4) + 1;
     for (const t of ch.toggles) {
       if (!t.active) continue;
-      const v = Object.assign({}, t.v || {});
+      const v = evalV(t.v);
       if (t.auto === 'powerAttack') Object.assign(v, { mAtk: -pa, mDmg: 2 * pa, ohDmg: -pa, thDmg: pa });
       if (t.auto === 'combatExpertise') Object.assign(v, { ac: pa, mAtk: -pa });
       if (t.auto === 'deadlyAim') Object.assign(v, { rAtk: -pa, rDmg: 2 * pa });

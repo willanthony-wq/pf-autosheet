@@ -87,7 +87,7 @@ The data covers the Core Rulebook, Advanced Player's Guide, Ultimate Magic, Ulti
 - **HP:** all six HP formulas, Con, favored-class HP, damage/temp/nonlethal tracking and negative levels.
 - **Abilities:** age modifiers, enhancement vs. effect bonuses, inherent bonuses and penalties.
 - **Effect table:** bonuses of the same type don't stack, while penalties and Untyped, Dodge and Circumstance bonuses do. Deflection, Enhancement and Resistance are separate types. Effects reach AC, saves, abilities, attacks, damage, caster level, extra attacks, size, speed and skills. The free-text column applies to named skills and Initiative.
-- **Combat toggles:** Power Attack, Combat Expertise and Deadly Aim scale with BAB. Heroism, Haste, Rapid Shot, Studied Target, and three custom toggles.
+- **Combat toggles:** Power Attack, Combat Expertise and Deadly Aim scale with BAB (hover a calculated cell for the breakdown). Heroism, Haste, Rapid Shot, Studied Target (`1 + floor(slayer/5)` on melee and ranged attack and damage), and three custom toggles. Any cell in the toggle and effect tables can be a formula with the same variables as bonuses; the result shows under the cell.
 - **Conditions:** the sheet's conditions table, plus Unchained wound thresholds.
 - **Defenses:** AC, touch, flat-footed and CMD, with armor and shield tables, special materials, max Dex, armor check penalty, spell failure and encumbrance.
 - **Gear and encumbrance:** an inventory with quantity, weight, value and a Carried box (uncheck things left on a mount or at home), coins (50 coins weigh 1 lb, which you can switch off), and weights for weapons, armor and shields (armor and shields fill in their standard weight; mithral halves it). Carrying capacity follows the Core Rulebook table from your Strength and size, with a Str adjustment for carrying (muleback cords), a capacity multiplier (ant haul) and a quadruped option. With encumbrance set to **Auto (from gear)**, the default for new and imported characters, a medium or heavy load limits max Dex, adds an armor check penalty and reduces speed, just like armor. The Play tab shows your load. Characters saved before this keep the encumbrance they had; choose Auto on the Combat tab or the inventory card to switch.
@@ -110,6 +110,7 @@ These are small fixes, chosen to follow the Core Rulebook where the sheet's form
 - Rapid Bomb uses normal iterative attacks.
 - Haste only adds speed to movement modes you have.
 - Deafened's −4 Initiative applies.
+- Heroism no longer adds +2 to Initiative (the spell covers attacks, saves and skill checks only), and Studied Target scales with slayer level and applies to ranged attacks. Saved and imported characters with the old defaults are updated.
 
 Not ported:
 - the Welcome page links
