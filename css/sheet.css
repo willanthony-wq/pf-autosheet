@@ -73,6 +73,17 @@ main { min-width: 0; container-type: inline-size; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px 14px; min-width: 0; }
 .card > header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
 .card > header .spacer { flex: 1; }
+/* Folding cards (accordion) */
+.fold-btn { border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 14px; width: 22px; padding: 0; line-height: 1; }
+.fold-btn:hover { color: var(--accent); }
+.fold-title { cursor: pointer; user-select: none; }
+.card.folded > :not(header) { display: none; }
+.card.folded > header { margin-bottom: 0; }
+.fold-sum { white-space: nowrap; }
+/* Worn items: the description lines up under the item name, not the slot */
+.worn-desc { margin-left: 106px; margin-right: 34px; }
+.worn-list .worn-desc { margin-left: 136px; }
+@media (max-width: 600px) { .worn-desc, .worn-list .worn-desc { margin-left: 0; margin-right: 0; } }
 .scroll-x { overflow-x: auto; }
 
 /* ---------- Form controls ---------- */

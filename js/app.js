@@ -123,7 +123,21 @@
   function jumpOut(path, f, tab, focus, title) { return jump(out(path, f, ''), tab, focus, title); }
   function field(label, control, cls) { return `<label class="field${cls ? ' ' + cls : ''}">${esc(label)}${control}</label>`; }
   function card(title, body, o = {}) {
-    return `<section class="card${o.cls ? ' ' + o.cls : ''}"${o.id ? ` id="${o.id}"` : ''}><header><h2>${esc(title)}</h2><span class="spacer"></span>${o.tools || ''}</header>${body}</section>`;
+    const f = foldParts(o.fold, o.summary);
+    return `<section class="card${o.cls ? ' ' + o.cls : ''}${f.cls}"${o.id ? ` id="${o.id}"` : ''}><header>${f.btn}<h2${f.h2}>${esc(title)}</h2>${f.sum}<span class="spacer"></span>${o.tools || ''}</header>${body}</section>`;
+  }
+  // Folding cards (accordion): `key` names the card; whether it's folded is remembered in this browser.
+  // `summary` shows in the header while folded (e.g. "34 / 34 HP · AC 21").
+  function isFolded(key) { return !!(key && App.settings.folded && App.settings.folded[key]); }
+  function foldParts(key, summary) {
+    if (!key) return { cls: '', btn: '', h2: '', sum: '' };
+    const folded = isFolded(key);
+    return {
+      cls: ' foldable' + (folded ? ' folded' : ''),
+      btn: `<button class="fold-btn" data-action="fold" data-key="${esc(key)}" aria-expanded="${!folded}" title="${folded ? 'Expand' : 'Collapse'}">${folded ? '▸' : '▾'}</button>`,
+      h2: ` class="fold-title" data-action="fold" data-key="${esc(key)}" title="${folded ? 'Click to expand' : 'Click to collapse'}"`,
+      sum: folded && summary ? `<span class="fold-sum small muted">${summary}</span>` : '',
+    };
   }
   function removeBtn(list, i, label) { return `<button class="icon-btn" data-action="remove" data-list="${esc(list)}" data-i="${i}" aria-label="Remove ${esc(label || 'row')}" title="Remove">✕</button>`; }
 
@@ -472,7 +486,7 @@
       } else if (key === 'slots') {
         head = `${inp(`slots/${i}/slot`, { ph: 'slot', aria: 'Slot' })}${inp(`slots/${i}/item`, { ph: 'empty', aria: 'Item', list: 'srd-worn' }).replace('<input ', '<input data-rerender-blur ')}`;
         // Empty slots stay one line; a slot with an item gets a description box like a feat
-        if (String(x.item || '').trim() || String(x.text || '').trim()) desc = area(`slots/${i}/text`, { rows: 3, ph: 'Description' });
+        if (String(x.item || '').trim() || String(x.text || '').trim()) desc = `<div class="worn-desc">${area(`slots/${i}/text`, { rows: 3, ph: 'Description' })}</div>`;
         kind = 'item'; defType = 'Enhancement';
       } else if (key === 'traits') {
         head = `${sel(`traits/${i}/kind`, ['Trait', 'Drawback', 'DB'], { blank: false })}${inp(`traits/${i}/text`, { ph: 'Reactionary: +2 Initiative', list: 'srd-traits' })}`;
@@ -883,7 +897,8 @@
       const skills = c.skills.filter(s => s.name).map(s => { const i = c.skills.indexOf(s); return `<div class="skill-cell"><span>${esc(s.name)}</span>${rollBtn(s.name, `${dp}/skills/${i}/total`, { who })}</div>`; }).join('');
       const res = c.resources.map((r, i) => `<div class="play-res"><span>${esc(r.name || 'Resource')}</span><span class="counter"><button class="btn small" data-action="bump" data-path="companions/${ci}/resources/${i}/uses" data-d="-1">−</button><strong>${esc(r.uses === '' || r.uses === undefined ? 0 : r.uses)}</strong>${r.max !== '' && r.max !== undefined ? `<span class="muted">/ ${esc(r.max)}</span>` : ''}<button class="btn small" data-action="bump" data-path="companions/${ci}/resources/${i}/uses" data-d="1">+</button></span></div>`).join('');
       const save = (k, l) => `<div class="save-btn"><span class="label">${l}</span>${rollBtn(l + ' save', `${dp}/saves/${k}/total`, { who })}</div>`;
-      return `<section class="card span-all comp-card"><header><h2>${esc(c.name || c.species || c.kind)}</h2><span class="muted small">${esc(sub)}</span><span class="spacer"></span>
+      const fp = foldParts('comp:' + (c.id || ci), `${esc(dc.hp.current)} / ${esc(dc.hp.max)} HP · AC ${esc(dc.ac.total)}`);
+      return `<section class="card span-all comp-card${fp.cls}"><header>${fp.btn}<h2${fp.h2}>${esc(c.name || c.species || c.kind)}</h2><span class="muted small">${esc(sub)}</span>${fp.sum}<span class="spacer"></span>
           <button class="btn small ghost" data-action="comp-edit" data-c="${ci}">Edit</button></header>
         <div class="comp-play">
           <div><span class="big">${dc.hp.current} / ${dc.hp.max} HP</span>
@@ -1271,9 +1286,11 @@
         ${removeBtn('resources', i)}</div>`).join('') || '<p class="small muted">Track charges, rounds per day, scrolls and coins here.</p>'}
       <div class="inline" style="margin-top:10px"><strong>Hero points</strong>
         <span class="counter"><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="-1">−</button>${inp('heroPoints/current', { type: 'num' })}<span class="muted">/</span>${inp('heroPoints/max', { type: 'num' })}<button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="1">+</button></span></div>`,
-      { tools: `<button class="btn small" data-action="add" data-list="resources">+ Resource</button>` });
+      { fold: 'gear:resources', summary: `${ch.resources.length} tracked · hero points ${esc(ch.heroPoints.current)} / ${esc(ch.heroPoints.max)}`,
+        tools: `<button class="btn small" data-action="add" data-list="resources">+ Resource</button>` });
     const slots = card('Magic Items Worn', `<p class="small muted" style="margin-top:0">Type or pick an item in any row and it moves to its slot (a cloak to shoulders, a belt to waist). <strong>Sort to slots</strong> does the same for items already listed.</p><div class="worn-list">${featureList('slots')}</div>`,
-      { cls: 'span-2', tools: `<button class="btn small ghost" data-action="sort-worn" title="Move every item the SRD knows to its body slot">Sort to slots</button><button class="btn small" data-action="add" data-list="slots">+ Slot</button>` });
+      { cls: 'span-2', fold: 'gear:worn', summary: (() => { const n = ch.slots.filter(x => String(x.item || '').trim()).length; return `${n} item${n === 1 ? '' : 's'} worn`; })(),
+        tools: `<button class="btn small ghost" data-action="sort-worn" title="Move every item the SRD knows to its body slot">Sort to slots</button><button class="btn small" data-action="add" data-list="slots">+ Slot</button>` });
     return `<div class="grid two">${inventoryCard()}${slots}${miscItemsCard()}${res}${bonusHelp('a worn or other magic item')}</div>`;
   }
 
@@ -1296,7 +1313,8 @@
         ${addBonusButtons(`${p}/bonuses`, 'Enhancement', has ? null : 'item', i, 'miscItems')}</div>`;
     }).join('');
     return card('Misc Magic Items', `<p class="small muted" style="margin-top:0">Magic items you carry but don't wear: wands, staves, rods, ioun stones, a bag of holding, potions and scrolls. Picking a known item fills in its description, weight and price. Their weight and value count with your gear. <strong>Collect from inventory</strong> moves magic items listed in your inventory here.</p>${rows || '<p class="small muted">None yet.</p>'}`,
-      { cls: 'span-2', tools: `<button class="btn small ghost" data-action="collect-misc" title="Move magic items that aren't worn from the inventory to this card">Collect from inventory</button><button class="btn small" data-action="add" data-list="miscItems">+ Item</button>` });
+      { cls: 'span-2', fold: 'gear:misc', summary: (() => { const n = (ch.miscItems || []).length; return `${n} item${n === 1 ? '' : 's'}`; })(),
+        tools: `<button class="btn small ghost" data-action="collect-misc" title="Move magic items that aren't worn from the inventory to this card">Collect from inventory</button><button class="btn small" data-action="add" data-list="miscItems">+ Item</button>` });
   }
   // A magic item that isn't worn: the SRD lists it as slotless, or its name says so (wands, staves, potions...)
   // ("Scroll case", "Flask of oil" and a plain "Quarterstaff" stay in the inventory)
@@ -1375,7 +1393,8 @@
         ${field('Capacity ×', inp('carry/mult', { type: 'num', ph: '1', title: 'Multiplies carrying capacity, e.g. 3 for ant haul' }))}
         <label class="field">Quadruped${chk('carry/quadruped', { title: 'Four-legged creatures carry more' })}</label>
       </div>`,
-      { tools: `<button class="btn small" data-action="add" data-list="inventory">+ Item</button>`, cls: 'span-2' });
+      { tools: `<button class="btn small" data-action="add" data-list="inventory">+ Item</button>`, cls: 'span-2', fold: 'gear:inventory',
+        summary: `${ch.inventory.length} item${ch.inventory.length === 1 ? '' : 's'} · ${esc(g.total)} lb (${esc(g.load)} load) · ${esc(g.money)} gp in coins` });
   }
 
   // ----- Notes
@@ -1581,6 +1600,13 @@
       'remove-choice': () => { const c = App.ch.classes[+el.dataset.i]; const gone = (c.choices || []).splice(+el.dataset.k, 1)[0]; if (gone) c.choices = c.choices.filter(x => x.parent !== gone.n); changed(true); autoSyncClassFeatures(); },
       'remove-archetype': () => { const c = App.ch.classes[+el.dataset.i]; (c.archetypes || []).splice(+el.dataset.k, 1); changed(true); autoSyncClassFeatures(); },
       'sort-worn': () => sortWornItems(),
+      'fold': () => {
+        const k = el.dataset.key;
+        App.settings.folded = App.settings.folded || {};
+        if (App.settings.folded[k]) delete App.settings.folded[k]; else App.settings.folded[k] = true;
+        lsSet(LS.settings, App.settings);
+        render();
+      },
       'collect-misc': async () => {
         if (SRD) await SRD.load('items');
         const moved = collectMiscItems(App.ch);
