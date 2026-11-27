@@ -558,7 +558,9 @@
       } else if (key === 'feats') {
         head = inp(`${p}/name`, { ph: 'Weapon Focus (Bite)', list: 'srd-feats' }); desc = area(`${p}/text`, { rows: 3, ph: 'Description' }); kind = 'feat';
       } else if (key === 'gear') {
-        head = `${inp(`${p}/slot`, { ph: 'slot', aria: 'Slot' })}${inp(`${p}/item`, { ph: 'Amulet of Natural Armor +1', aria: 'Item' })}`; kind = 'item'; defType = 'Enhancement';
+        head = `${inp(`${p}/slot`, { ph: 'slot', aria: 'Slot' })}${inp(`${p}/item`, { ph: 'Amulet of Natural Armor +1', aria: 'Item', list: 'srd-worn' })}`; kind = 'item'; defType = 'Enhancement';
+        // Like your own worn items: a description box once the row holds something
+        if (String(x.item || '').trim() || String(x.text || '').trim()) desc = area(`${p}/text`, { rows: 3, ph: 'Description' });
       } else {
         head = `${inp(`${p}/name`, { ph: 'Improved Natural Armor' })}${inp(`${p}/cost`, { type: 'num', aria: 'Cost', title: 'Evolution points' })}`; kind = 'evolution';
       }
@@ -1392,7 +1394,7 @@
       'comp-add-skill': () => { App.ch.companions[+el.dataset.c].skills.push({ name: '', ranks: 0, misc: 0 }); changed(true); },
       'comp-add-list': () => {
         const blanks = { feats: { name: '', text: '', bonuses: [] }, evolutions: { name: '', cost: 1, bonuses: [] }, resources: { name: '', uses: '', max: '' },
-          gear: { slot: '', item: '', bonuses: [] }, spells: { id: M.uid(), name: '', uses: '' } };
+          gear: { slot: '', item: '', text: '', bonuses: [] }, spells: { id: M.uid(), name: '', uses: '' } };
         App.ch.companions[+el.dataset.c][el.dataset.list].push(blanks[el.dataset.list]); changed(true);
       },
       'comp-hp': () => {
@@ -1819,7 +1821,7 @@
       features: [['srd-feats', ['feats']], ['srd-traits', ['traits']], ['srd-worn', ['items'], x => x.slot && x.slot !== 'none'], ['srd-gear', ['gear', 'weapons', 'armor', 'items']]],
       combat: [['srd-weapons', ['weapons']]],
       spells: [['srd-spells', ['spells']]],
-      companion: [['srd-feats', ['feats']], ['srd-spells', ['spells']]],
+      companion: [['srd-feats', ['feats']], ['srd-spells', ['spells']], ['srd-worn', ['items'], x => x.slot && x.slot !== 'none']],
     }[tab] || [];
     want.forEach(([id, kinds, filter]) => SRD.datalist(id, kinds, filter));
   }
@@ -1838,6 +1840,8 @@
     }, fill: (o, it, f) => f('text', it.d) },
     // Worn items: description and usual bonuses; placeWorn() then moves the item to its slot's row
     { re: /^slots\/\d+\/item$/, kinds: ['items'], fill: (o, it, f) => f('text', it.d) + standardBonuses(o, 'item', o.item) },
+    // Companion gear: description, slot and usual bonuses
+    { re: /^companions\/\d+\/gear\/\d+\/item$/, kinds: ['items'], fill: (o, it, f) => f('text', it.d) + f('slot', wornSlotOf(it.n)) + standardBonuses(o, 'item', o.item) },
     { re: /^inventory\/\d+\/name$/, kinds: ['gear', 'weapons', 'armor', 'items'], fill: (o, it, f) => f('weight', it.w || 0) + f('value', SRD.priceOf(it, o.name)) },
     { re: /^weapons\/\d+\/name$/, kinds: ['weapons'], fill: fillWeapon },
     { re: /^(spellcasting\/levels\/\d+\/spells|spellcasting\/sla\/\d+\/items|companions\/\d+\/spells)\/\d+\/name$/, kinds: ['spells'], fill: fillSpell },
