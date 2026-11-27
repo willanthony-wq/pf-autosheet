@@ -33,7 +33,8 @@
   }
   const kid = (el, tag) => (el && el.kids.find(k => k.tag === tag)) || null;
   const kids = (el, tag) => (el ? el.kids.filter(k => !tag || k.tag === tag) : []);
-  function all(el, tag, out = []) { for (const k of (el ? el.kids : [])) { if (k.tag === tag) out.push(k); all(k, tag, out); } return out; }
+  // Every descendant with this tag, except inside <minions> (familiars, companions and cohorts have their own abilities)
+  function all(el, tag, out = []) { for (const k of (el ? el.kids : [])) { if (k.tag === tag) out.push(k); if (k.tag !== 'minions') all(k, tag, out); } return out; }
   const at = (el, a) => (el && el.attrs[a] !== undefined ? el.attrs[a] : '');
   const txt = el => (el ? el.text.trim() : '');
   const num = v => { const x = parseFloat(String(v || '').replace(/[^\d.+-]/g, '')); return Number.isFinite(x) ? x : 0; };
@@ -317,6 +318,10 @@
     if (at(hero, 'enabled') === 'yes') ch.heroPoints.current = num(at(hero, 'total'));
     if (all(kid(C, 'minions'), 'character').length) warnings.push('Companions (animal companions, familiars, eidolons) aren\'t imported. Add them on the Companion tab.');
 
+    // Conditions Hero Lab has on (its situational modifiers name them, e.g. source="Shaken")
+    const condNames = new Map(D.conditions.map(c => [lc(c.name), c.name]));
+    const conds = [...new Set(all(C, 'situationalmodifier').map(m => condNames.get(lc(at(m, 'source')))).filter(Boolean))];
+    if (conds.length) { ch.conditions = [...new Set(ch.conditions.concat(conds))]; warnings.push(`Condition${conds.length > 1 ? 's' : ''} on in Hero Lab, switched on here too: ${conds.join(', ')}. Remove ${conds.length > 1 ? 'them' : 'it'} on the Play tab when ${conds.length > 1 ? 'they end' : 'it ends'}.`); }
     applyRace(ch, at(kid(C, 'race'), 'racetext') || at(kid(C, 'race'), 'name'), opts, warnings);
     if (opts && opts.enrich) opts.enrich(ch, warnings);   // SRD class features, archetypes, choices, rules text
     activeEffects(ch, C, [...melee, ...ranged].map(w => at(w, 'attack')), warnings);
@@ -435,9 +440,18 @@
   }
 
   // ---------- compare with Hero Lab's totals and adjust what doesn't match
+  // Differences from Hero Lab's totals become bonuses on one effect row, "Import adjustments (Hero Lab)", which you can
+  // edit, switch off or delete on the Effects tab. Load and spellcasting settings are set directly.
+  const ADJ_NAME = 'Import adjustments (Hero Lab)';
   function calibrate(ch, t, warnings) {
     const E = window.PF_ENGINE;
     const sign = x => (x >= 0 ? '+' : '') + x;
+    let adj = null;
+    const adjust = (label, target, value, extra) => {
+      if (!adj) { adj = { id: M.uid(), name: ADJ_NAME, type: 'Untyped (stacks)', active: true, v: {}, text: '', bonuses: [] }; ch.effects.unshift(adj); }
+      adj.bonuses.push(Object.assign({ label, target, value, type: 'Untyped (stacks)', skill: '', weapon: '', text: '', active: true }, extra || {}));
+    };
+    const listed = [];
     let d = E.compute(ch);
     // Load first (it changes max Dex, armor check penalty and speed): use Hero Lab's when it disagrees with the gear weights here
     if (t.load && d.gear.load !== t.load) {
@@ -445,74 +459,76 @@
       warnings.push(`Load: Hero Lab has a ${t.load.toLowerCase()} load (${t.carried} lb); the gear here adds up to ${d.gear.total} lb, often because a handy haversack or bag of holding's contents weigh nothing. Encumbrance is set to ${t.load} by hand; untick Carried for those items and choose Auto to go back.`);
       d = E.compute(ch);
     }
-
-    // Ability scores: anything Hero Lab adds that the sheet doesn't know about goes in the Enhance column
+    // Ability scores
     for (const [k, want] of Object.entries(t.target)) {
       const diff = want - d.abilities[k].score;
-      if (diff) { ch.abilities[k].enh = Number(ch.abilities[k].enh || 0) + diff; warnings.push(`${k.toUpperCase()}: added ${sign(diff)} in the Enhance column to match Hero Lab (${want}).`); }
+      if (diff) { adjust(`${k.toUpperCase()} to match Hero Lab`, k, diff); listed.push(`${k.toUpperCase()} ${sign(diff)}`); }
     }
     d = E.compute(ch);
-
-    // HP: the formula that matches Hero Lab, otherwise the difference as favored-class HP
+    // HP: the formula that matches Hero Lab, otherwise the difference as a bonus
     if (t.hpTarget) {
       const tryF = M.HP_FORMULAS.filter(f => f !== 'Custom Rolled');
       const match = tryF.find(f => { ch.info.hpFormula = f; return E.compute(ch).hp.max === t.hpTarget; });
       if (!match) {
         ch.info.hpFormula = 'Average (1st level max)';
         const diff = t.hpTarget - E.compute(ch).hp.max;
-        ch.fcb.hp = diff;
-        warnings.push(`HP: added ${sign(diff)} as favored-class/bonus HP to match Hero Lab's ${t.hpTarget}. Check it on the Character tab (it may be Toughness or favored class bonus).`);
+        adjust('HP to match Hero Lab (favored class, Toughness, mythic...)', 'hp', diff);
+        listed.push(`HP ${sign(diff)}`);
       }
     }
     d = E.compute(ch);
-
     // Saves
     for (const [k, want] of Object.entries(t.saves || {})) {
       if (want === null || want === undefined) continue;
       const diff = want - d.saves[k].total;
-      if (diff) { ch.saves[k].misc = Number(ch.saves[k].misc || 0) + diff; warnings.push(`${k[0].toUpperCase() + k.slice(1)} save: misc ${sign(diff)} to match Hero Lab (${sign(want)}).`); }
+      if (diff) { adjust(`${k[0].toUpperCase() + k.slice(1)} save to match Hero Lab`, k, diff); listed.push(`${k[0].toUpperCase() + k.slice(1)} ${sign(diff)}`); }
     }
-    // Initiative
-    const initWant = t.init;
     d = E.compute(ch);
-    if (initWant !== null && initWant !== d.initiative.total) { const diff = initWant - d.initiative.total; ch.initiative.misc = Number(ch.initiative.misc || 0) + diff; warnings.push(`Initiative: misc ${sign(diff)} to match Hero Lab (${sign(initWant)}).`); }
-    // AC
+    if (t.init !== null && t.init !== undefined && t.init !== d.initiative.total) { const diff = t.init - d.initiative.total; adjust('Initiative to match Hero Lab', 'init', diff); listed.push(`Initiative ${sign(diff)}`); }
     d = E.compute(ch);
-    const acWant = t.ac;
-    if (acWant && acWant !== d.ac.total) { const diff = acWant - d.ac.total; ch.ac.misc = Number(ch.ac.misc || 0) + diff; warnings.push(`AC: misc ${sign(diff)} to match Hero Lab (${acWant}). Look for a natural armor or other bonus the sheet doesn't have yet.`); }
-
-    // Weapons
+    if (t.ac && t.ac !== d.ac.total) { const diff = t.ac - d.ac.total; adjust('AC to match Hero Lab', 'ac', diff); listed.push(`AC ${sign(diff)}`); }
+    // Weapons: one bonus per weapon name (copies of a weapon share it)
     d = E.compute(ch);
+    const done = new Map();
     ch.weapons.forEach((w, i) => {
       const want = t.wTargets[i], got = d.weapons[i];
       if (!want || !got || !got.valid) return;
-      const notes = [];
-      if (want.atk !== null && got.attacks && got.attacks.length) {
-        const diff = want.atk - got.attacks[0];
-        if (diff) { w.mAtk = Number(w.mAtk || 0) + diff; notes.push(`attack ${sign(diff)}`); }
+      const da = want.atk !== null && got.attacks && got.attacks.length ? want.atk - got.attacks[0] : 0;
+      const dd = want.hasDmg && typeof got.damageBonus === 'number' ? want.dmg - got.damageBonus : 0;
+      if (!da && !dd) return;
+      const key = lc(w.name);
+      if (done.has(key)) {
+        // Another copy already got the bonus; a copy that still differs keeps its own misc
+        const prev = done.get(key);
+        if (prev.da !== da) w.mAtk = Number(w.mAtk || 0) + (da - prev.da);
+        if (prev.dd !== dd) w.mDmg = Number(w.mDmg || 0) + (dd - prev.dd);
+        return;
       }
-      if (want.hasDmg && typeof got.damageBonus === 'number') {
-        const diff = want.dmg - got.damageBonus;
-        if (diff) { w.mDmg = Number(w.mDmg || 0) + diff; notes.push(`damage ${sign(diff)}`); }
-      }
-      const why = /\((L|S|T|H)\)/.test(w.name) ? ' (an oversized or undersized weapon)' : /composite/i.test(w.name) && Number(w.mDmg) < 0 ? " (the bow's Strength rating limits Str to damage)" : '';
-      if (notes.length) warnings.push(`${w.name}: misc ${notes.join(', ')} to match Hero Lab${why}.`);
+      done.set(key, { da, dd });
+      const why = /\((L|S|T|H)\)/.test(w.name) ? ' (oversized or undersized weapon)' : /composite/i.test(w.name) && dd < 0 ? " (bow's Strength rating)" : '';
+      if (da) adjust(`${w.name}: attack to match Hero Lab${why}`, 'weapon', da, { weapon: w.name });
+      if (dd) adjust(`${w.name}: damage to match Hero Lab${why}`, 'weaponDmg', dd, { weapon: w.name });
+      listed.push(`${w.name} ${[da ? 'attack ' + sign(da) : '', dd ? 'damage ' + sign(dd) : ''].filter(Boolean).join(', ')}${why}`);
     });
-
-    // Skills
+    // Skills (Craft/Perform/Profession keep a misc number, since bonuses target a named skill)
     d = E.compute(ch);
     const fixed = [];
-    for (const [name, s] of Object.entries(ch.skills)) {
+    for (const [name, sk] of Object.entries(ch.skills)) {
       const got = d.skills.find(x => x.name === name);
-      if (s._hl !== undefined && got && got.total !== null && (s.ranks > 0 || s._listed)) { const diff = s._hl - got.total; if (diff) { s.misc = Number(s.misc || 0) + diff; fixed.push(`${name} ${sign(diff)}`); } }
-      delete s._hl; delete s._listed;
+      if (sk._hl !== undefined && got && got.total !== null && (sk.ranks > 0 || sk._listed)) { const diff = sk._hl - got.total; if (diff) { adjust(`${name} to match Hero Lab`, 'skill', diff, { skill: name }); fixed.push(`${name} ${sign(diff)}`); } }
+      delete sk._hl; delete sk._listed;
     }
     ch.specialty.forEach((r, i) => {
       const got = d.specialty[i];
-      if (r._hl !== undefined && got && got.total !== null) { const diff = r._hl - got.total; if (diff) { r.misc = Number(r.misc || 0) + diff; fixed.push(`${r.base} ${r.detail} ${sign(diff)}`); } }
+      if (r._hl !== undefined && got && got.total !== null) { const diff = r._hl - got.total; if (diff) { r.misc = Number(r.misc || 0) + diff; fixed.push(`${r.base} ${r.detail} ${sign(diff)} (misc)`); } }
       delete r._hl;
     });
-    if (fixed.length) warnings.push(`Skills adjusted to match Hero Lab (misc): ${fixed.join(', ')}.`);
+    if (fixed.length) listed.push(`skills: ${fixed.join(', ')}`);
+    // Combat maneuvers
+    d = E.compute(ch);
+    if (t.cmb !== null && t.cmb !== undefined && t.cmb !== d.cmb) { const diff = t.cmb - d.cmb; adjust('CMB to match Hero Lab', 'cmb', diff); listed.push(`CMB ${sign(diff)}`); }
+    d = E.compute(ch);
+    if (t.cmd !== null && t.cmd !== undefined && t.cmd !== d.cmd) { const diff = t.cmd - d.cmd; adjust('CMD to match Hero Lab', 'cmd', diff); listed.push(`CMD ${sign(diff)}`); }
 
     // Spellcasting: prestige classes that add caster levels (Holy Vindicator, Mystic Theurge...) raise the class level used
     // for spells per day; find the adjustment that gives Hero Lab's spells per day, then match its caster level.
@@ -522,17 +538,15 @@
       let best = { k: 0, s: score() };
       for (let k = 1; k <= 10 && best.s; k++) { sc.classLevelMisc = k; const sv = score(); if (sv < best.s) best = { k, s: sv }; }
       sc.classLevelMisc = best.k;
-      if (best.k) warnings.push(`Spells per day: class level +${best.k} for spellcasting to match Hero Lab (from prestige class levels).`);
+      if (best.k) warnings.push(`Spells per day: class level +${best.k} for spellcasting to match Hero Lab (from prestige class levels; on the Spells tab).`);
       if (best.s) warnings.push(`Spells per day still differ from Hero Lab (${levels.map(([L, w]) => `level ${L}: ${w}`).join(', ')}); use the per-day override on the Spells tab.`);
       d = E.compute(ch);
-      if (t.spells.cl && d.spells.cl !== t.spells.cl) { const diff = t.spells.cl - d.spells.cl; sc.clMisc = Number(sc.clMisc || 0) + diff; warnings.push(`Caster level: ${sign(diff)} to match Hero Lab (${t.spells.cl}).`); }
+      if (t.spells.cl && d.spells.cl !== t.spells.cl) { const diff = t.spells.cl - d.spells.cl; sc.clMisc = Number(sc.clMisc || 0) + diff; warnings.push(`Caster level: ${sign(diff)} to match Hero Lab (${t.spells.cl}; on the Spells tab).`); }
     }
+    if (listed.length) warnings.push(`Adjusted to match Hero Lab: ${listed.join('; ')}. These are bonuses on the "${ADJ_NAME}" row on the Effects tab: click its bonus count to see, edit or remove them, or delete the row.`);
     // Final check of the headline numbers
     d = E.compute(ch);
-    const cmbWant = t.cmb, cmdWant = t.cmd;
     const off = [];
-    if (cmbWant !== null && cmbWant !== d.cmb) off.push(`CMB is ${sign(d.cmb)} here, ${sign(cmbWant)} in Hero Lab`);
-    if (cmdWant !== null && cmdWant !== d.cmd) off.push(`CMD is ${d.cmd} here, ${cmdWant} in Hero Lab`);
     if (t.hpTarget && d.hp.max !== t.hpTarget) off.push(`HP is ${d.hp.max} here, ${t.hpTarget} in Hero Lab`);
     if (off.length) warnings.push(off.join('; ') + '.');
     if (t.speed && d.speed.land !== t.speed) warnings.push(`Speed is ${d.speed.land} ft here, ${t.speed} ft in Hero Lab. Check armor and gear weights (the load affects speed).`);

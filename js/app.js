@@ -244,7 +244,6 @@
         <td>${out('baseSaves/fort', 'sign')}</td><td>${out('baseSaves/ref', 'sign')}</td><td>${out('baseSaves/will', 'sign')}</td><td></td></tr></tfoot>
       </table></div>
       <div class="fields" style="margin-top:10px">
-        ${field('HP formula', sel('info/hpFormula', M.HP_FORMULAS, { blank: false, rerender: true }))}
         ${field('Favored class: bonus HP', inp('fcb/hp', { type: 'num' }))}
         ${field('Favored class: bonus skill ranks', inp('fcb/skills', { type: 'num' }))}
         ${field('Favored class: other', inp('fcb/other'))}
@@ -278,6 +277,7 @@
       <div class="fields">
         ${field('Damage taken', inp('hp/damage', { type: 'num' }))}${field('Temp HP', inp('hp/temp', { type: 'num' }))}
         ${field('Nonlethal', inp('hp/nonlethal', { type: 'num' }))}
+        ${field('HP formula', sel('info/hpFormula', M.HP_FORMULAS, { blank: false, rerender: true }))}
       </div>
       <div class="fields" style="margin-top:8px">${field('DR / SR', inp('hp/dr', { ph: 'DR 5/magic, SR 15' }))}${field('Resistances', inp('hp/resist', { ph: 'Fire 10, Cold 5' }))}</div>
       ${ch.settings.woundThresholds ? `<p class="small"><strong>Wound threshold:</strong> ${out('woundState', '', '')}</p>` : ''}`);
@@ -1170,11 +1170,14 @@
     const typeSel = (p) => sel(p, M.BONUS_TYPES, { blank: false });
     const effRows = ch.effects.map((e, i) => `<tr class="${e.active ? '' : 'inactive'}">
       <td>${chk(`effects/${i}/active`, { rerender: true, aria: 'Active' })}</td>
-      <td class="l" style="min-width:160px">${inp(`effects/${i}/name`, { ph: 'Belt of Giant Strength +2' })}${(e.bonuses || []).length ? `<div class="sub" title="Set in the spell's setup on the Spells tab">${e.bonuses.length} bonus${e.bonuses.length === 1 ? '' : 'es'}${e.spellId ? ' from spell' : ''}</div>` : ''}</td>
+      <td class="l" style="min-width:160px">${inp(`effects/${i}/name`, { ph: 'Belt of Giant Strength +2' })}<button type="button" class="linkish sub" data-action="toggle-effect-bonuses" data-id="${esc(e.id)}" title="Show and edit this effect's bonuses (each with its own type and target)">${(e.bonuses || []).length ? `${e.bonuses.length} bonus${e.bonuses.length === 1 ? '' : 'es'}${e.spellId ? ' from spell' : ''}` : '+ bonuses'} ${App.openEffects && App.openEffects.has(e.id) ? '▴' : '▾'}</button></td>
       <td style="min-width:150px">${typeSel(`effects/${i}/type`)}</td>
       ${effectCells('effects', i, e, false)}
       <td style="min-width:180px">${inp(`effects/${i}/text`, { ph: 'Stealth +4, Initiative +2' })}</td>
-      <td>${removeBtn('effects', i, 'effect')}</td></tr>`).join('');
+      <td>${removeBtn('effects', i, 'effect')}</td></tr>${App.openEffects && App.openEffects.has(e.id) ? `<tr class="effect-bonuses"><td></td><td colspan="${M.EFFECT_COLS.length + 4}"><div class="effect-bonus-box">
+        ${bonusEditor(`effects/${i}/bonuses`, e.bonuses || [], { label: true })}
+        <div class="inline small bonus-tools"><button class="btn small ghost" data-action="add-bonus" data-list="effects/${i}/bonuses" data-type="Untyped (stacks)">+ Bonus</button>
+        <span class="muted">Bonuses here work like feat bonuses: each has its own type and target (a named skill or weapon too).${e.spellId ? ' Casting the spell again replaces them with the spell setup\'s bonuses.' : ''}</span></div></div></td></tr>` : ''}`).join('');
     const totals = `<tr class="totals"><td></td><td class="l">Total (all active)</td><td></td>${M.EFFECT_COLS.map(c => `<td>${out('effectTotals/' + c.key, '', '')}</td>`).join('')}<td></td><td></td></tr>`;
     const missing = M.COMMON_EFFECTS.filter(t => !ch.effects.some(e => e.preset === t.preset));
     const picker = missing.length ? `<select id="common-effect" aria-label="Common effect to add" style="width:auto"><option value="">Add common effect…</option>${missing.map(t => `<option value="${esc(t.preset)}">${esc(t.name)}</option>`).join('')}</select>` : '';
@@ -1466,6 +1469,7 @@
       },
       'jump': () => jumpToField(el.dataset.tab, el.dataset.focus),
       'srd-class-features': () => addClassFeatures(),
+      'toggle-effect-bonuses': () => { App.openEffects = App.openEffects || new Set(); const id = el.dataset.id; if (App.openEffects.has(id)) App.openEffects.delete(id); else App.openEffects.add(id); render(); },
       'srd-fill-spells': () => fillSpellsFromSrd().then(n => { if (n) changed(true); toast(n ? `Set up ${n} spell${n === 1 ? '' : 's'} from the SRD.` : 'Every spell the SRD knows is already set up.'); }),
       'remove-choice': () => { const c = App.ch.classes[+el.dataset.i]; const gone = (c.choices || []).splice(+el.dataset.k, 1)[0]; if (gone) c.choices = c.choices.filter(x => x.parent !== gone.n); changed(true); autoSyncClassFeatures(); },
       'remove-archetype': () => { const c = App.ch.classes[+el.dataset.i]; (c.archetypes || []).splice(+el.dataset.k, 1); changed(true); autoSyncClassFeatures(); },
