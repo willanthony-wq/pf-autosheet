@@ -138,6 +138,7 @@
     try { App.d = E.compute(App.ch); } catch (e) { console.error(e); toast('Calculation error: ' + e.message); }
   }
   function updateOutputs() {
+    renderActiveSide();
     for (const el of $$('[data-out]')) {
       const t = fmt(dget(el.dataset.out), el.dataset.fmt);
       if (el.textContent !== t) el.textContent = t;
@@ -173,7 +174,7 @@
     renderRosterSelect();
     renderTabs();
     const main = $('#main');
-    if (!App.ch) { main.innerHTML = renderEmpty(); return; }
+    if (!App.ch) { main.innerHTML = renderEmpty(); renderActiveSide(); return; }
     const y = window.scrollY;
     const fn = { play: renderPlay, character: renderOverview, overview: renderOverview, race: renderRace, skills: renderSkills, combat: renderCombat, companion: renderCompanion, spells: renderSpells, effects: renderEffects,
       features: renderFeatures, feats: renderFeats, notes: renderNotes, settings: renderSettings }[App.tab] || renderOverview;
@@ -647,20 +648,30 @@
         <span class="counter"><button class="btn small" data-action="bump" data-path="resources/${i}/uses" data-d="-1" aria-label="Use one">−</button><strong>${esc(r.uses === '' || r.uses === undefined ? 0 : r.uses)}</strong>${r.max !== '' && r.max !== undefined ? `<span class="muted">/ ${esc(r.max)}</span>` : ''}<button class="btn small" data-action="bump" data-path="resources/${i}/uses" data-d="1" aria-label="Add one">+</button></span></div>`).join('') || '<p class="small muted">No resources. Add them on the Gear tab.</p>'}${miscCharges}
       <div class="play-res"><span><strong>Hero points</strong></span><span class="counter"><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="-1">−</button><strong>${esc(ch.heroPoints.current)}</strong><span class="muted">/ ${esc(ch.heroPoints.max)}</span><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="1">+</button></span></div>`);
 
+    // Buffs, Skills and Spells share one column, in that order; Resources sits beside them.
+    // (Active Bonuses is in the sidebar under Dice, on every tab.)
+    const stack = `<div class="play-stack span-2">${buffs}${skills}${spells}</div>`;
+    const side = `<div class="play-stack">${res}</div>`;
+    return `<div class="grid play-grid">${header}${checks}${attacks}${playCompanionCards()}${stack}${side}</div>`;
+  }
+
+  // ----- Active Bonuses: in the sidebar under Dice, so it shows on every tab
+  function activeBonusesHtml() {
+    const ch = App.ch, d = App.d;
     const groups = {};
     const label = { race: 'Race', trait: 'Traits', feat: 'Feats', feature: 'Class features', worn: 'Worn items', misc: 'Misc magic items', effect: 'Effects', toggle: 'Toggles', item: 'Magic items', condition: 'Conditions' };
     for (const r of d.rows) (groups[r.src] = groups[r.src] || new Set()).add(r.name);
     const notes = situationalNotes();
-    const active = card('Active Bonuses', `${Object.keys(label).filter(k => groups[k]).map(k => `<p class="small"><strong>${label[k]}:</strong> ${[...groups[k]].map(esc).join(', ')}</p>`).join('') || '<p class="small muted">Nothing active.</p>'}
+    return card('Active Bonuses', `${Object.keys(label).filter(k => groups[k]).map(k => `<p class="small"><strong>${label[k]}:</strong> ${[...groups[k]].map(esc).join(', ')}</p>`).join('') || '<p class="small muted">Nothing active.</p>'}
       ${d.overlaps.length ? `<h3 style="margin:8px 0 4px">Not stacking</h3><ul class="small notes-list">${d.overlaps.map(o => `<li>${o.names.map(n => `<strong>${esc(n)}</strong>`).join(' and ')} both give a ${esc(o.type)} bonus to ${esc(o.keys.join(', '))}. Only the highest (+${o.best}) counts.</li>`).join('')}</ul>` : ''}
       ${notes.length ? `<h3 style="margin:8px 0 4px">Situational</h3><ul class="small notes-list">${notes.map(x => `<li><strong>${esc(x.label || x.src)}</strong>${x.label && x.label !== x.src ? ` <span class="muted">(${esc(x.src)})</span>` : ''}: ${esc(x.text)}</li>`).join('')}</ul>` : ''}
-      ${ch.race.senses ? `<p class="small"><strong>Senses:</strong> ${esc(ch.race.senses)}</p>` : ''}${ch.languages ? `<p class="small"><strong>Languages:</strong> ${esc(ch.languages)}</p>` : ''}`);
-
-    // Buffs, Skills and Spells share one column, in that order.
-    // Resources and Active Bonuses stack in the column beside them.
-    const stack = `<div class="play-stack span-2">${buffs}${skills}${spells}</div>`;
-    const side = `<div class="play-stack">${res}${active}</div>`;
-    return `<div class="grid play-grid">${header}${checks}${attacks}${playCompanionCards()}${stack}${side}</div>`;
+      ${ch.race.senses ? `<p class="small"><strong>Senses:</strong> ${esc(ch.race.senses)}</p>` : ''}${ch.languages ? `<p class="small"><strong>Languages:</strong> ${esc(ch.languages)}</p>` : ''}`, { cls: 'active-card' });
+  }
+  function renderActiveSide() {
+    const box = $('#active-side');
+    if (!box) return;
+    const html = App.ch && App.d ? activeBonusesHtml() : '';
+    if (box.innerHTML !== html) { const sc = box.firstElementChild ? box.firstElementChild.scrollTop : 0; box.innerHTML = html; if (box.firstElementChild) box.firstElementChild.scrollTop = sc; }
   }
 
   // Companion lists with bonus editors: buffs, feats, gear, evolutions
