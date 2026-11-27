@@ -151,7 +151,7 @@
   // A bonus value is a number or a small formula such as "max(3, level)" or "ranks >= 10 ? 6 : 3".
   // Variables: level, bab, str..cha (modifiers), ranks (in the targeted skill), class1..class3 (levels in each
   // class slot) and any class name as a word, e.g. rogue, cleric, machine_smith (your levels in it; 0 if none).
-  const BASE_VARS = new Set(['level', 'bab', 'cl', 'str', 'dex', 'con', 'int', 'wis', 'cha', 'ranks']);
+  const BASE_VARS = new Set(['level', 'bab', 'cl', 'str', 'dex', 'con', 'int', 'wis', 'cha', 'ranks', 'speed', 'fly', 'swim', 'burrow', 'climb']);
   const MATH_FNS = new Set(['max', 'min', 'floor', 'ceil', 'abs']);
   function classSlug(name) { return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, ''); }
   const CLASS_SLUGS = new Set(D.classes.map(c => classSlug(c.name)).concat(['class1', 'class2', 'class3']));
@@ -169,7 +169,7 @@
         return 'L("' + id + '")';
       });
       try {
-        const fn = new Function('V', 'const {level=0,bab=0,cl=0,str=0,dex=0,con=0,int=0,wis=0,cha=0,ranks=0}=V; const {max,min,floor,ceil,abs}=Math;' +
+        const fn = new Function('V', 'const {level=0,bab=0,cl=0,str=0,dex=0,con=0,int=0,wis=0,cha=0,ranks=0,speed=0,fly=0,swim=0,burrow=0,climb=0}=V; const {max,min,floor,ceil,abs}=Math;' +
           ' const C=V.C||{}; const L=k=>Object.prototype.hasOwnProperty.call(C,k)?C[k]:0; return (' + body + ');');
         out = { fn, unknown };
       } catch (e) { out = null; }
@@ -213,6 +213,11 @@
       rows.push(row);
     }
   }
+  // Base speeds, for effect formulas such as Haste's min(30, speed)
+  function speedVars(ch) {
+    const sp = (ch.info && ch.info.speeds) || {};
+    return { speed: n(sp.base), fly: n(sp.fly), swim: n(sp.swim), burrow: n(sp.burrow), climb: n(sp.climb) };
+  }
   function abilityVars(d, level, bab) {
     const V = { level, bab, cl: d.quickCl || 0, C: classVars(d) };
     for (const a of ABILITIES) V[a] = d.mods ? d.mods[a] : 0;
@@ -233,7 +238,7 @@
   // ---------- Effect rows ----------
   function buildEffectRows(ch, ctx) {
     const rows = [];
-    const V = ctx.vars || {};
+    const V = Object.assign({}, ctx.vars || {}, speedVars(ch));
     // Effect and toggle cells can hold formulas (e.g. 1 + floor(slayer/5)); "x2"-style multipliers stay as text.
     const evalV = v => {
       const out = {};
@@ -255,19 +260,6 @@
     for (const f of ch.classFeatures || []) pushBonuses(rows, f.bonuses || [], 'feature', b => b.label || f.name || 'Class feature', 'Untyped (stacks)', V);
     for (const s of ch.slots || []) pushBonuses(rows, s.bonuses || [], 'worn', b => b.label || s.item || s.slot || 'Worn item', 'Enhancement', V);
 
-    const pa = Math.floor(ctx.bab / 4) + 1;
-    for (const t of ch.toggles) {
-      if (!t.active) continue;
-      const v = evalV(t.v);
-      if (t.auto === 'powerAttack') Object.assign(v, { mAtk: -pa, mDmg: 2 * pa, ohDmg: -pa, thDmg: pa });
-      if (t.auto === 'combatExpertise') Object.assign(v, { ac: pa, mAtk: -pa });
-      if (t.auto === 'deadlyAim') Object.assign(v, { rAtk: -pa, rDmg: 2 * pa });
-      if (t.auto === 'haste') {
-        v.speed = Math.min(30, ctx.speedBase.base);
-        for (const k of ['fly', 'swim', 'burrow', 'climb']) if (isNum(ctx.speedBase[k])) v[k] = Math.min(30, n(ctx.speedBase[k]));
-      }
-      rows.push({ src: 'toggle', name: t.name, type: t.type, v, text: t.text || '' });
-    }
 
     for (const it of ch.magicItems) {
       if (!isNum(it.value) || it.active === false) continue;
@@ -348,7 +340,7 @@
     ctx.hpMax = d.hp.max; ctx.hpCurrent = d.hp.current;
     rows = buildEffectRows(ch, ctx);
     computeAbilities(ch, d, rows);  // wound thresholds don't touch abilities, but recompute for consistency
-    d.formulaVars = ctx.vars;
+    d.formulaVars = Object.assign({}, ctx.vars, speedVars(ch));
     d.overlaps = findOverlaps(rows);
     d.rows = rows;
     d.loseDex = ctx.loseDex;

@@ -53,10 +53,10 @@
     ['improved natural armor', () => [{ target: 'nat', value: 1, type: U }]],
     ['improved natural attack', () => note('Increase one natural attack\'s damage dice by one step (edit its dice)')],
     ['multiattack', () => note('Tick Multiattack on the Companion tab (secondary attacks -2 instead of -5)')],
-    ['power attack', () => note('Use the Power Attack toggle on the Play or Combat tab')],
-    ['combat expertise', () => note('Use the Combat Expertise toggle on the Play or Combat tab')],
-    ['deadly aim', () => note('Use the Deadly Aim toggle on the Play or Combat tab')],
-    ['rapid shot', () => note('Use the Rapid Shot toggle on the Play or Combat tab')],
+    ['power attack', () => note('Switch on the Power Attack effect on the Play, Combat or Effects tab')],
+    ['combat expertise', () => note('Switch on the Combat Expertise effect on the Play, Combat or Effects tab')],
+    ['deadly aim', () => note('Switch on the Deadly Aim effect on the Play, Combat or Effects tab')],
+    ['rapid shot', () => note('Switch on the Rapid Shot effect on the Play, Combat or Effects tab')],
   ];
 
   const TRAITS = [
@@ -91,7 +91,7 @@
     ['gloves of swimming and climbing', sk(['Swim', 'Climb'], 5)],
     ['vest of escape', () => [{ target: 'skill', skill: 'Disable Device', value: 4, type: C }, { target: 'skill', skill: 'Escape Artist', value: 6, type: C }]],
     ['boots of striding and springing', () => [{ target: 'speed', value: 10, type: E }, { target: 'note', value: '', type: C, text: '+5 competence bonus on Acrobatics checks to jump' }]],
-    ['boots of speed', () => note('Haste as a free action for 10 rounds/day: use the Haste toggle')],
+    ['boots of speed', () => note('Haste as a free action for 10 rounds/day: switch on the Haste effect')],
     ['circlet of persuasion', () => note('+3 competence bonus on Charisma-based checks')],
     ['headband of ninjitsu', () => note('+2 competence bonus on Stealth; ki pool benefits')],
   ];

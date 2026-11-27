@@ -317,6 +317,7 @@
       <code>cl</code> your caster level<br>
       <code>str dex con int wis cha</code> ${forCompanion ? "the companion's " : ''}ability modifiers<br>
       <code>ranks</code> ranks in the skill this bonus targets<br>
+      ${forCompanion ? '' : '<code>speed fly swim burrow climb</code> your base speeds (for effects such as Haste)<br>'}
       <code>class1 class2 class3</code> levels in your 1st, 2nd, 3rd class<br>
       a class name, e.g. <code>rogue</code>, <code>druid</code>, <code>monk_unchained</code>: your levels in it (spaces and brackets become _)<br>
       ${mine.length ? `<em>Yours:</em> ${mine.join('; ')}<br>` : ''}
@@ -480,16 +481,14 @@
       : `<p class="muted">No attacks yet. <button class="btn small" data-action="add-weapon">+ Add a weapon</button></p>`,
       { cls: 'span-2', tools: `<button class="btn small ghost" data-action="tab" data-tab="combat">Edit</button>` });
 
-    const shown = ch.toggles.map((t, i) => [t, i]).filter(([t]) => t.active || !/^\(Custom Effect/.test(t.name));
     const others = D.conditions.filter(c => !ch.conditions.includes(c.name));
-    const buffs = card('Buffs & Conditions', `<div class="chips">${shown.map(([t, i]) =>
-      `<label class="chip${t.active ? ' on' : ''}">${chk(`toggles/${i}/active`, { rerender: true })}${esc(t.name)}</label>`).join('')}
+    const buffs = card('Buffs & Conditions', `<div class="chips">
       ${ch.effects.map((e, i) => `<label class="chip${e.active ? ' on' : ''}" title="Effect (Effects tab). Click to switch ${e.active ? 'off' : 'on'}."><input type="checkbox" data-bind="effects/${i}/active" data-type="bool" data-rerender${e.active ? ' checked' : ''}>${esc(e.name || 'Effect')}</label>`).join('')}</div>
       <h3 style="margin:10px 0 6px">Conditions</h3>
       <div class="chips">${ch.conditions.map(n => `<button class="chip cond on" data-action="toggle-condition" data-name="${esc(n)}" title="Click to remove">${esc(n)} ✕</button>`).join('')}
         <select id="add-condition" aria-label="Add a condition" style="width:auto"><option value="">+ Add condition…</option>${others.map(c => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('')}</select></div>
       <div class="inline" style="margin-top:8px"><span class="small">Negative levels</span>${inp('negativeLevels', { type: 'num' })}</div>
-      <p class="small muted" style="margin-bottom:0">Lit = on. These are the same switches as on the Effects and Combat tabs, so changing one changes both. Create new effects on the Effects tab.</p>`);
+      <p class="small muted" style="margin-bottom:0">Lit = on. These are the rows of the Effects table (Power Attack, Haste, magic items, spell buffs…), so switching one here switches it there too. Add or edit effects on the Effects tab.</p>`);
 
     const filter = App.skillFilter || '';
     const all = d.skills.map((s, i) => ({ s, path: `skills/${i}` })).concat(d.specialty.map((s, i) => ({ s, path: `specialty/${i}` })));
@@ -947,9 +946,10 @@
     const weaponsCard = card('Attacks', (weapons || '<p class="muted">No weapons yet. Click <strong>+ Weapon</strong> to add one.</p>') + `<div style="margin-top:10px">${field('Attack notes', area('attackNotes', { rows: 2 }))}</div>`,
       { tools: `<span class="small muted">BAB ${sign(d.bab)} · CMB ${sign(d.cmb)}</span><button class="btn small" data-action="add-weapon">+ Weapon</button>`, cls: 'span-2' });
 
-    const toggles = card('Combat Toggles', `<div class="chips">${ch.toggles.map((t, i) =>
-      `<label class="chip${t.active ? ' on' : ''}">${chk(`toggles/${i}/active`, { rerender: true })}${esc(t.name)}</label>`).join('')}</div>
-      <p class="small muted">Power Attack, Combat Expertise and Deadly Aim scale with your BAB. Edit toggle values on the Effects tab.</p>`);
+    const toggles = card('Effects', `<div class="chips">${ch.effects.map((e, i) =>
+      `<label class="chip${e.active ? ' on' : ''}"><input type="checkbox" data-bind="effects/${i}/active" data-type="bool" data-rerender${e.active ? ' checked' : ''}>${esc(e.name || 'Effect')}</label>`).join('') || '<span class="small muted">No effects yet.</span>'}</div>
+      <p class="small muted">Switch effects on and off here. Power Attack, Combat Expertise and Deadly Aim scale with your BAB; edit any effect on the Effects tab.</p>`,
+      { tools: `<button class="btn small ghost" data-action="tab" data-tab="effects">Edit</button>` });
     const conds = card('Conditions', `<div class="chips">${D.conditions.map(c =>
       `<button class="chip cond${ch.conditions.includes(c.name) ? ' on' : ''}" data-action="toggle-condition" data-name="${esc(c.name)}">${esc(c.name)}</button>`).join('')}</div>
       <div class="fields" style="margin-top:10px">${field('Negative levels', inp('negativeLevels', { type: 'num' }))}</div>`);
@@ -1064,31 +1064,12 @@
   // ----- Effects
   function effectCells(listPath, i, row, auto) {
     return M.EFFECT_COLS.map(c => {
-      if (auto && autoKeys(row).includes(c.key)) return `<td><span class="calc small" title="${esc(autoTitle(row))}">${esc(autoValue(row, c.key))}</span></td>`;
       const v = row.v ? row.v[c.key] : '';
       const isF = typeof v === 'string' && /[a-z(]/i.test(v) && !/^\s*x/i.test(v);
       const res = isF ? E.evalBonus(v, App.d.formulaVars) : null;
       const title = isF ? (res === null ? `"${v}" isn't a formula the sheet understands` : `${v} = ${res}`) : c.title;
       return `<td><input class="n${isF ? ' fx-formula' : ''}${isF && res === null ? ' bad' : ''}" data-bind="${listPath}/${i}/v/${c.key}" data-type="fx" value="${esc(v === undefined ? '' : v)}" aria-label="${esc(c.group + ' ' + c.label)}"${title ? ` title="${esc(title)}"` : ''}>${isF && res !== null ? `<span class="fx-result">${esc(sign(res))}</span>` : ''}</td>`;
     }).join('');
-  }
-  function autoKeys(t) {
-    return { powerAttack: ['mAtk', 'mDmg', 'ohDmg', 'thDmg'], combatExpertise: ['ac', 'mAtk'], deadlyAim: ['rAtk', 'rDmg'], haste: ['speed', 'fly', 'swim', 'burrow', 'climb'] }[t.auto] || [];
-  }
-  function autoTitle(t) {
-    const bab = App.d.bab, pa = Math.floor(bab / 4) + 1;
-    return {
-      powerAttack: `Calculated from your BAB (${sign(bab)}): −${pa} on melee attacks and CMB, +${2 * pa} melee damage (+${3 * pa} two-handed, +${pa} off-hand). Grows every 4 BAB; Strength is added separately by the weapon's formula.`,
-      combatExpertise: `Calculated from your BAB (${sign(bab)}): −${pa} on melee attacks and CMB, +${pa} dodge bonus to AC.`,
-      deadlyAim: `Calculated from your BAB (${sign(bab)}): −${pa} on ranged attacks, +${2 * pa} ranged damage.`,
-      haste: 'Calculated: +30 ft to each speed you have, up to double that speed.',
-    }[t.auto] || 'Calculated';
-  }
-  function autoValue(t, key) {
-    const pa = Math.floor(App.d.bab / 4) + 1;
-    const m = { powerAttack: { mAtk: -pa, mDmg: 2 * pa, ohDmg: -pa, thDmg: pa }, combatExpertise: { ac: pa, mAtk: -pa }, deadlyAim: { rAtk: -pa, rDmg: 2 * pa } }[t.auto];
-    if (m) return sign(m[key]);
-    return 'auto';
   }
   function renderEffects() {
     const ch = App.ch;
@@ -1105,18 +1086,13 @@
       <td style="min-width:180px">${inp(`effects/${i}/text`, { ph: 'Stealth +4, Initiative +2' })}</td>
       <td>${removeBtn('effects', i, 'effect')}</td></tr>`).join('');
     const totals = `<tr class="totals"><td></td><td class="l">Total (all active)</td><td></td>${M.EFFECT_COLS.map(c => `<td>${out('effectTotals/' + c.key, '', '')}</td>`).join('')}<td></td><td></td></tr>`;
+    const missing = M.COMMON_EFFECTS.filter(t => !ch.effects.some(e => e.preset === t.preset));
+    const picker = missing.length ? `<select id="common-effect" aria-label="Common effect to add" style="width:auto"><option value="">Add common effect…</option>${missing.map(t => `<option value="${esc(t.preset)}">${esc(t.name)}</option>`).join('')}</select>` : '';
     const effects = card('Effects', `<p class="small muted" style="margin-top:0">Bonuses of the same type don't stack (highest wins), penalties always stack, and Untyped, Dodge and Circumstance bonuses stack. Deflection, Enhancement and Resistance are separate types, so a ring of protection, a belt and a cloak all count. Speed accepts <span class="kbd">x0.5</span> to multiply. The text column applies a number to any skill (or Initiative) it names, e.g. <span class="kbd">Perception, Stealth +2</span>.</p>
+      <p class="small muted">Any cell can be a formula with the same variables as bonuses, plus your base speeds (<span class="kbd">speed</span>, <span class="kbd">fly</span>, <span class="kbd">swim</span>, <span class="kbd">burrow</span>, <span class="kbd">climb</span>). Power Attack is <span class="kbd">-(floor(bab/4)+1)</span> to hit and <span class="kbd">2*(floor(bab/4)+1)</span> damage, Studied Target <span class="kbd">1 + floor(slayer/5)</span>, Haste's speed <span class="kbd">min(30, speed)</span>. The calculated value shows under the cell. Delete rows you don't use; <strong>Add common effect</strong> brings them back.</p>
       <div class="scroll-x"><table class="effects-table">${head}<tbody>${effRows}${totals}</tbody></table></div>`,
-      { tools: `<button class="btn small" data-action="add-effect">+ Effect</button>` });
+      { tools: `${picker}<button class="btn small" data-action="add-effect">+ Effect</button>` });
 
-    const togRows = ch.toggles.map((t, i) => `<tr class="${t.active ? '' : 'inactive'}">
-      <td>${chk(`toggles/${i}/active`, { rerender: true, aria: 'Active' })}</td>
-      <td class="l" style="min-width:160px">${t.id.startsWith('custom') ? inp(`toggles/${i}/name`) : esc(t.name)}</td>
-      <td style="min-width:150px">${typeSel(`toggles/${i}/type`)}</td>
-      ${effectCells('toggles', i, t, true)}
-      <td style="min-width:180px">${inp(`toggles/${i}/text`)}</td><td></td></tr>`).join('');
-    const toggles = card('Combat Toggles', `<p class="small muted" style="margin-top:0">Power Attack, Combat Expertise and Deadly Aim follow your BAB, and Haste's speed follows your base speed. Any cell here or in the Effects table can be a formula, like on bonuses: <span class="kbd">1 + floor(slayer/5)</span> (Studied Target), <span class="kbd">floor(level/2)</span>, <span class="kbd">max(1, floor(cl/3))</span>. The calculated value shows under the cell.</p>
-      <div class="scroll-x"><table class="effects-table">${head}<tbody>${togRows}</tbody></table></div>`);
 
     const where = { race: 'Race tab', trait: 'trait, Features & Gear tab', feat: 'feat, Features & Gear tab', feature: 'class feature, Features & Gear tab',
       worn: 'worn item, Features & Gear tab', item: 'magic item', condition: 'condition, Play or Combat tab' };
@@ -1124,7 +1100,7 @@
     const active = App.d.rows.filter(r => where[r.src] && !seen.has(r.src + r.name) && seen.add(r.src + r.name));
     const applied = card('Also applied (from other tabs)', active.length ? `<ul>${active.map(r => `<li><strong>${esc(r.name)}</strong> <span class="muted small">(${esc(where[r.src])})</span></li>`).join('')}</ul>`
       : '<p class="muted small">Bonuses from your race, feats, traits, class features, worn items and conditions are listed here when active.</p>');
-    return `<div class="grid">${effects}${toggles}${applied}</div>`;
+    return `<div class="grid">${effects}${applied}</div>`;
   }
 
   // ----- Features & gear
@@ -1263,6 +1239,7 @@
     const el = e.target;
     if (!el.dataset || !el.dataset.bind) return;
     if (el.tagName === 'SELECT' || el.type === 'checkbox') return; // handled on change
+    narrowSrdList(el);
     if (window.PF_SRD && (el.value === window.PF_SRD.CUSTOM || el.value === window.PF_SRD.USE_SRD)) {
       const parts = el.dataset.bind.split('/'); const field = parts.pop();
       const row = pathGet(App.ch, parts.join('/'));
@@ -1279,9 +1256,16 @@
     applyBind(el);
     updateOutputs();
   });
+  // SRD suggestion lists hold only names matching what's typed (browsers cap long lists at about 500)
+  function narrowSrdList(el) {
+    const id = el.getAttribute && el.getAttribute('list');
+    if (id && id.startsWith('srd-') && id !== 'srd-off' && window.PF_SRD) window.PF_SRD.narrow(id, el.value);
+  }
+  document.addEventListener('focusin', e => narrowSrdList(e.target));
   document.addEventListener('change', e => {
     const el = e.target;
     if (el.id === 'add-condition' && el.value) { App.ch.conditions.push(el.value); changed(true); return; }
+    if (el.id === 'common-effect' && el.value) { const e = M.commonEffect(el.value, false); if (e) App.ch.effects.unshift(e); changed(true); return; }
     if (el.classList && el.classList.contains('comp-add-condition') && el.value) { App.ch.companions[+el.dataset.c].conditions.push(el.value); changed(true); return; }
     // Typing a known name fills in the blanks from the Pathfinder Reference Document
     if (el.dataset && el.dataset.bind && el.tagName !== 'SELECT' && el.type !== 'checkbox' && srdRule(el.dataset.bind)) {

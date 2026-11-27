@@ -30,7 +30,7 @@ The importer reads:
 - skill ranks, including class skills you marked by hand
 - weapons and armor
 - magic item bonuses (the sheet's "Magic Item or Feature" rows become rows on the Effects tab)
-- the effect table, toggles and conditions
+- the effect table, combat toggles (as effects) and conditions
 - spells, spell-like abilities, traits, features and feats
 - resources, item slots and background answers
 
@@ -66,7 +66,7 @@ The webhook URL is stored only in this browser. It is never written into exporte
 
 ## Autofill from the Pathfinder Reference Document
 
-Name fields suggest entries as you type. Pick one (or type its exact name) and the sheet fills in the fields you left blank. It never overwrites anything you typed. The first entry in every list is **(Custom)**: pick it to type your own entry (homebrew, or a renamed version) with no autofill. To switch autofill back on for that row, clear the field and pick **(Use SRD list)**.
+Name fields suggest entries as you type. Browsers show only about 500 suggestions at a time, so the list holds the names matching what you've typed, those starting with it first. Pick one (or type its exact name) and the sheet fills in the fields you left blank. It never overwrites anything you typed. The first entry in every list is **(Custom)**: pick it to type your own entry (homebrew, or a renamed version) with no autofill. To switch autofill back on for that row, clear the field and pick **(Use SRD list)**.
 
 - **Feats** (yours and companions'): prerequisites and benefit text.
 - **Traits:** the trait's text after its name.
@@ -87,7 +87,7 @@ The data covers the Core Rulebook, Advanced Player's Guide, Ultimate Magic, Ulti
 - **HP:** all six HP formulas, Con, favored-class HP, damage/temp/nonlethal tracking and negative levels.
 - **Abilities:** age modifiers, enhancement vs. effect bonuses, inherent bonuses and penalties.
 - **Effect table:** bonuses of the same type don't stack, while penalties and Untyped, Dodge and Circumstance bonuses do. Deflection, Enhancement and Resistance are separate types. Effects reach AC, saves, abilities, attacks, damage, caster level, extra attacks, size, speed and skills. The free-text column applies to named skills and Initiative.
-- **Combat toggles:** Power Attack, Combat Expertise and Deadly Aim scale with BAB (hover a calculated cell for the breakdown). Heroism, Haste, Rapid Shot, Studied Target (`1 + floor(slayer/5)` on melee and ranged attack and damage), and three custom toggles. Any cell in the toggle and effect tables can be a formula with the same variables as bonuses; the result shows under the cell.
+- **Common combat effects:** Power Attack, Combat Expertise, Deadly Aim, Heroism, Haste, Rapid Shot and Studied Target are ordinary rows of the Effects table (the spreadsheet's Combat Quick Toggles). The scaling ones are formulas you can see and edit: Power Attack is `-(floor(bab/4)+1)` to hit and `2*(floor(bab/4)+1)` damage, Studied Target `1 + floor(slayer/5)`, Haste's speed `min(30, speed)`. Delete the ones you don't use; **Add common effect** brings them back. Any effect cell can be a formula (the bonus variables plus `speed`, `fly`, `swim`, `burrow`, `climb`), with the result shown under it. Characters saved with the old toggle table are converted automatically.
 - **Conditions:** the sheet's conditions table, plus Unchained wound thresholds.
 - **Defenses:** AC, touch, flat-footed and CMD, with armor and shield tables, special materials, max Dex, armor check penalty, spell failure and encumbrance.
 - **Gear and encumbrance:** an inventory with quantity, weight, value and a Carried box (uncheck things left on a mount or at home), coins (50 coins weigh 1 lb, which you can switch off), and weights for weapons, armor and shields (armor and shields fill in their standard weight; mithral halves it). Carrying capacity follows the Core Rulebook table from your Strength and size, with a Str adjustment for carrying (muleback cords), a capacity multiplier (ant haul) and a quadruped option. With encumbrance set to **Auto (from gear)**, the default for new and imported characters, a medium or heavy load limits max Dex, adds an armor check penalty and reduces speed, just like armor. The Play tab shows your load. Characters saved before this keep the encumbrance they had; choose Auto on the Combat tab or the inventory card to switch.

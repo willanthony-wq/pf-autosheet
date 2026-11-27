@@ -175,23 +175,36 @@
     // ---- Quick toggles & conditions (state cells in U/Y 33-39)
     const toggleCells = [['U', 33, 'powerAttack'], ['U', 34, 'combatExpertise'], ['U', 35, 'deadlyAim'], ['U', 36, 'heroism'], ['U', 37, 'haste'],
       ['Y', 33, 'rapidShot'], ['Y', 34, 'studiedTarget'], ['Y', 35, 'custom8'], ['Y', 36, 'custom9'], ['Y', 37, 'custom10']];
-    for (const [c, r, id] of toggleCells) {
-      const t = ch.toggles.find(x => x.id === id);
-      if (t) t.active = bool(at(c, r));
-    }
+    // The sheet's quick toggles become rows of the Effects table (the common ones are already there).
+    const toggleOn = {};
+    for (const [c, r, id] of toggleCells) toggleOn[id] = bool(at(c, r));
     // Toggle definition rows (values the player may have edited)
     const toggleIds = ['powerAttack', 'combatExpertise', 'deadlyAim', 'heroism', 'haste', 'rapidShot', 'studiedTarget', 'custom8', 'custom9', 'custom10'];
     toggleIds.forEach((id, i) => {
       const r = toggleRow + 1 + i;
-      const t = ch.toggles.find(x => x.id === id);
       const nm = s(get('B' + r));
-      if (id.startsWith('custom') && nm && !/^\(Custom Effect/.test(nm)) t.name = nm;
-      const ty = s(get('G' + r)); if (ty && M.BONUS_TYPES.includes(ty)) t.type = ty;
-      if (t.auto) return; // Power Attack etc. are recomputed from BAB
+      const ty = s(get('G' + r));
       const tmp = { v: {}, text: '' };
       readEffectValues(get, r, tmp);
       ['speed', 'fly', 'swim', 'burrow', 'climb'].forEach(k => delete tmp.v[k]);
-      if (Object.keys(tmp.v).length || id.startsWith('custom')) { t.v = tmp.v; t.text = tmp.text; }
+      if (id.startsWith('custom')) {
+        const named = nm && !/^\(Custom Effect/.test(nm);
+        if (!named && !toggleOn[id] && !Object.keys(tmp.v).length && !tmp.text) return;
+        const e = M.blankEffect(named ? nm : nm.replace(/[()]/g, '') || 'Custom effect', ty && M.BONUS_TYPES.includes(ty) ? ty : 'Untyped (stacks)');
+        e.active = !!toggleOn[id]; e.v = tmp.v; e.text = tmp.text;
+        ch.effects.push(e);
+        return;
+      }
+      const e = ch.effects.find(x => x.preset === id);
+      if (!e) return;
+      e.active = !!toggleOn[id];
+      if (ty && M.BONUS_TYPES.includes(ty)) e.type = ty;
+      // Power Attack, Combat Expertise and Deadly Aim keep their BAB formulas; Haste keeps its speed formulas.
+      if (['powerAttack', 'combatExpertise', 'deadlyAim'].includes(id)) return;
+      if (id === 'haste') { if (Object.keys(tmp.v).length) Object.assign(e.v, tmp.v); return; }
+      if (id === 'heroism' && tmp.text.trim() === 'Initiative +2') tmp.text = '';
+      if (id === 'studiedTarget' && JSON.stringify(tmp.v) === JSON.stringify({ mAtk: 1, mDmg: 1 })) return;
+      if (Object.keys(tmp.v).length) { e.v = tmp.v; e.text = tmp.text; }
     });
     for (const [flagC, nameC, r] of [['U', 'V', 38], ['U', 'V', 39], ['Y', 'Z', 38]]) {
       const nm = s(at(nameC, r));

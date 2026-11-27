@@ -66,24 +66,51 @@
   }
 
   // <datalist> elements for name suggestions, created once their data has loaded.
+  // Browsers show at most about 500 suggestions, so a list holds only the names that match what is typed
+  // (refreshed by narrow() as you type), names starting with the typed text first.
+  const LIMIT = 400;
+  const full = {};   // datalist id -> [{ n, k }]
+  const shown = {};  // datalist id -> query the list was last built for
+  const optHtml = n => `<option value="${String(n).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}">`;
   function datalist(id, kinds, filter) {
     if (document.getElementById(id)) return;
     ensure(kinds).then(res => {
       if (document.getElementById(id)) return;
-      const seen = new Set(), opts = [];
+      const seen = new Set(), names = [];
       res.forEach(c => c && c.list.forEach(x => {
         if (filter && !filter(x)) return;
         const k = key(x.n);
         if (seen.has(k)) return;
         seen.add(k);
-        opts.push(`<option value="${String(x.n).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')}">`);
+        names.push({ n: x.n, k });
       }));
+      full[id] = names;
       const dl = document.createElement('datalist');
       dl.id = id;
-      // First entry: type your own entry with no autofill
-      dl.innerHTML = `<option value="${CUSTOM}" label="Type your own (no autofill)">` + opts.join('');
       document.body.appendChild(dl);
+      shown[id] = null;
+      const active = document.activeElement;
+      narrow(id, active && active.getAttribute && active.getAttribute('list') === id ? active.value : '');
     });
+  }
+  function narrow(id, query) {
+    const dl = document.getElementById(id), names = full[id];
+    if (!dl || !names) return;
+    const q = key(query);
+    if (shown[id] === q) return;
+    shown[id] = q;
+    let list = names;
+    if (q) {
+      const starts = [], words = [], inside = [];
+      for (const x of names) {
+        const i = x.k.indexOf(q);
+        if (i === 0) starts.push(x);
+        else if (i > 0) (x.k[i - 1] === ' ' || x.k[i - 1] === '(' ? words : inside).push(x);
+      }
+      list = starts.concat(words, inside);
+    }
+    // First entry: type your own entry with no autofill
+    dl.innerHTML = (q ? '' : `<option value="${CUSTOM}" label="Type your own (no autofill)">`) + list.slice(0, LIMIT).map(x => optHtml(x.n)).join('');
   }
 
   // Features gained by level for a class: [{ name, level, base }], with repeating numbered features
@@ -124,5 +151,5 @@
     return '';
   }
 
-  window.PF_SRD = { CUSTOM, USE_SRD, KINDS, load, ensure, find, findAny, priceOf, enhOf, datalist, classFeatures, classFeatureText, key, loaded: k => !!cache[k] };
+  window.PF_SRD = { CUSTOM, USE_SRD, KINDS, load, ensure, narrow, find, findAny, priceOf, enhOf, datalist, classFeatures, classFeatureText, key, loaded: k => !!cache[k] };
 })();

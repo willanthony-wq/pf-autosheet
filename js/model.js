@@ -106,8 +106,27 @@
     return { id: uid(), name: name || '', type: type || 'Untyped (stacks)', active: true, v: {}, text: '' };
   }
 
-  // Combat quick toggles. `auto` marks values that the engine recomputes from BAB / speed.
+  // Common combat effects (the spreadsheet's "Combat Quick Toggles"). They are ordinary effect rows;
+  // `preset` remembers which one a row came from. Values that scale are formulas.
   const STUDIED = '1 + floor(slayer/5)';
+  const PA = 'floor(bab/4)+1';
+  const COMMON_EFFECTS = [
+    { preset: 'powerAttack', name: 'Power Attack', type: 'Untyped (stacks)', v: { mAtk: `-(${PA})`, mDmg: `2*(${PA})`, ohDmg: `-(${PA})`, thDmg: PA }, text: '' },
+    { preset: 'combatExpertise', name: 'Combat Expertise', type: 'Dodge (stacks)', v: { ac: PA, mAtk: `-(${PA})` }, text: '' },
+    { preset: 'deadlyAim', name: 'Deadly Aim', type: 'Untyped (stacks)', v: { rAtk: `-(${PA})`, rDmg: `2*(${PA})` }, text: '' },
+    { preset: 'heroism', name: 'Heroism', type: 'Morale', v: { fort: 2, ref: 2, will: 2, mAtk: 2, rAtk: 2, skills: 2 }, text: '' },
+    { preset: 'haste', name: 'Haste', type: 'Dodge (stacks)', v: { ac: 1, ref: 1, mAtk: 1, rAtk: 1, xMelee: 1, xRanged: 1, ...HASTE_SPEED() }, text: '' },
+    { preset: 'rapidShot', name: 'Rapid Shot', type: 'Untyped (stacks)', v: { rAtk: -2, xRanged: 1 }, text: '' },
+    // Slayer: +1 on weapon attack and damage rolls, +1 more at 5th level and every 5 levels after
+    { preset: 'studiedTarget', name: 'Studied Target', type: 'Untyped (stacks)', v: { mAtk: STUDIED, mDmg: STUDIED, rAtk: STUDIED, rDmg: STUDIED }, text: '' },
+  ];
+  // Haste: +30 ft to each speed you have, at most doubling it
+  function HASTE_SPEED() { return { speed: 'min(30, speed)', fly: 'min(30, fly)', swim: 'min(30, swim)', burrow: 'min(30, burrow)', climb: 'min(30, climb)' }; }
+  function commonEffect(preset, active) {
+    const t = COMMON_EFFECTS.find(x => x.preset === preset);
+    return t ? Object.assign(JSON.parse(JSON.stringify(t)), { id: uid(), active: !!active }) : null;
+  }
+  // Pre-merge saves kept these in ch.toggles; normalize() turns them into effects.
   function defaultToggles() {
     return [
       { id: 'powerAttack', name: 'Power Attack', type: 'Untyped (stacks)', active: false, auto: 'powerAttack', v: {}, text: '' },
@@ -173,10 +192,10 @@
       carry: { strBonus: 0, mult: '', quadruped: false, coins: true },   // Muleback Cords: strBonus 8; Ant Haul: mult 3
       armorNotes: '',
       magicItems: [],           // legacy; moved into effects by normalize()
-      toggles: defaultToggles(),
+      // Common combat effects start in the Effects table, switched off
+      effects: COMMON_EFFECTS.map(t => commonEffect(t.preset, false)),
       conditions: [],      // names from PF_DATA.conditions
       negativeLevels: 0,
-      effects: [],
       spellcasting: {
         className: '', ability: 'wis', classLevelMisc: 0, clMisc: 0, notes: '',
         levels: Array.from({ length: 10 }, () => ({ spells: [], used: 0, perDayOverride: '' })),
@@ -211,13 +230,7 @@
     while (ch.classes.length < 3) ch.classes.push({ name: '', level: 0 });
     // Schema 1 always kept six weapon slots (like the spreadsheet). Drop the empty ones once.
     if ((ch.schema || 1) < 2) { ch.weapons = ch.weapons.filter(w => !isBlankWeapon(w)); ch.schema = 2; }
-    const have = new Set(ch.toggles.map(t => t.id));
-    defaultToggles().forEach(t => { if (!have.has(t.id)) ch.toggles.push(t); });
-    // Older defaults copied from the spreadsheet: a flat melee-only Studied Target, and Heroism adding to Initiative.
-    const st = ch.toggles.find(t => t.id === 'studiedTarget');
-    if (st && JSON.stringify(st.v) === JSON.stringify({ mAtk: 1, mDmg: 1 })) st.v = { mAtk: STUDIED, mDmg: STUDIED, rAtk: STUDIED, rDmg: STUDIED };
-    const he = ch.toggles.find(t => t.id === 'heroism');
-    if (he && String(he.text).trim() === 'Initiative +2') he.text = '';
+    togglesToEffects(ch);
     ch.effects.forEach(e => { if (!e.id) e.id = uid(); if (!e.v) e.v = {}; });
     migrateLegacyTypes(ch);
     magicItemsToEffects(ch);
@@ -244,7 +257,7 @@
       types.forEach((t, i) => out.push(Object.assign({}, e, { id: i === 0 ? e.id : uid(), type: t, v: groups[t], text: i === 0 ? e.text : '' })));
     }
     ch.effects = out;
-    for (const t of ch.toggles) {
+    for (const t of ch.toggles || []) {
       if (t.type !== LEGACY) continue;
       const keys = Object.keys(t.v || {});
       t.type = keys.some(k => ['fort', 'ref', 'will'].includes(k)) ? 'Resistance' : keys.includes('ac') ? 'Deflection' : 'Enhancement';
@@ -252,6 +265,30 @@
     for (const m of ch.magicItems) {
       if (m.type === LEGACY || !m.type) m.type = m.target === 'AC' ? 'Deflection' : m.target === 'NatAC' ? 'Enhancement' : 'Resistance';
     }
+  }
+
+  // Combat toggles used to be a separate table. Move them into the Effects table (at the top), keeping whether
+  // each is on, its type and any edited values; the scaling ones become formulas.
+  function togglesToEffects(ch) {
+    if (!Array.isArray(ch.toggles)) return;
+    const moved = [];
+    for (const t of ch.toggles) {
+      const v = Object.assign({}, t.v || {});
+      const isCustom = /^custom/.test(t.id || '');
+      if (isCustom && !t.active && !Object.keys(v).length && !String(t.text || '').trim() && /^\(Custom Effect/.test(t.name || '')) continue;
+      const tpl = COMMON_EFFECTS.find(x => x.preset === t.id);
+      if (t.id === 'studiedTarget' && JSON.stringify(v) === JSON.stringify({ mAtk: 1, mDmg: 1 })) Object.assign(v, tpl.v);
+      let text = t.text || '';
+      if (t.id === 'heroism' && text.trim() === 'Initiative +2') text = '';
+      if (t.auto === 'powerAttack' || t.auto === 'combatExpertise' || t.auto === 'deadlyAim') Object.assign(v, tpl.v);
+      if (t.auto === 'haste') Object.assign(v, HASTE_SPEED());
+      const name = isCustom && /^\(Custom Effect/.test(t.name || '') ? (t.name || '').replace(/[()]/g, '') : t.name;
+      const e = { id: uid(), name, type: t.type || 'Untyped (stacks)', active: !!t.active, v, text };
+      if (tpl) e.preset = tpl.preset;
+      moved.push(e);
+    }
+    ch.effects = moved.concat(ch.effects || []);
+    delete ch.toggles;
   }
 
   // The spreadsheet had a small "Magic Item or Feature" block (Saves / AC / NatAC). Those are ordinary
@@ -276,6 +313,6 @@
   window.PF_MODEL = {
     ABILITIES, ABILITY_NAMES, ABBR_TO_KEY, EFFECT_COLS, BONUS_TYPES, BONUS_TARGETS, STACKING_TYPES, SIZES, AGE, XP,
     HP_FORMULAS, SKILL_SYSTEMS, SPECIALTY_SKILLS, ITEM_SLOTS, BACKGROUND_QUESTIONS,
-    blankCharacter, blankEffect, blankWeapon, isBlankWeapon, defaultToggles, normalize, uid,
+    blankCharacter, blankEffect, COMMON_EFFECTS, commonEffect, blankWeapon, isBlankWeapon, defaultToggles, normalize, uid,
   };
 })();
