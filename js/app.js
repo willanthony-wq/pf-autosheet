@@ -676,9 +676,9 @@
   // ----- What makes a number: hover or click a Play tile (AC, Touch, CMD, saves...) to see its parts and sources
   const SRC_NAMES = { race: 'race', trait: 'trait', feat: 'feat', feature: 'class feature', worn: 'worn item', misc: 'magic item', effect: 'effect', toggle: 'toggle', item: 'magic item', condition: 'condition' };
   // The named bonuses behind one key (ac, nat, fort...), with the ones that don't stack marked
-  function sourcesOf(key, typeFilter) {
+  function sourcesOf(key, typeFilter, rows) {
     const legacy = t => (t !== 'Deflect/Enhance/Resist' ? t : key === 'ac' ? 'Deflection' : ['fort', 'ref', 'will'].includes(key) ? 'Resistance' : 'Enhancement');
-    const list = (App.d.rows || []).filter(r => r.v && E.isNum(r.v[key])).map(r => ({ name: r.name, src: r.src, type: legacy(r.type || 'Untyped (stacks)'), v: E.n(r.v[key]) }))
+    const list = (rows || App.d.rows || []).filter(r => r.v && E.isNum(r.v[key])).map(r => ({ name: r.name, src: r.src, type: legacy(r.type || 'Untyped (stacks)'), v: E.n(r.v[key]) }))
       .filter(x => x.v !== 0 && (!typeFilter || typeFilter(x.type)));
     // Same-type bonuses that don't stack: only the highest counts
     for (const t of new Set(list.map(x => x.type))) {
@@ -689,7 +689,75 @@
     }
     return list;
   }
+  // A companion's numbers (keys like "c0:ac"), following companion.js
+  function explainComp(ci, key) {
+    const c = App.ch.companions[ci], dc = App.d.companions[ci];
+    if (!c || !dc) return null;
+    const p = dc.ac.parts, rows = dc.rows || [], who = c.name || c.species || c.kind, sg = x => (x >= 0 ? '+' : '') + x;
+    const src = (k, f) => sourcesOf(k, f, rows);
+    const T = k => E.stack(rows, k);
+    const line = (label, value, note, sources) => ({ label, value, note: note || '', sources: sources || [] });
+    const DEFL = t => t === 'Deflection', DODGE = t => t === 'Dodge (stacks)', OTHER = t => !['Armor', 'Deflection', 'Dodge (stacks)'].includes(t);
+    const dexNote = dc.loseDex ? 'loses its Dex bonus (a condition)' : '';
+    const natNote = [E.n(c.natural) ? `creature ${sg(E.n(c.natural))}` : '', dc.natBonus ? `${c.kind.toLowerCase()} bonus ${sg(dc.natBonus)}` : ''].filter(Boolean).join(', ');
+    const acLines = which => {
+      const L = [line('Base', 10)];
+      if (which !== 'touch' && p.armor) L.push(line('Armor', p.armor, E.n(c.armor) ? `armor field ${sg(E.n(c.armor))}` : '', src('ac', t => t === 'Armor')));
+      const dex = which === 'flat' ? Math.min(0, p.dex) : p.dex;
+      L.push(line('Dex', dex, which === 'flat' && p.dex > 0 ? 'no Dex bonus when flat-footed' : dexNote));
+      if (p.size) L.push(line('Size', p.size, dc.size.name));
+      if (which !== 'touch' && p.natural) L.push(line('Natural armor', p.natural, natNote, src('nat')));
+      if (p.deflect) L.push(line('Deflection', p.deflect, '', src('ac', DEFL)));
+      const dodge = which === 'flat' ? Math.min(0, p.dodge) : p.dodge;
+      if (dodge || (p.dodge && which === 'flat')) L.push(line('Dodge', dodge, which === 'flat' && p.dodge > 0 ? 'no dodge bonus when flat-footed' : '', src('ac', DODGE)));
+      if (p.misc) L.push(line('Misc', p.misc, 'Companion tab'));
+      if (p.temp) L.push(line('Other bonuses', p.temp, '', src('ac', OTHER)));
+      return L;
+    };
+    switch (key) {
+      case 'ac': return { title: `${who}: Armor Class`, total: dc.ac.total, lines: acLines('ac') };
+      case 'touch': return { title: `${who}: Touch AC`, total: dc.ac.touch, lines: acLines('touch'), foot: 'Touch attacks ignore armor and natural armor.' };
+      case 'flat': return { title: `${who}: Flat-footed AC`, total: dc.ac.flat, lines: acLines('flat'), foot: 'Flat-footed: no Dex or dodge bonus (penalties still count).' };
+      case 'cmd': {
+        const L = [line('Base', 10), line('BAB', dc.bab), line('Str', dc.mods.str), line('Dex', p.dex, dexNote)];
+        if (dc.size.cmb) L.push(line('Size', dc.size.cmb, dc.size.name));
+        if (p.deflect) L.push(line('Deflection', p.deflect, '', src('ac', DEFL)));
+        if (p.dodge) L.push(line('Dodge', p.dodge, '', src('ac', DODGE)));
+        if (p.temp) L.push(line('Other AC bonuses', p.temp, '', src('ac', OTHER)));
+        if (T('cmd')) L.push(line('CMD bonuses', T('cmd'), '', src('cmd')));
+        return { title: `${who}: CMD`, total: dc.cmd, lines: L };
+      }
+      case 'cmb': {
+        const L = [line('BAB', dc.bab), line('Str', dc.mods.str)];
+        if (dc.size.cmb) L.push(line('Size', dc.size.cmb, dc.size.name));
+        if (T('mAtk')) L.push(line('Melee attack bonuses', T('mAtk'), '', src('mAtk')));
+        if (T('cmb')) L.push(line('CMB bonuses', T('cmb'), '', src('cmb')));
+        return { title: `${who}: CMB`, total: dc.cmb, lines: L };
+      }
+      case 'init': {
+        const L = [line('Dex', dc.mods.dex)];
+        if (E.n(c.initMisc)) L.push(line('Misc', E.n(c.initMisc), 'Companion tab'));
+        const rest = dc.init - dc.mods.dex - E.n(c.initMisc);
+        if (rest) {
+          const fromText = rows.filter(r => /initiative/i.test(r.text || '') && E.firstNumber(r.text)).map(r => ({ name: r.name, src: r.src, type: r.type || '', v: E.firstNumber(r.text) }));
+          L.push(line('Bonuses', rest, '', src('init').concat(fromText)));
+        }
+        return { title: `${who}: Initiative`, total: dc.init, lines: L };
+      }
+      case 'fort': case 'ref': case 'will': {
+        const s = dc.saves[key], ab = { fort: 'Con', ref: 'Dex', will: 'Wis' }[key];
+        const baseNote = c.kind === 'Familiar' ? 'its own or yours, whichever is better' : c.kind === 'Other' ? `${dc.hd} HD` : `${c.kind} table, ${dc.hd} HD`;
+        const L = [line('Base', s.base, baseNote), line(ab, s.ability)];
+        if (s.misc) L.push(line('Misc', s.misc, 'Companion tab'));
+        if (s.bonus) L.push(line('Bonuses', s.bonus, '', src(key)));
+        return { title: `${who}: ${{ fort: 'Fortitude', ref: 'Reflex', will: 'Will' }[key]} save`, total: s.total, lines: L };
+      }
+    }
+    return null;
+  }
   function explainParts(key) {
+    const cm = String(key).match(/^c(\d+):(.+)$/);
+    if (cm) return explainComp(+cm[1], cm[2]);
     const d = App.d, ch = App.ch, p = d.ac.parts, sg = x => (x >= 0 ? '+' : '') + x;
     const DEFL = t => t === 'Deflection', DODGE = t => t === 'Dodge (stacks)', OTHER = t => !['Armor', 'Enhancement', 'Deflection', 'Dodge (stacks)'].includes(t);
     const line = (label, value, note, sources) => ({ label, value, note: note || '', sources: sources || [] });
@@ -1050,7 +1118,9 @@
           <span class="inline" style="flex-wrap:nowrap"><button class="btn small primary" data-action="comp-attack" data-c="${ci}" data-i="${i}" data-mode="full">Roll</button><button class="btn small" data-action="comp-attack" data-c="${ci}" data-i="${i}" data-mode="damage">Dmg</button></span></div>`).join('');
       const skills = c.skills.filter(s => s.name).map(s => { const i = c.skills.indexOf(s); return `<div class="skill-cell"><span>${esc(s.name)}</span>${rollBtn(s.name, `${dp}/skills/${i}/total`, { who })}</div>`; }).join('');
       const res = c.resources.map((r, i) => `<div class="play-res"><span>${esc(r.name || 'Resource')}</span><span class="counter"><button class="btn small" data-action="bump" data-path="companions/${ci}/resources/${i}/uses" data-d="-1">−</button><strong>${esc(r.uses === '' || r.uses === undefined ? 0 : r.uses)}</strong>${r.max !== '' && r.max !== undefined ? `<span class="muted">/ ${esc(r.max)}</span>` : ''}<button class="btn small" data-action="bump" data-path="companions/${ci}/resources/${i}/uses" data-d="1">+</button></span></div>`).join('');
-      const save = (k, l) => `<div class="save-btn"><span class="label">${l}</span>${rollBtn(l + ' save', `${dp}/saves/${k}/total`, { who })}</div>`;
+      const ex = k => `data-explain="c${ci}:${k}" tabindex="0"`, xi = ' <span class="explain-i" aria-hidden="true">ⓘ</span>';
+      const save = (k, l) => `<div class="save-btn explain" ${ex(k)} aria-label="${l} save: show what makes this number"><span class="label">${l}${xi}</span>${rollBtn(l + ' save', `${dp}/saves/${k}/total`, { who })}</div>`;
+      const xTile = (l, v, k) => `<div class="tile explain" ${ex(k)} aria-label="${l}: show what makes this number"><div class="label">${l}${xi}</div><div class="value">${v}</div></div>`;
       const fp = foldParts('comp:' + (c.id || ci), `${esc(dc.hp.current)} / ${esc(dc.hp.max)} HP · AC ${esc(dc.ac.total)}`);
       return `<section class="card span-all comp-card${fp.cls}"><header>${fp.btn}<h2${fp.h2}>${esc(c.name || c.species || c.kind)}</h2><span class="muted small">${esc(sub)}</span>${fp.sum}<span class="spacer"></span>
           <button class="btn small ghost" data-action="comp-edit" data-c="${ci}">Edit</button></header>
@@ -1060,11 +1130,11 @@
             <div class="inline"><input type="number" id="comp-hp-amt-${ci}" class="n-wide" placeholder="amt" aria-label="Amount">
               <button class="btn small" data-action="comp-hp" data-c="${ci}" data-mode="damage">Damage</button><button class="btn small" data-action="comp-hp" data-c="${ci}" data-mode="heal">Heal</button></div>
             <div class="tiles play-tiles" style="margin-top:8px">
-              <div class="tile"><div class="label">AC</div><div class="value">${dc.ac.total}</div></div><div class="tile"><div class="label">Touch</div><div class="value">${dc.ac.touch}</div></div>
-              <div class="tile"><div class="label">Flat</div><div class="value">${dc.ac.flat}</div></div><div class="tile"><div class="label">CMD</div><div class="value">${dc.cmd}</div></div></div>
+              ${xTile('AC', dc.ac.total, 'ac')}${xTile('Touch', dc.ac.touch, 'touch')}
+              ${xTile('Flat', dc.ac.flat, 'flat')}${xTile('CMD', dc.cmd, 'cmd')}</div>
             ${c.dr ? `<p class="small muted">${esc(c.dr)}</p>` : ''}</div>
           <div><div class="save-row">${save('fort', 'Fort')}${save('ref', 'Reflex')}${save('will', 'Will')}</div>
-            <div class="inline" style="margin-top:8px"><span class="small">Init</span>${rollBtn('Initiative', `${dp}/init`, { who })}<span class="small">CMB</span>${rollBtn('Combat maneuver', `${dp}/cmb`, { who })}</div>
+            <div class="inline" style="margin-top:8px"><span class="inline explain" ${ex('init')} aria-label="Initiative: show what makes this number"><span class="small">Init${xi}</span>${rollBtn('Initiative', `${dp}/init`, { who })}</span><span class="inline explain" ${ex('cmb')} aria-label="CMB: show what makes this number"><span class="small">CMB${xi}</span>${rollBtn('Combat maneuver', `${dp}/cmb`, { who })}</span></div>
             <div class="chips" style="margin-top:8px"><label class="chip${c.powerAttack ? ' on' : ''}"><input type="checkbox" data-bind="companions/${ci}/powerAttack" data-type="bool" data-rerender${c.powerAttack ? ' checked' : ''}>Power Attack</label>
               ${c.buffs.map((b, bi) => `<label class="chip${b.active ? ' on' : ''}" title="Buff (Companion tab)"><input type="checkbox" data-bind="companions/${ci}/buffs/${bi}/active" data-type="bool" data-rerender${b.active ? ' checked' : ''}>${esc(b.name || 'Buff')}</label>`).join('')}${situationalChips(situationalGroups(compSituationalLists(ci)))}</div>
             <div class="chips" style="margin-top:6px">${c.conditions.map(nm => `<button class="chip cond on" data-action="comp-toggle-condition" data-c="${ci}" data-name="${esc(nm)}" title="Click to remove">${esc(nm)} ✕</button>`).join('')}
