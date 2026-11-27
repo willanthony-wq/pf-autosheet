@@ -208,7 +208,7 @@
       <p class="muted">A web version of the Pathfinder Autosheet v6.2.1, with dice rolls sent to Discord.</p>
       <p><button class="btn primary" data-action="new-char">New character</button>
       <button class="btn" data-action="import">Import a character</button></p>
-      <div class="drop-zone" id="drop-zone" data-action="import">Drop an Autosheet <span class="kbd">.xlsx</span> or a saved <span class="kbd">.json</span> here</div>
+      <div class="drop-zone" id="drop-zone" data-action="import">Drop an Autosheet <span class="kbd">.xlsx</span>, a Hero Lab portfolio <span class="kbd">.por</span> or a saved <span class="kbd">.json</span> here</div>
       <p class="small muted">In Google Sheets, open your character and choose File → Download → Microsoft Excel (.xlsx).</p>
     </div>`;
   }
@@ -1463,13 +1463,29 @@
   async function importFile(file) {
     try {
       let ch, warnings = [];
+      if (/\.(por|xml)$/i.test(file.name)) {
+        // Hero Lab: a portfolio can hold several characters; each becomes its own character here
+        if (!window.PF_HEROLAB) throw new Error('The Hero Lab importer did not load. Reload the page.');
+        const results = window.PF_HEROLAB.importHeroLab(await file.arrayBuffer(), file.name);
+        if (App.ch) saveNow();
+        App.tab = 'play';
+        for (const r of results) {
+          if (!r.character.id || App.roster.ids.includes(r.character.id)) r.character.id = M.uid();
+          adoptCharacter(r.character);
+        }
+        const last = results[results.length - 1];
+        showImportResult(last.character, results.length > 1
+          ? [`Imported ${results.length} characters: ${results.map(r => r.character.info.name).join(', ')}. Notes for the last one:`].concat(last.warnings)
+          : last.warnings, 'Hero Lab');
+        return;
+      }
       if (/\.json$/i.test(file.name)) {
         ch = JSON.parse(await file.text());
         if (!ch || !ch.info || !ch.abilities) throw new Error('That JSON file is not a character exported from this sheet.');
       } else if (/\.xlsx$/i.test(file.name)) {
         const res = window.PF_IMPORT.importXlsxBuffer(await file.arrayBuffer());
         ch = res.character; warnings = res.warnings;
-      } else throw new Error('Choose a .xlsx (Google Sheets download) or a .json file exported from this sheet.');
+      } else throw new Error('Choose a .xlsx (Google Sheets download), a Hero Lab portfolio (.por) or a .json file exported from this sheet.');
       if (App.ch) saveNow();
       if (!ch.id || App.roster.ids.includes(ch.id)) ch.id = M.uid();
       App.tab = 'play';
@@ -1480,11 +1496,11 @@
       alert('Import failed: ' + err.message);
     }
   }
-  function showImportResult(ch, warnings) {
+  function showImportResult(ch, warnings, from) {
     const dlg = $('#import-dialog');
     $('#import-body').innerHTML = `<p>Imported <strong>${esc(ch.info.name || 'character')}</strong>.</p>` +
       (warnings.length ? `<p>Check these:</p><ul class="warn-list">${warnings.map(w => `<li>${esc(w)}</li>`).join('')}</ul>` : '<p class="muted">No problems found.</p>') +
-      `<p class="small muted">Compare a few totals (AC, saves, attacks) with your spreadsheet. Notes and formatting the importer doesn't recognize are left out.</p>`;
+      `<p class="small muted">Compare a few totals (AC, saves, attacks) with your ${from === 'Hero Lab' ? 'Hero Lab character' : 'spreadsheet'}. Notes and formatting the importer doesn't recognize are left out.</p>`;
     dlg.showModal();
   }
   function hpAction(mode) {

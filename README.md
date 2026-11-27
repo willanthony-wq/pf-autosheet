@@ -45,6 +45,14 @@ When the import finishes, a dialog lists anything that needs checking.
 
 Tested against three real character sheets, including one with a custom class and inserted rows. Every checked value matches the spreadsheet: ability scores, HP, saves, AC, CMD, initiative, skill totals, attacks, damage, speed, spells per day and caster level.
 
+## Importing from Hero Lab
+
+Click **Import** (or drag the file onto the page) and choose a Hero Lab portfolio (`.por`, in *Documents/Hero Lab/portfolios/pathfinder*) or a Hero Lab XML export. Every character in the portfolio is imported.
+
+It brings over identity, classes, ability scores, skills (ranks and class skills), feats with their text, class abilities with their text, traits, weapons (dice, crit, range, attack type), armor and shield, worn magic items in their slots with their bonuses, other gear with weights and prices, money, tracked resources, damage reduction, languages and the character's description. A barbarian also gets a **Rage** effect to switch on.
+
+After importing, the sheet compares its own totals with Hero Lab's (abilities, HP, saves, AC, initiative, every attack and skill). Anything that doesn't match, such as an oversized weapon or favored-class HP, becomes a misc adjustment, and the import dialog lists each one so you can check it. Companions and spells' details (dice, buffs) aren't imported; spells come in by name, and autofill fills in the rest when you edit them.
+
 ## Discord rolls
 
 1. In Discord: **Server Settings → Integrations → Webhooks → New Webhook**. Choose the channel and copy the webhook URL.
@@ -130,6 +138,7 @@ Not ported:
 | `js/companion.js` | Companion rules (animal companion, eidolon, familiar tables) and calculations |
 | `js/engine.js` | Calculations: a port of the sheet's formulas |
 | `js/import.js` | `.xlsx` importer |
+| `js/herolab.js` | Hero Lab portfolio (`.por`) and XML importer |
 | `js/dice.js` | Dice expressions, checks, crits |
 | `js/discord.js` | Webhook posting |
 | `js/srd.js` | Loads the rules data and looks up names for autofill |
