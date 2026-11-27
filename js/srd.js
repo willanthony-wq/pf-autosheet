@@ -1,5 +1,6 @@
 // Pathfinder Reference Document lookups (Open Game Content, see OGL.txt).
 // Data files in data/srd/ are built by tools/build_srd.py and loaded only when a tab needs them.
+// Third-party material (data/3pp/, e.g. the Machinesmith) is added after the SRD's own entries.
 (() => {
   'use strict';
   const KINDS = ['feats', 'traits', 'spells', 'items', 'gear', 'weapons', 'armor', 'classes', 'archetypes', 'choices', 'races'];
@@ -8,15 +9,21 @@
 
   const CUSTOM = '(Custom)', USE_SRD = '(Use SRD list)';
   const key = s => String(s || '').toLowerCase().replace(/[’‘]/g, "'").replace(/\s+/g, ' ').trim();
+  const THIRD_PARTY = ['classes', 'archetypes', 'choices', 'spells'];
+  // Other spellings of a class name (spreadsheets often write "Machine Smith")
+  const CLASS_ALIAS = { 'machine smith': 'machinesmith', 'machine-smith': 'machinesmith' };
+  const alias = k => CLASS_ALIAS[k] || k;
+  const asList = raw => (Array.isArray(raw) ? raw : Object.values(raw || {}));
 
   function load(kind) {
     if (cache[kind]) return Promise.resolve(cache[kind]);
     if (!pending[kind]) {
-      pending[kind] = fetch(`data/srd/${kind}.json?v=${ver}`).then(r => {
-        if (!r.ok) throw new Error(`${kind}: ${r.status}`);
+      const get = (dir, optional) => fetch(`data/${dir}/${kind}.json?v=${ver}`).then(r => {
+        if (!r.ok) { if (optional) return []; throw new Error(`${kind}: ${r.status}`); }
         return r.json();
-      }).then(raw => {
-        const list = Array.isArray(raw) ? raw : Object.values(raw);
+      }).catch(err => { if (optional) return []; throw err; });
+      pending[kind] = Promise.all([get('srd'), THIRD_PARTY.includes(kind) ? get('3pp', true) : []]).then(([raw, extra]) => {
+        const list = asList(raw).concat(asList(extra));
         const map = new Map();
         list.forEach(x => { const k = key(x.n); if (!map.has(k)) map.set(k, x); });
         cache[kind] = { list, map };
@@ -126,7 +133,7 @@
   function classFeatures(className, level) {
     const c = cache.classes;
     if (!c) return null;
-    const cls = c.map.get(key(className)) || c.map.get(key(String(className).replace(/\s*\(.*\)\s*$/, '')));
+    const cls = c.map.get(alias(key(className))) || c.map.get(alias(key(String(className).replace(/\s*\(.*\)\s*$/, ''))));
     if (!cls) return null;
     const byBase = new Map();
     cls.levels.slice(0, Math.max(0, level)).forEach((feats, li) => feats.forEach(f => {
@@ -147,7 +154,7 @@
     })) };
   }
   // Archetypes of a class ("Paladin" or "Paladin (Hospitaler)" -> paladin's list), and one by name
-  const classKey = n => key(String(n || '').replace(/\s*\(.*\)\s*$/, ''));
+  const classKey = n => alias(key(String(n || '').replace(/\s*\(.*\)\s*$/, '')));
   function archetypesFor(className) {
     const c = cache.archetypes;
     return c ? c.list.filter(a => a.c === classKey(className)).sort((x, y) => x.n.localeCompare(y.n)) : [];
@@ -171,7 +178,7 @@
     const c = cache.classes;
     if (!c) return '';
     const k = key(name).replace(/\s*[+−-]?\d.*$/, '').replace(/\s*\(.*\)$/, '').trim();
-    const order = (classNames || []).map(n => c.map.get(key(n)) || c.map.get(key(String(n).replace(/\s*\(.*\)\s*$/, '')))).filter(Boolean).concat(c.list);
+    const order = (classNames || []).map(n => c.map.get(alias(key(n))) || c.map.get(classKey(n))).filter(Boolean).concat(c.list);
     for (const cls of order) {
       const hit = cls.f[k] || cls.f[k.replace(/s$/, '')];
       if (hit) return hit.d;

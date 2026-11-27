@@ -145,6 +145,7 @@
       ? [{ target: 'speed', value: 'floor(monk/3)*10', type: U, text: 'Only without armor or a medium/heavy load' }]
       : [{ target: 'speed', value: 10, type: U, text: 'Not in heavy armor or with a heavy load' }]],
     ['bravery', (n, cls) => [sit('will', `max(1, floor((${cls || 'fighter'} + 2) / 4))`, U, 'Against fear')]],
+    ['crafter', (n, cls) => [{ target: 'skill', skill: 'Craft:', value: `max(1, floor(${cls || 'machinesmith'} / 2))`, type: U }]],
     ['trapfinding', (n, cls) => note(`+1/2 ${cls || 'rogue'} level (min +1) on Perception to find traps and on Disable Device`)],
     ['trap sense', (n, cls) => [sit('ref', `max(1, floor(${cls || 'rogue'} / 3))`, U, 'Against traps'), sit('ac', `max(1, floor(${cls || 'rogue'} / 3))`, 'Dodge (stacks)', 'Against traps')]],
     ['danger sense', () => note('Bonus on Reflex saves and AC against traps, and on Perception to avoid surprise')],

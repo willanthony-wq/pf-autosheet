@@ -2623,6 +2623,9 @@
       const add = (name, text, src) => {
         wanted.add(src);
         if (list.some(x => x.src === src)) return;
+        // A feature you typed yourself with the same name (e.g. from a spreadsheet): tag it instead of adding a copy
+        const mine = list.find(x => !x.src && featureKey(x.name) === featureKey(name));
+        if (mine) { mine.src = src; if (!String(mine.text || '').trim()) mine.text = text; return; }
         list.push(make(name, text, src, c.name));
         res.added++;
       };
@@ -2906,7 +2909,7 @@
   // ---------- Boot ----------
   // Every script defines one of these. One can go missing when the browser mixes cached old files with new
   // ones right after an update; a hard reload fixes it.
-  const PARTS = { PF_DATA: 'data.js', PF_ATTACK_GROUP: 'attacks-extra.js', PF_MODEL: 'model.js', PF_RACES: 'races.js', PF_COMPANION: 'companion.js',
+  const PARTS = { PF_DATA: 'data.js', PF_3PP: 'classes-3pp.js', PF_ATTACK_GROUP: 'attacks-extra.js', PF_MODEL: 'model.js', PF_RACES: 'races.js', PF_COMPANION: 'companion.js',
     PF_FEATS: 'feats.js', PF_ENGINE: 'engine.js', PF_HEROLAB: 'herolab.js', PF_IMPORT: 'import.js', PF_DICE: 'dice.js', PF_DISCORD: 'discord.js', PF_SRD: 'srd.js' };
   function missingParts() { return Object.keys(PARTS).filter(k => !window[k]).map(k => PARTS[k]); }
   function boot() {
