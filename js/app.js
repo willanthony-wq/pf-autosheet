@@ -1796,7 +1796,7 @@
           const r = DICE.check(b);
           line += ` touch **${r.total}** (d20 ${r.nat} ${DICE.signed(b)})`;
           if (r.nat === 1) { line += ' natural 1, miss'; miss = true; }
-          else if (r.nat === 20) { const c2 = DICE.check(b); critOn = c2.nat !== 1; line += critOn ? ` **critical!** confirm ${c2.total} (d20 ${c2.nat}) vs. touch AC` : ` threat, but the confirmation is a natural 1`; crit = crit || critOn; }
+          else if (r.nat === 20) { const c2 = DICE.check(b); critOn = true; crit = true; line += ` threat! confirm ${c2.total} (d20 ${c2.nat})`; }
         }
         if (s.dmgDie && !miss) line += (s.attack ? ' ·' : '') + spellDamage(count, bonus, critOn, n => { total += n; });
         lines.push(line);
@@ -1811,7 +1811,7 @@
       const r = DICE.check(b);
       let line = `**${s.attack === 'rtouch' ? 'Ranged' : 'Melee'} touch: ${r.total}** (d20 ${r.nat} ${DICE.signed(b)})`;
       if (r.nat === 1) { line += ' natural 1, miss'; fumble = true; }
-      else if (r.nat === 20) { const c2 = DICE.check(b); threat = c2.nat !== 1; crit = threat; line += threat ? ` **critical!** confirm ${c2.total} (d20 ${c2.nat}) vs. touch AC` : ' threat, but the confirmation is a natural 1'; }
+      else if (r.nat === 20) { const c2 = DICE.check(b); line += ` threat! confirm ${c2.total} (d20 ${c2.nat})`; crit = threat = true; }
       lines.push(line);
     }
     if (s.dmgDie && !fumble) {
@@ -1825,26 +1825,21 @@
         lines.push(`**Temporary HP: ${r.total}** (${r.text})${tn ? ' → ' + tn : ''}`);
         return finishCast(s, dcv, ctx, lines, total, crit, fumble);
       }
-      let line;
-      if (threat && !s.healing) {
-        // Critical hit: dice rolled twice; the normal roll stays visible in case the confirmation misses
-        const c2 = DICE.damage(`${count}d${s.dmgDie}`, bonus, 2);
-        total = c2.total;
-        line = `**Critical damage: ${c2.total}** (x2: ${c2.text})${s.dmgType ? ' ' + s.dmgType : ''} · if the confirmation misses: ${r.total} (${r.text})`;
-      } else line = `**${s.healing ? 'Healing' : 'Damage'}: ${r.total}** (${r.text})${!s.healing && s.dmgType ? ' ' + s.dmgType : ''}`;
+      let line = `**${s.healing ? 'Healing' : 'Damage'}: ${r.total}** (${r.text})${!s.healing && s.dmgType ? ' ' + s.dmgType : ''}`;
+      // Like a weapon: a threat still has to be confirmed, so the critical damage is shown for when it is
+      if (threat && !s.healing) { const c2 = DICE.damage(`${count}d${s.dmgDie}`, bonus, 2); line += ` · if confirmed: **${c2.total}** (x2: ${c2.text})`; }
       lines.push(line);
     }
     return finishCast(s, dcv, ctx, lines, total, crit, fumble);
   }
-  // One ray's or missile's damage text; a critical doubles the dice and keeps the normal roll for a missed confirmation
-  function spellDamage(count, bonus, critOn, addTotal) {
+  // One ray's or missile's damage text. Like a weapon: on a threat the critical damage (dice rolled twice) is shown for if it's confirmed.
+  function spellDamage(count, bonus, threat, addTotal) {
     const s = spellDamage.spell;
     const normal = DICE.damage(`${count}d${s.dmgDie}`, bonus, 1);
-    const type = s.dmgType ? ' ' + s.dmgType : '';
-    if (!critOn) { addTotal(normal.total); return ` damage **${normal.total}** (${normal.text})${type}`; }
-    const c2 = DICE.damage(`${count}d${s.dmgDie}`, bonus, 2);
-    addTotal(c2.total);
-    return ` **critical damage ${c2.total}** (x2: ${c2.text})${type} · if the confirmation misses: ${normal.total}`;
+    addTotal(normal.total);
+    let out = ` dmg **${normal.total}** (${normal.text})${s.dmgType ? ' ' + s.dmgType : ''}`;
+    if (threat) { const c2 = DICE.damage(`${count}d${s.dmgDie}`, bonus, 2); out += ` · if confirmed: **${c2.total}** (x2: ${c2.text})`; }
+    return out;
   }
   function finishCast(s, dcv, ctx, lines, total, crit, fumble) {
     if (s.save) lines.push(`Save: ${s.save}${dcv !== null && dcv !== undefined ? ', DC ' + dcv : ''}`);
