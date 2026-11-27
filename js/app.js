@@ -1127,7 +1127,8 @@
           <button class="btn small" data-action="add-spell" data-l="${L}">+ Spell</button></header>
         ${rows || '<p class="small muted" style="margin:0">No spells listed.</p>'}</div>`;
     }).join('');
-    const levels = card('Spells', `<div class="grid two">${blocks || '<p class="muted">Pick a casting class above, or tick "Show all levels".</p>'}</div>`, { cls: 'span-2' });
+    const levels = card('Spells', `<div class="grid two">${blocks || '<p class="muted">Pick a casting class above, or tick "Show all levels".</p>'}</div>`,
+      { cls: 'span-2', tools: `<button class="btn small ghost" data-action="srd-fill-spells" title="Sets up dice, saves, durations, touch attacks and buffs from the SRD for spells and spell-like abilities that don't have them. Nothing you've set is overwritten.">Fill in from SRD</button>` });
 
     const sla = card('Spell-like Abilities', sc.sla.map((g, gi) => `<h3 style="margin:8px 0 4px">${esc(g.label)}</h3>
       ${g.items.map((it, i) => {
@@ -1445,6 +1446,7 @@
       },
       'jump': () => jumpToField(el.dataset.tab, el.dataset.focus),
       'srd-class-features': () => addClassFeatures(),
+      'srd-fill-spells': () => fillSpellsFromSrd().then(n => { if (n) changed(true); toast(n ? `Set up ${n} spell${n === 1 ? '' : 's'} from the SRD.` : 'Every spell the SRD knows is already set up.'); }),
       'remove-choice': () => { const c = App.ch.classes[+el.dataset.i]; const gone = (c.choices || []).splice(+el.dataset.k, 1)[0]; if (gone) c.choices = c.choices.filter(x => x.parent !== gone.n); changed(true); },
       'remove-archetype': () => { const c = App.ch.classes[+el.dataset.i]; (c.archetypes || []).splice(+el.dataset.k, 1); changed(true); },
       'sort-worn': () => sortWornItems(),
@@ -1563,6 +1565,8 @@
         for (const r of results) {
           if (!r.character.id || App.roster.ids.includes(r.character.id)) r.character.id = M.uid();
           adoptCharacter(r.character);
+          const n = await fillSpellsFromSrd();
+          if (n) { r.warnings.push(`Set up ${n} spell${n === 1 ? '' : 's'} from the SRD (dice, saves, touch attacks, buffs).`); changed(false); saveNow(); }
         }
         const last = results[results.length - 1];
         showImportResult(last.character, results.length > 1
@@ -1581,6 +1585,10 @@
       if (!ch.id || App.roster.ids.includes(ch.id)) ch.id = M.uid();
       App.tab = 'play';
       adoptCharacter(ch);
+      if (!/\.json$/i.test(file.name)) {
+        const n = await fillSpellsFromSrd();
+        if (n) { warnings.push(`Set up ${n} spell${n === 1 ? '' : 's'} from the SRD (dice, saves, touch attacks, buffs).`); changed(false); saveNow(); }
+      }
       showImportResult(ch, warnings);
     } catch (err) {
       console.error(err);
@@ -1685,7 +1693,7 @@
   function spellSummary(s) {
     const bits = [];
     if (s.attack) bits.push(s.attack === 'rtouch' ? 'ranged touch' : 'melee touch');
-    if (s.dmgDie) bits.push(`${String(s.dmgCount || '1').trim()}d${s.dmgDie}${s.dmgBonus ? ' + ' + s.dmgBonus : ''}${s.tempHp ? ' temp HP' : s.healing ? ' healing' : s.dmgType ? ' ' + s.dmgType : ''}`);
+    if (s.dmgDie) bits.push(`${String(s.dmgCount || '1').trim()}d${s.dmgDie}${s.dmgBonus ? ' + ' + s.dmgBonus : ''}${s.tempHp ? ' temp HP' : s.healing ? ' healing' : s.dmgType ? ' ' + s.dmgType : ''}${s.rays && String(s.rays).trim() && String(s.rays).trim() !== '1' ? ' per ray' : ''}`);
     if (s.save) bits.push(s.save);
     if (s.buff && s.buff.on) bits.push('buff' + (s.buff.target && s.buff.target !== 'self' ? ' → ' + targetName(s.buff.target) : ''));
     return bits.join(' · ');
@@ -1712,6 +1720,7 @@
         ${sla ? field('Caster level', fc(`${p}/cl`, (opts.clPh || 'yours (' + App.d.spells.cl + ')'), (opts.clTitle || 'Blank = your caster level. Racial abilities often use your character level: type level'))) + field('Save DC', fc(`${p}/dc`, 'e.g. 10 + 2 + cha', 'Usually 10 + spell level + Cha modifier; blank = no DC')) : ''}
         ${field('Attack roll', sel(`${p}/attack`, [{ v: 'rtouch', l: 'Ranged touch' }, { v: 'mtouch', l: 'Melee touch' }], { blank: 'None', rerender: true }))}
         ${field('Dice count', fc(`${p}/dmgCount`, 'e.g. min(cl, 5)'))}
+        ${field('Rays / missiles', fc(`${p}/rays`, '1', 'How many rays or missiles; each rolls its own attack and damage. e.g. min(3, 1 + floor((cl - 3) / 4)) for scorching ray'))}
         ${field('Die', sel(`${p}/dmgDie`, [4, 6, 8, 10, 12, 20].map(x => ({ v: x, l: 'd' + x })), { blank: 'no dice', type: 'num', rerender: true }))}
         ${field('Bonus', fc(`${p}/dmgBonus`, 'e.g. min(cl, 5)'))}
         ${field('Damage type', inp(`${p}/dmgType`, { ph: 'fire, positive…' }))}
@@ -1770,6 +1779,35 @@
     const V = Object.assign({}, ctx.vars || d.formulaVars, { cl });
     const lines = [header];
     let total = null, crit = false, fumble = false, threat = false;
+    // Several rays or missiles: each gets its own attack (and crit check) and damage
+    const rays = String(s.rays || '').trim() ? Math.max(1, Math.min(20, E.evalBonus(String(s.rays), V) || 1)) : 1;
+    if (rays > 1 && !s.tempHp && !s.healing) {
+      const b = s.attack === 'rtouch'
+        ? (ctx.touchRanged !== undefined ? ctx.touchRanged : d.bab + d.mods.dex + d.size.atk + d.effectTotals.rAtk)
+        : (ctx.touchMelee !== undefined ? ctx.touchMelee : d.bab + d.mods.str + d.size.atk + d.effectTotals.mAtk);
+      const count = Math.max(1, E.evalBonus(String(s.dmgCount || '1'), V) || 1);
+      const bonus = E.evalBonus(s.dmgBonus || 0, V) || 0;
+      const what = s.attack ? 'Ray' : 'Missile';
+      total = 0;
+      for (let i = 1; i <= rays; i++) {
+        let line = `**${what} ${i}:**`, miss = false, thr = false;
+        if (s.attack) {
+          const r = DICE.check(b);
+          line += ` touch **${r.total}** (d20 ${r.nat} ${DICE.signed(b)})`;
+          if (r.nat === 1) { line += ' natural 1, miss'; miss = true; }
+          else if (r.nat === 20) { const c2 = DICE.check(b); line += ` threat! confirm ${c2.total} (d20 ${c2.nat})`; thr = crit = true; }
+        }
+        if (s.dmgDie && !miss) {
+          const r = DICE.damage(`${count}d${s.dmgDie}`, bonus, 1);
+          total += r.total;
+          line += `${s.attack ? ' ·' : ''} damage **${r.total}** (${r.text})${s.dmgType ? ' ' + s.dmgType : ''}`;
+          if (thr) { const c2 = DICE.damage(`${count}d${s.dmgDie}`, bonus, 2); line += ` · if confirmed: **${c2.total}**`; }
+        }
+        lines.push(line);
+      }
+      if (s.dmgDie) lines.push(`Total if all ${s.attack ? 'hit' : 'strike one target'}: **${total}**`);
+      return finishCast(s, dcv, ctx, lines, total, crit, false);
+    }
     if (s.attack) {
       const b = s.attack === 'rtouch'
         ? (ctx.touchRanged !== undefined ? ctx.touchRanged : d.bab + d.mods.dex + d.size.atk + d.effectTotals.rAtk)
@@ -1823,7 +1861,8 @@
     'aid': { dmgCount: '1', dmgDie: 8, dmgBonus: 'min(cl, 10)', tempHp: true },
     'false life': { dmgCount: '1', dmgDie: 10, dmgBonus: 'min(cl, 10)', tempHp: true },
     "heroes' feast": { dmgCount: '1', dmgDie: 8, dmgBonus: 'min(floor(cl/2), 10)', tempHp: true },
-    'magic missile': { dmgCount: 'min(floor((cl+1)/2), 5)', dmgDie: 4, dmgBonus: 'min(floor((cl+1)/2), 5)', dmgType: 'force' },
+    'magic missile': { rays: 'min(5, floor((cl + 1) / 2))', dmgCount: '1', dmgDie: 4, dmgBonus: '1', dmgType: 'force' },
+    'scorching ray': { rays: 'min(3, 1 + floor((cl - 3) / 4))', dmgCount: '4', dmgDie: 6, dmgType: 'fire', attack: 'rtouch' },
   };
   function spellDiceFor(name) {
     const x = SPELL_DICE[String(name || '').trim().toLowerCase().replace(/[’]/g, "'")];
@@ -1832,9 +1871,12 @@
   // Fill blank dice fields from SPELL_DICE; returns how many fields were set.
   function applySpellDice(s) {
     const x = spellDiceFor(s.name);
-    if (!x || !blankish(s.dmgDie)) return 0;
+    if (!x) return 0;
     let c = 0;
-    for (const k of Object.keys(x)) if (blankish(s[k]) || s[k] === false) { s[k] = x[k]; c++; }
+    // The ray count can be added to a spell that already has its dice; the dice only when they're blank
+    if (x.rays && blankish(s.rays)) { s.rays = x.rays; c++; }
+    if (!blankish(s.dmgDie)) return c;
+    for (const k of Object.keys(x)) if (k !== 'rays' && (blankish(s[k]) || s[k] === false)) { s[k] = x[k]; c++; }
     return c;
   }
   // A companion's spell or ability: its HD as caster level unless set, its own touch attack and modifiers.
@@ -1955,6 +1997,23 @@
     { re: /^(spellcasting\/levels\/\d+\/spells|spellcasting\/sla\/\d+\/items|companions\/\d+\/spells)\/\d+\/name$/, kinds: ['spells'], fill: fillSpell },
   ];
   function srdRule(path) { return SRD ? SRD_RULES.find(r => r.re.test(path)) : null; }
+  // Set up every spell and spell-like ability (yours and companions') that hasn't been set up from the SRD yet
+  async function fillSpellsFromSrd() {
+    if (!SRD || !App.ch) return 0;
+    await SRD.load('spells');
+    const paths = [];
+    App.ch.spellcasting.levels.forEach((l, L) => l.spells.forEach((s, i) => paths.push(`spellcasting/levels/${L}/spells/${i}/name`)));
+    App.ch.spellcasting.sla.forEach((g, gi) => g.items.forEach((s, i) => paths.push(`spellcasting/sla/${gi}/items/${i}/name`)));
+    (App.ch.companions || []).forEach((c, ci) => (c.spells || []).forEach((s, i) => paths.push(`companions/${ci}/spells/${i}/name`)));
+    let n = 0;
+    for (const p of paths) {
+      if (await srdAutofill(p, true)) { n++; continue; }
+      // Spells set up before ray counts existed (scorching ray, magic missile) still get one
+      const s = pathGet(App.ch, p.replace(/\/name$/, ''));
+      if (s && applySpellDice(s)) n++;
+    }
+    return n;
+  }
   // Usual bonuses for a feat or trait (Toughness, Iron Will, Reactionary...), only when it has none yet.
   function standardBonuses(o, kind, name) {
     if ((o.bonuses || []).length) return 0;
@@ -1979,7 +2038,7 @@
     delete obj.srdFill;
     return c;
   }
-  async function srdAutofill(path) {
+  async function srdAutofill(path, quiet) {
     const rule = srdRule(path);
     if (!rule) return 0;
     const parts = path.split('/'); const field = parts.pop();
@@ -2012,7 +2071,7 @@
       if (JSON.stringify(before[k]) !== JSON.stringify(obj[k])) vals[k] = JSON.parse(JSON.stringify(obj[k] === undefined ? null : obj[k]));
     }
     if (Object.keys(vals).length) obj.srdFill = { n: it.n, typed: String(obj[field]), vals };
-    if (nFilled) toast(`${cleared ? 'Replaced with' : 'Filled in from'} the SRD: ${it.n}${it.s ? ' (' + it.s + ')' : ''}.`);
+    if (nFilled && !quiet) toast(`${cleared ? 'Replaced with' : 'Filled in from'} the SRD: ${it.n}${it.s ? ' (' + it.s + ')' : ''}.`);
     return nFilled + cleared;
   }
   function fillWeapon(w, it, f) {
