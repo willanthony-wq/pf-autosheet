@@ -57,8 +57,9 @@
     return D.classes.find(c => lc(c.name) === n) || D.classes.find(c => lc(c.name) === n.replace(/\s*\(.*\)$/, '')) || null;
   }
   function stripItem(name) { return lc(name).replace(/^\+\d+\s+/, '').replace(/^(masterwork|mwk)\s+/, '').replace(/\s*\(.*\)$/, '').trim(); }
+  const MATERIAL_WORDS = /\b(mithral|adamantine|darkwood|dragonhide|cold iron|alchemical silver|silver|elysian bronze|angelskin|eel hide|griffon mane|living steel|bulette)\b/g;
   function findArmor(table, name) {
-    const n = stripItem(name), words = n.split(/\s+/);
+    const n = stripItem(name).replace(MATERIAL_WORDS, '').replace(/\s+/g, ' ').trim(), words = n.split(/\s+/);
     const tries = [n, words.length === 2 ? `${words[1]} ${words[0]}` : null, n.replace(/ armor$/, ''), n.replace(/ shield$/, '') + ' shield'].filter(Boolean);
     for (const t of tries) { const hit = table.find(a => lc(a.name) === t); if (hit) return hit; }
     if (table === D.shields) {
@@ -78,7 +79,7 @@
   const opt = (cat, part) => (cat ? cat.options.find(o => o.label.includes(part)) : null) || (cat ? cat.options[0] : null);
 
   // ---------- one character from a statblock XML document
-  function convert(xmlText) {
+  function convert(xmlText, statText) {
     const doc = parseXml(xmlText);
     const C = all(doc, 'character')[0];
     if (!C) throw new Error('No character found. Use a Hero Lab portfolio (.por) or a Hero Lab XML export.');
@@ -175,6 +176,11 @@
         const usesStr = thrown || (/composite|sling/i.test(name) && bonus > num(enh));
         out.formula = opt(catR, usesStr ? 'STR to Damage' : 'DEX to hit (').label;
         wTargets.push({ atk: firstNum(at(ra, 'attack') || at(w, 'attack')), dmg: bonus, hasDmg: /\d+d\d+/.test(dmg) });
+      } else if (at(w, 'equipped') === 'offhand') {
+        const catO = D.attackCategories.find(c => c.name.startsWith('Off-Hand Melee'));
+        out.category = catO.name;
+        out.formula = opt(catO, 'Standard Off-Hand').label;
+        wTargets.push({ atk: firstNum(at(w, 'attack')), dmg: bonus, hasDmg: /\d+d\d+/.test(dmg) });
       } else {
         out.category = catM.name;
         out.formula = opt(catM, at(w, 'equipped') === 'bothhands' ? 'Two-Handed Melee' : 'Standard Melee').label;
@@ -248,12 +254,21 @@
       if (hit) { ch.spellcasting.className = hit.name; if (hit.stat) ch.spellcasting.ability = hit.stat.toLowerCase(); }
     }
     const spellEls = kids(kid(C, 'spellsmemorized'), 'spell').length ? kids(kid(C, 'spellsmemorized'), 'spell') : kids(kid(C, 'spellsknown'), 'spell');
+    // Which spells are prepared (and how many times) is only in the text statblock: "2nd—paladin's sacrifice (3, DC 20), shield other (2)"
+    const prepared = preparedFromText(statText);
+    const leftByLevel = {}, prepByLevel = {};
     for (const s of spellEls) {
       const L = Math.min(9, Math.max(0, num(at(s, 'level'))));
       const lv = ch.spellcasting.levels[L];
-      const name = at(s, 'name');
-      if (!lv.spells.some(x => x.name === name)) lv.spells.push({ id: M.uid(), name, prepared: '', save: at(s, 'save') && !/^none/i.test(at(s, 'save')) ? at(s, 'save').replace(/^DC \d+\s*/i, '') : '', duration: at(s, 'duration') });
+      const raw = at(s, 'name'), xm = raw.match(/\s*\(x(\d+)\)$/);
+      const name = raw.replace(/\s*\(x\d+\)$/, '');
+      if (lv.spells.some(x => x.name === name)) continue;
+      const count = prepared ? (prepared.get(spellKey(name)) || 0) : 0;
+      lv.spells.push({ id: M.uid(), name, prepared: count ? 'x'.repeat(count) : '', save: at(s, 'save') && !/^none/i.test(at(s, 'save')) ? at(s, 'save').replace(/^DC \d+\s*/i, '') : '', duration: at(s, 'duration') });
+      if (count) { prepByLevel[L] = (prepByLevel[L] || 0) + count; leftByLevel[L] = (leftByLevel[L] || 0) + Math.min(count, num(at(s, 'castsleft'))); }
     }
+    // Spells already cast today count as used
+    for (const L of Object.keys(prepByLevel)) ch.spellcasting.levels[L].used = Math.max(0, prepByLevel[L] - leftByLevel[L]);
 
     // Worn magic items, other gear and resources
     const wornRows = ch.slots;
@@ -291,13 +306,99 @@
     if (at(hero, 'enabled') === 'yes') ch.heroPoints.current = num(at(hero, 'total'));
     if (all(kid(C, 'minions'), 'character').length) warnings.push('Companions (animal companions, familiars, eidolons) aren\'t imported. Add them on the Companion tab.');
 
+    activeEffects(ch, C, [...melee, ...ranged].map(w => at(w, 'attack')), warnings);
     const saveT = {};
     for (const sv of kids(kid(C, 'saves'), 'save')) { const k = lc(at(sv, 'abbr')); if (['fort', 'ref', 'will'].includes(k)) saveT[k] = firstNum(at(sv, 'save')); }
     calibrate(ch, {
       hpTarget, target, wTargets, saves: saveT, init: firstNum(at(kid(C, 'initiative'), 'total')), ac: num(at(kid(C, 'armorclass'), 'ac')) || null,
       cmb: firstNum(at(kid(C, 'maneuvers'), 'cmb')), cmd: firstNum(at(kid(C, 'maneuvers'), 'cmd')),
+      spells: (() => {
+        const sc = kids(kid(C, 'spellclasses'), 'spellclass')[0];
+        if (!sc) return null;
+        const perDay = {};
+        for (const l of kids(sc, 'spelllevel')) if (num(at(l, 'maxcasts')) > 0) perDay[num(at(l, 'level'))] = num(at(l, 'maxcasts'));
+        const cl = Math.max(0, ...kids(kid(C, 'classes'), 'class').map(c => num(at(c, 'casterlevel'))));
+        return { perDay, cl };
+      })(),
+      load: { 'light load': 'Light', 'medium load': 'Medium', 'heavy load': 'Heavy', overloaded: 'Overloaded' }[lc(at(kid(C, 'encumbrance'), 'level'))] || null,
+      carried: at(kid(C, 'encumbrance'), 'carried'), speed: num(at(kid(kid(C, 'movement'), 'speed'), 'value')) || null,
     }, warnings);
     return { character: ch, warnings };
+  }
+
+  // Spell names compared loosely: "Restoration, Lesser" = "lesser restoration"
+  function spellKey(n) {
+    let k = lc(n).replace(/\[[^\]]*\]/g, '').replace(/\s*\(.*\)$/, '').trim();
+    const m = k.match(/^(.+),\s*(lesser|greater|mass|communal)$/);
+    if (m) k = `${m[2]} ${m[1]}`;
+    return k.replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+  // Prepared spells and counts from a text statblock, or null when there is none
+  function preparedFromText(text) {
+    if (!text) return null;
+    const lines = String(text).replace(/\r/g, '').split('\n');
+    const start = lines.findIndex(l => /Spells (Prepared|Memorized)/i.test(l));
+    if (start < 0) return null;
+    const out = new Map();
+    for (let i = start + 1; i < lines.length; i++) {
+      const l = lines[i].trim();
+      const m = l.match(/^(\d)(?:st|nd|rd|th)?\s*(?:\([^)]*\))?\s*[—–-]\s*(.+)$/);
+      if (!m) { if (/^(-{5,}|[A-Z][a-z]+ .*(Spells|Spell-Like|Abilities))/.test(l) || !l) break; continue; }
+      for (const sp of splitList(m[2])) {
+        const cm = sp.match(/\((\d+)(?:,|\))/);
+        out.set(spellKey(sp.replace(/\[[^\]]*\]/g, '')), cm ? +cm[1] : 1);
+      }
+    }
+    return out;
+  }
+
+  // ---------- class abilities that change numbers, and what Hero Lab has switched on
+  function activeEffects(ch, C, attackTexts, warnings) {
+    const ac = kid(C, 'armorclass');
+    const chaScore = num(at(kid(kids(kid(C, 'attributes'), 'attribute').find(a => lc(at(a, 'name')) === 'charisma'), 'attrvalue'), 'modified'));
+    const chaMod = Math.floor((chaScore - 10) / 2);
+    const levelOf = n => ch.classes.filter(c => lc(c.name) === n).reduce((a, c) => a + num(c.level), 0);
+    const feature = (re, name, text) => {
+      let f = ch.classFeatures.find(x => re.test(x.name));
+      if (!f) { f = { name, text, bonuses: [] }; ch.classFeatures.push(f); }
+      return f;
+    };
+    const on = [];
+    // Divine Grace (paladin 2+) / Unholy Resilience (antipaladin 2+): Charisma bonus on all saves
+    if (levelOf('paladin') >= 2 || levelOf('antipaladin') >= 2) {
+      const anti = levelOf('antipaladin') >= 2;
+      const f = feature(anti ? /^unholy resilience/i : /^divine grace/i, anti ? 'Unholy Resilience' : 'Divine Grace', 'Adds the Charisma bonus (if any) to all saving throws.');
+      if (!f.bonuses.length) f.bonuses = [{ label: '', target: 'saves', value: 'max(0, cha)', type: 'Untyped (stacks)', skill: '', weapon: '', text: '', active: true }];
+    }
+    // Smite Evil / Smite Good: an effect to switch on against the target
+    const smite = ch.classFeatures.find(x => /^smite (evil|good)/i.test(x.name));
+    if (smite) {
+      const cls = /good/i.test(smite.name) ? 'antipaladin' : 'paladin';
+      const smiteOn = chaMod > 0 && num(at(ac, 'fromdeflect')) === chaMod;
+      ch.effects.unshift({ id: M.uid(), name: smite.name.replace(/\s*\(.*$/, ''), type: 'Untyped (stacks)', active: smiteOn, v: {}, text: '', bonuses: [
+        { label: 'Smite: attack', target: 'atk', value: 'max(0, cha)', type: 'Untyped (stacks)', skill: '', weapon: '', text: '', active: true },
+        { label: 'Smite: damage', target: 'dmg', value: cls, type: 'Untyped (stacks)', skill: '', weapon: '', text: '', active: true },
+        { label: 'Smite: AC', target: 'ac', value: 'max(0, cha)', type: 'Deflection', skill: '', weapon: '', text: '', active: true },
+        { label: '', target: 'note', value: '', type: 'Untyped (stacks)', skill: '', weapon: '', text: 'Smite: only against the chosen target; the first hit\'s damage bonus doubles against evil outsiders, dragons and undead', active: true },
+      ] });
+      if (smiteOn) on.push('Smite');
+    }
+    // Vindicator's Shield: sacred (or profane) bonus to AC while channeled energy is stored in the shield
+    const vs = ch.classFeatures.find(x => /vindicator'?s (sacred |profane )?shield/i.test(x.name));
+    if (vs) {
+      const amt = firstNum((vs.name.match(/\+(\d+)/) || [])[1]) || 0;
+      if (amt) {
+        const vsOn = num(at(ac, 'frommisc')) === amt;
+        ch.effects.unshift({ id: M.uid(), name: "Vindicator's Shield", type: 'Sacred / Profane', active: vsOn, v: { ac: amt }, text: '' });
+        if (vsOn) on.push("Vindicator's Shield");
+      }
+    }
+    // Haste: Hero Lab shows the extra attack as a repeated first attack ("+32/+32/+27...")
+    if (attackTexts.some(t => /^([+-]\d+)\/\1\b/.test(String(t).trim()))) {
+      const h = ch.effects.find(e => e.preset === 'haste');
+      if (h) { h.active = true; on.push('Haste'); }
+    }
+    if (on.length) warnings.push(`Switched on to match Hero Lab: ${on.join(', ')}. Switch them off on the Play tab when they end.`);
   }
 
   // ---------- compare with Hero Lab's totals and adjust what doesn't match
@@ -305,6 +406,12 @@
     const E = window.PF_ENGINE;
     const sign = x => (x >= 0 ? '+' : '') + x;
     let d = E.compute(ch);
+    // Load first (it changes max Dex, armor check penalty and speed): use Hero Lab's when it disagrees with the gear weights here
+    if (t.load && d.gear.load !== t.load) {
+      ch.movement.encumbrance = t.load;
+      warnings.push(`Load: Hero Lab has a ${t.load.toLowerCase()} load (${t.carried} lb); the gear here adds up to ${d.gear.total} lb, often because a handy haversack or bag of holding's contents weigh nothing. Encumbrance is set to ${t.load} by hand; untick Carried for those items and choose Auto to go back.`);
+      d = E.compute(ch);
+    }
 
     // Ability scores: anything Hero Lab adds that the sheet doesn't know about goes in the Enhance column
     for (const [k, want] of Object.entries(t.target)) {
@@ -355,7 +462,8 @@
         const diff = want.dmg - got.damageBonus;
         if (diff) { w.mDmg = Number(w.mDmg || 0) + diff; notes.push(`damage ${sign(diff)}`); }
       }
-      if (notes.length) warnings.push(`${w.name}: misc ${notes.join(', ')} to match Hero Lab${/\((L|S|T|H)\)/.test(w.name) ? ' (an oversized or undersized weapon)' : ''}.`);
+      const why = /\((L|S|T|H)\)/.test(w.name) ? ' (an oversized or undersized weapon)' : /composite/i.test(w.name) && Number(w.mDmg) < 0 ? " (the bow's Strength rating limits Str to damage)" : '';
+      if (notes.length) warnings.push(`${w.name}: misc ${notes.join(', ')} to match Hero Lab${why}.`);
     });
 
     // Skills
@@ -373,6 +481,19 @@
     });
     if (fixed.length) warnings.push(`Skills adjusted to match Hero Lab (misc): ${fixed.join(', ')}.`);
 
+    // Spellcasting: prestige classes that add caster levels (Holy Vindicator, Mystic Theurge...) raise the class level used
+    // for spells per day; find the adjustment that gives Hero Lab's spells per day, then match its caster level.
+    if (t.spells && ch.spellcasting.className && Object.keys(t.spells.perDay).length) {
+      const sc = ch.spellcasting, levels = Object.entries(t.spells.perDay);
+      const score = () => { const dd = E.compute(ch); return levels.reduce((a, [L, want]) => a + Math.abs((dd.spells.levels[L].perDay || 0) - want), 0); };
+      let best = { k: 0, s: score() };
+      for (let k = 1; k <= 10 && best.s; k++) { sc.classLevelMisc = k; const sv = score(); if (sv < best.s) best = { k, s: sv }; }
+      sc.classLevelMisc = best.k;
+      if (best.k) warnings.push(`Spells per day: class level +${best.k} for spellcasting to match Hero Lab (from prestige class levels).`);
+      if (best.s) warnings.push(`Spells per day still differ from Hero Lab (${levels.map(([L, w]) => `level ${L}: ${w}`).join(', ')}); use the per-day override on the Spells tab.`);
+      d = E.compute(ch);
+      if (t.spells.cl && d.spells.cl !== t.spells.cl) { const diff = t.spells.cl - d.spells.cl; sc.clMisc = Number(sc.clMisc || 0) + diff; warnings.push(`Caster level: ${sign(diff)} to match Hero Lab (${t.spells.cl}).`); }
+    }
     // Final check of the headline numbers
     d = E.compute(ch);
     const cmbWant = t.cmb, cmdWant = t.cmd;
@@ -630,13 +751,14 @@
     const zip = X.CFB.read(new Uint8Array(buf), { type: 'array' });
     const files = zip.FileIndex.map((f, i) => ({ f, path: zip.FullPaths[i] })).filter(x => /statblocks_xml\/[^/]+\.xml$/i.test(x.path) && x.f.content);
     if (!files.length) throw new Error('No characters found in this portfolio. In Hero Lab, save the portfolio (.por) and try again.');
-    return files.map(x => utf8(x.f.content));
+    const textFor = path => { const want = path.replace('statblocks_xml/', 'statblocks_text/').replace(/\.xml$/i, '.txt'); const i = zip.FullPaths.findIndex(p => p.toLowerCase() === want.toLowerCase()); return i >= 0 && zip.FileIndex[i].content ? utf8(zip.FileIndex[i].content) : ''; };
+    return files.map(x => ({ xml: utf8(x.f.content), text: textFor(x.path) }));
   }
   // opts.lookupItem(name) -> { w, cost, k, ty, rg } from the rules data, used for weights and weapon details in older portfolios
   function importHeroLab(buf, fileName, opts) {
     const bytes = new Uint8Array(buf);
     const isZip = bytes[0] === 0x50 && bytes[1] === 0x4b;   // "PK"
-    if (/\.por$/i.test(fileName) && isZip) return readPortfolio(buf).map(convert);
+    if (/\.por$/i.test(fileName) && isZip) return readPortfolio(buf).map(x => convert(x.xml, x.text));
     // Older portfolios and XML exports are plain XML; read the declared encoding
     const headText = new TextDecoder('latin1').decode(bytes.slice(0, 200));
     const enc = (headText.match(/encoding="([^"]+)"/i) || [])[1] || 'utf-8';
