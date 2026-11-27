@@ -68,7 +68,33 @@ def clean(n):
     return re.sub(r'\s+', ' ', html.unescape(n or '')).strip()
 
 
-feats, traits, spells, items, gear, weapons, armor, classes, archetypes = {}, {}, {}, {}, {}, {}, {}, {}, {}
+feats, traits, spells, items, gear, weapons, armor, classes, archetypes, choices = {}, {}, {}, {}, {}, {}, {}, {}, {}, {}
+
+# Class choices: (heading, kind, label). 'path' = pick one (or two) with powers by level; 'talent' = pick several; 'auto' = gained by level.
+CHOICE_GROUPS = [
+    (r'^(cleric )?domains$', 'path', 'Domain'), (r'^subdomains$', 'path', 'Subdomain'), (r'^inquisitions$', 'path', 'Inquisition'),
+    (r'^(sorcerer |bloodrager )?bloodlines$', 'path', 'Bloodline'), (r'^arcane schools$', 'path', 'Arcane school'),
+    (r'^mysteries$', 'path', 'Mystery'), (r"^oracle'?s curse$", 'path', 'Curse'), (r'^(cavalier )?orders$', 'path', 'Order'),
+    (r'^spirits$', 'path', 'Spirit'), (r'^blessings$', 'path', 'Blessing'),
+    (r'^rage powers$', 'talent', 'Rage power'), (r'^rogue talents$', 'talent', 'Rogue talent'), (r'^advanced talents$', 'talent', 'Advanced talent'),
+    (r'^ninja tricks$', 'talent', 'Ninja trick'), (r'^master tricks$', 'talent', 'Master trick'), (r'^magus arcana$', 'talent', 'Magus arcana'),
+    (r'^discoveries$', 'talent', 'Discovery'), (r'^hex(es)?$', 'talent', 'Hex'), (r'^major hex(es)?$', 'talent', 'Major hex'), (r'^grand hex(es)?$', 'talent', 'Grand hex'), (r'^patron spells$', 'path', 'Patron'),
+    (r'^arcanist exploits$', 'talent', 'Exploit'), (r'^greater exploits$', 'talent', 'Greater exploit'),
+    (r'^slayer talents$', 'talent', 'Slayer talent'), (r'^advanced slayer talents$', 'talent', 'Advanced slayer talent'),
+    (r'^deeds$', 'auto', 'Deed'),
+]
+SUBPICK = re.compile(r'^(revelations|hexes|exploits)$', re.I)
+CLASS_NAMES = {'alchemist', 'antipaladin', 'arcanist', 'barbarian', 'bard', 'bloodrager', 'brawler', 'cavalier', 'cleric', 'druid', 'fighter', 'gunslinger',
+               'hunter', 'inquisitor', 'investigator', 'magus', 'monk', 'ninja', 'oracle', 'paladin', 'ranger', 'rogue', 'samurai', 'shaman', 'skald', 'slayer',
+               'sorcerer', 'summoner', 'swashbuckler', 'warpriest', 'witch', 'wizard'}
+LEVEL_RE = re.compile(r'(?:\bat|reaches|starting at|beginning at|upon reaching)\s+(\d+)(?:st|nd|rd|th) level', re.I)
+
+
+def choice_group(name):
+    for rx, kind, label in CHOICE_GROUPS:
+        if re.match(rx, (name or '').strip(), re.I):
+            return kind, label
+    return None
 
 
 def keep(store, name, val):
@@ -236,6 +262,98 @@ for book, abbr in BOOKS:
         if abilities:
             archetypes[key] = {'n': name, 'c': cls, 's': abbr, 'd': text(a['body'] or a['description'], 300), 'a': abilities}
 
+    # ---- class choices (domains, bloodlines, schools, mysteries, orders..., rage powers, talents, hexes...)
+    by_id = {}
+    def node(sid):
+        if sid not in by_id:
+            by_id[sid] = c.execute('select section_id, parent_id, type, subtype, name, body, description from sections where section_id=?', (sid,)).fetchone()
+        return by_id[sid]
+    def owner(sec):
+        """The base class a group belongs to (None inside an archetype, or nested in another choice group)."""
+        pid = sec['parent_id']
+        while pid:
+            r = node(pid)
+            if not r:
+                return None
+            if r['type'] == 'class_archetype' or choice_group(r['name']):
+                return None
+            if r['type'] == 'class' or clean(r['name']).lower() in CLASS_NAMES:
+                return clean(r['name']).lower()
+            pid = r['parent_id']
+        return None
+    def lvl_of(t, default=1):
+        first = re.split(r'(?<=[.!?])\s+', (t or '').strip(), maxsplit=1)[0]   # the level is stated up front ("At 6th level, ...")
+        m = LEVEL_RE.search(first)
+        return int(m.group(1)) if m else default
+    def nm(x):
+        return re.sub(r'\s*\((Ex|Su|Sp)\)$', '', re.sub(r'\*+', '', clean(x))).strip()
+    def spells_from(t):
+        t = t.replace('\u2013', '\u2014')
+        dom = re.findall(r'\b(\d+)(?:st|nd|rd|th)\s*\u2014\s*([^,]+?)(?=,\s*\d+(?:st|nd|rd|th)|$)', t)
+        if dom:
+            return 'spell', [[int(l), x.strip().rstrip('.')] for l, x in dom]
+        blo = re.findall(r'([^,]+?)\s*\((\d+)(?:st|nd|rd|th)\)', t)
+        lv = [int(l) for _, l in blo]
+        # Spirit magic lists spell levels 1-9; bloodlines and mysteries list the class level gained (3, 5, 7... or 2, 4, 6...)
+        kind = 'spell' if lv and lv == list(range(1, len(lv) + 1)) else 'class'
+        return kind, [[int(l), x.strip()] for x, l in blo]
+    for g in c.execute("select * from sections where type in ('section', 'ability')"):
+        grp = choice_group(g['name'])
+        if not grp:
+            continue
+        cls = owner(g)
+        if not cls:
+            continue
+        kind, label = grp
+        for o in kids(g['section_id']):
+            if o['type'] not in ('section', 'ability') or not o['name'] or o['name'].startswith('Table'):
+                continue
+            body = text(o['body'] or o['description'])
+            if kind != 'path':
+                if re.match(r'^the following', body, re.I) or not body:
+                    continue
+                key = f'{cls}|{label}|{nm(o["name"]).lower()}'
+                if key not in choices:
+                    choices[key] = {'n': nm(o['name']), 'c': cls, 'g': label, 'k': kind, 's': abbr, 'd': text(o['body'] or o['description'], 700), 'l': lvl_of(body, 1)}
+                continue
+            opt = {'n': nm(o['name']), 'c': cls, 'g': label, 'k': kind, 's': abbr, 'd': text(o['body'] or o['description'], 400), 'p': [], 'picks': []}
+            for k in kids(o['section_id']):
+                kt, kn = text(k['body'] or k['description']), clean(k['name'] or '')
+                sub = kids(k['section_id'])
+                if k['type'] == 'ability':
+                    opt['p'].append({'n': nm(kn), 'l': lvl_of(kt), 'd': text(k['body'] or k['description'], 600)})
+                elif re.search(r'spells', kn, re.I):
+                    opt['st'], opt['sp'] = spells_from(kt)
+                elif SUBPICK.match(kn):
+                    opt['pg'] = kn.rstrip('s') if not kn.lower().endswith('hexes') else 'Hex'
+                    opt['picks'] += [{'n': nm(x['name']), 'd': text(x['body'] or x['description'], 600), 'l': lvl_of(text(x['body'] or x['description']), 1)} for x in sub if x['type'] in ('ability', 'section')]
+                elif re.match(r'^associated domain', kn, re.I):
+                    opt['assoc'] = kt.strip(' .')
+                else:
+                    abil = [x for x in sub if x['type'] == 'ability']
+                    rp = re.search(r'replaces the (.+?) power', kt, re.I)
+                    if abil:
+                        for x in abil:
+                            pw = {'n': nm(x['name']), 'l': lvl_of(text(x['body'] or x['description'])), 'd': text(x['body'] or x['description'], 600)}
+                            if rp:
+                                pw['r'] = rp.group(1).strip()
+                            opt['p'].append(pw)
+                    if kt and not re.search(r'powers$|^order abilities$|^replacement power$|^granted powers$', kn, re.I):
+                        opt['p'].append({'n': kn, 'l': 20 if re.match(r'^final revelation', kn, re.I) else lvl_of(kt), 'd': text(k['body'] or k['description'], 600)})
+            # Witch patrons list their spells in their own text by witch level: "2nd—jump, 4th—cat's grace..."
+            if label == 'Patron' and not opt.get('sp'):
+                _, sp = spells_from(body)
+                if sp:
+                    opt['st'], opt['sp'] = 'class', sp
+                    opt['p'].append({'n': f"{opt['n']} patron spells", 'l': 1, 'd': text(o['body'] or o['description'], 600)})
+            if not opt['p'] and not opt['picks'] and body:
+                opt['p'].append({'n': opt['n'], 'l': 1, 'd': text(o['body'] or o['description'], 600)})
+            if not opt['picks']:
+                del opt['picks']
+            key = f'{cls}|{label}|{opt["n"].lower()}'
+            if key not in choices:
+                choices[key] = opt
+
     # ---- class features by level (base classes)
     for cl in c.execute("select * from sections where type='class' and subtype in ('core','base','hybrid','prestige')"):
         cname = clean(cl['name'])
@@ -276,5 +394,5 @@ def dump(name, store, sort=True):
     print(f'{name:8} {len(store):5}  {os.path.getsize(os.path.join(OUT, name + ".json")) / 1024:.0f} KB')
 
 
-for n, s in [('feats', feats), ('traits', traits), ('spells', spells), ('items', items), ('gear', gear), ('weapons', weapons), ('armor', armor), ('classes', classes), ('archetypes', archetypes)]:
+for n, s in [('feats', feats), ('traits', traits), ('spells', spells), ('items', items), ('gear', gear), ('weapons', weapons), ('armor', armor), ('classes', classes), ('archetypes', archetypes), ('choices', choices)]:
     dump(n, s)

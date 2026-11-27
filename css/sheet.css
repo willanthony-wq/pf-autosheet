@@ -369,3 +369,5 @@ td .jump { justify-content: center; min-height: 28px; padding: 2px 6px; }
 .arch-cell .chip.arch-chip .icon-btn { font-size: 11px; padding: 0 4px; }
 .arch-cell select.arch-add { width: auto; max-width: 100%; font-size: 12px; padding: 2px 4px; }
 .warn-text { color: var(--bad); margin-top: 2px; }
+.arch-cell .chip.choice-chip { background: var(--panel-2); color: var(--ink); border-color: var(--accent); }
+.arch-cell select.choice-add { width: auto; max-width: 100%; font-size: 12px; padding: 2px 4px; }

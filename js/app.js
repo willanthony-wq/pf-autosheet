@@ -230,7 +230,7 @@
     </div>`, { cls: 'span-2' });
 
     const classRows = ch.classes.map((c, i) => `<tr>
-        <td class="l">${sel(`classes/${i}/name`, classOptions(), { rerender: true, aria: 'Class ' + (i + 1), blank: '— none —', cls: 'class-select' })}${archetypeCell(c, i)}</td>
+        <td class="l">${sel(`classes/${i}/name`, classOptions(), { rerender: true, aria: 'Class ' + (i + 1), blank: '— none —', cls: 'class-select' })}${archetypeCell(c, i)}${choiceCell(c, i)}</td>
         <td>${inp(`classes/${i}/level`, { type: 'num', aria: 'Level' })}</td>
         <td>${out(`classes/${i}/hd`)}</td><td>${out(`classes/${i}/bab`, 'sign')}</td>
         <td>${out(`classes/${i}/fort`, 'sign')}</td><td>${out(`classes/${i}/ref`, 'sign')}</td><td>${out(`classes/${i}/will`, 'sign')}</td>
@@ -332,6 +332,38 @@
     const clash = archetypeClashes(c);
     return `<div class="arch-cell">${chips}${picker}</div>${clash ? `<div class="small warn-text">${esc(clash)}</div>` : ''}`;
   }
+  // Class choices: one picker grouping domains, bloodlines, schools, talents... (plus revelations or hexes of a chosen mystery or spirit)
+  function choiceCell(c, i) {
+    const S = window.PF_SRD;
+    if (!c.name || !S) return '';
+    if (!S.loaded('choices')) return '<div class="arch-cell"><span class="small muted">loading class choices…</span></div>';
+    const all = S.choicesFor(c.name);
+    const picked = c.choices || [];
+    const isPicked = (g, n) => picked.some(x => x.g === g && x.n.toLowerCase() === n.toLowerCase());
+    const groups = new Map();
+    for (const x of all) {
+      if (x.k === 'auto' || isPicked(x.g, x.n)) continue;
+      if (!groups.has(x.g)) groups.set(x.g, []);
+      groups.get(x.g).push({ v: `${x.g}::${x.n}`, l: x.n + (x.k === 'talent' && x.l > 1 ? ` (${x.l}th+)`.replace('1th', '1st').replace('2th', '2nd').replace('3th', '3rd') : '') });
+    }
+    // Revelations / hexes / exploits of a chosen path
+    for (const p of picked) {
+      const opt = all.find(x => x.g === p.g && x.n === p.n && x.picks);
+      if (!opt) continue;
+      const g = `${opt.pg || 'Pick'} (${opt.n})`;
+      const left = opt.picks.filter(x => !picked.some(q => q.g === opt.pg && q.n === x.n && q.parent === opt.n));
+      if (left.length) groups.set(g, left.map(x => ({ v: `${opt.pg}::${x.n}::${opt.n}`, l: x.n })));
+    }
+    const auto = [...new Set(all.filter(x => x.k === 'auto').map(x => x.g))];
+    if (!groups.size && !picked.length && !auto.length) return '';
+    const chips = picked.map((p, k) => `<span class="chip on arch-chip choice-chip" title="${esc(p.g)}${p.parent ? ' of ' + esc(p.parent) : ''}">${esc(p.n)}<button class="icon-btn" data-action="remove-choice" data-i="${i}" data-k="${k}" aria-label="Remove ${esc(p.n)}">✕</button></span>`).join('');
+    const sel = groups.size ? `<select class="choice-add" data-i="${i}" aria-label="Add a class choice for ${esc(c.name)}"><option value="">+ ${esc([...groups.keys()].slice(0, 2).map(g => g.replace(/ \(.*$/, '')).join(', '))}${groups.size > 2 ? '…' : ''}</option>
+      ${[...groups.entries()].map(([g, opts]) => `<optgroup label="${esc(g)}">${opts.map(o => `<option value="${esc(o.v)}">${esc(o.l)}</option>`).join('')}</optgroup>`).join('')}</select>` : '';
+    return `<div class="arch-cell">${chips}${sel}${auto.length ? `<span class="small muted">${esc(auto.join(', '))}s are added by level</span>` : ''}</div>`;
+  }
+  // Short stable hash, to tell whether an added feature's text was edited later
+  function textHash(t) { let h = 0; for (const ch of String(t || '')) h = (h * 31 + ch.charCodeAt(0)) | 0; return h; }
+
   // Two archetypes can't replace the same class feature
   function archetypeClashes(c) {
     const S = window.PF_SRD;
@@ -1317,6 +1349,14 @@
   document.addEventListener('change', e => {
     const el = e.target;
     if (el.id === 'add-condition' && el.value) { App.ch.conditions.push(el.value); changed(true); return; }
+    if (el.classList && el.classList.contains('choice-add') && el.value) {
+      const c = App.ch.classes[+el.dataset.i];
+      const [g, n, parent] = el.value.split('::');
+      c.choices = (c.choices || []).concat(parent ? { g, n, parent } : { g, n });
+      changed(true);
+      toast(`${n} added. Click "Add for my level" on the Features & Gear tab to add its powers${/Domain|Bloodline|Mystery|Patron|Spirit|Subdomain/.test(g) ? ' and bonus spells' : ''}.`);
+      return;
+    }
     if (el.classList && el.classList.contains('arch-add') && el.value) {
       const c = App.ch.classes[+el.dataset.i];
       c.archetypes = (c.archetypes || []).concat(el.value);
@@ -1405,6 +1445,7 @@
       },
       'jump': () => jumpToField(el.dataset.tab, el.dataset.focus),
       'srd-class-features': () => addClassFeatures(),
+      'remove-choice': () => { const c = App.ch.classes[+el.dataset.i]; const gone = (c.choices || []).splice(+el.dataset.k, 1)[0]; if (gone) c.choices = c.choices.filter(x => x.parent !== gone.n); changed(true); },
       'remove-archetype': () => { const c = App.ch.classes[+el.dataset.i]; (c.archetypes || []).splice(+el.dataset.k, 1); changed(true); },
       'sort-worn': () => sortWornItems(),
       'remove': () => { const arr = get(el.dataset.list); if (Array.isArray(arr)) { arr.splice(+el.dataset.i, 1); changed(true); } },
@@ -1889,7 +1930,7 @@
       spells: [['srd-spells', ['spells']]],
       companion: [['srd-feats', ['feats']], ['srd-spells', ['spells']], ['srd-worn', ['items'], x => x.slot && x.slot !== 'none']],
     }[tab] || [];
-    if ((tab === 'character' || tab === 'overview') && !SRD.loaded('archetypes')) SRD.load('archetypes').then(() => { if (App.tab === tab) render(); });
+    if ((tab === 'character' || tab === 'overview') && (!SRD.loaded('archetypes') || !SRD.loaded('choices'))) SRD.ensure(['archetypes', 'choices']).then(() => { if (App.tab === tab) render(); });
     want.forEach(([id, kinds, filter]) => SRD.datalist(id, kinds, filter));
   }
   const blankish = v => v === undefined || v === null || String(v).trim() === '';
@@ -2018,13 +2059,16 @@
   }
   // Class features for the character's current levels, from the SRD class tables.
   async function addClassFeatures() {
-    await SRD.ensure(['classes', 'archetypes']);
+    await SRD.ensure(['classes', 'archetypes', 'choices']);
     const classes = App.d.classes.map((c, i) => Object.assign({}, c, { archetypes: (App.ch.classes[i] && App.ch.classes[i].archetypes) || [] })).filter(c => c.name && c.level > 0);
     if (!classes.length) { toast('Set your classes and levels on the Character tab first.'); return; }
     const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
     const list = App.ch.classFeatures;
     let added = 0, updated = 0, removed = 0;
     const missing = [], kept = [], unknownArch = [];
+    const wanted = new Set();   // src keys of archetype/choice features that should be present
+    let spellsAdded = 0, spellsRemoved = 0;
+    const wantSpells = new Set();
     for (const c of classes) {
       const r = SRD.classFeatures(c.name, c.level);
       if (!r) { missing.push(c.name); continue; }
@@ -2064,15 +2108,79 @@
         added++;
       }
       for (const f of archFeats) {
+        wanted.add(f.src);
         if (list.some(x => x.src === f.src)) continue;
-        list.push({ name: `${f.name} (${f.arch})`, text: f.text, bonuses: [], src: f.src });
+        list.push({ name: `${f.name} (${f.arch})`, text: f.text, bonuses: [], src: f.src, srcHash: textHash(f.text) });
         added++;
       }
+      // Class choices: path powers by level, talents, sub-picks, automatic deeds, and bonus spells
+      const chosen = (App.ch.classes.find(x => x.name === c.name) || {}).choices || [];
+      const all = SRD.choicesFor(c.name);
+      const add = (name, text, src) => {
+        wanted.add(src);
+        if (list.some(x => x.src === src)) return;
+        list.push({ name, text, bonuses: [], src, srcHash: textHash(text) });
+        added++;
+      };
+      const caster = String(App.ch.spellcasting.className || '').toLowerCase() === String(c.name).toLowerCase();
+      const addSpells = opt => {
+        if (!caster || !opt.sp) return;
+        for (const [lv, raw] of opt.sp) {
+          const L = opt.st === 'spell' ? lv : (lv % 2 ? (lv - 1) / 2 : lv / 2);
+          if (L < 0 || L > 9) continue;
+          if (opt.st === 'spell' ? !(App.d.spells.levels[L] && App.d.spells.levels[L].perDay > 0) : lv > c.level) continue;
+          const name = raw.charAt(0).toUpperCase() + raw.slice(1);
+          const tag = `${opt.g}:${opt.n}:${name.toLowerCase()}`;
+          wantSpells.add(tag);
+          const lvl = App.ch.spellcasting.levels[L];
+          if (lvl.spells.some(s => s.srcTag === tag || s.name.toLowerCase() === name.toLowerCase())) continue;
+          lvl.spells.push({ id: M.uid(), name, prepared: '', notes: `${opt.g}: ${opt.n}`, srcTag: tag });
+          spellsAdded++;
+        }
+      };
+      for (const p of chosen) {
+        if (p.parent) {
+          const par = all.find(x => x.n === p.parent && x.picks);
+          const pk = par && par.picks.find(x => x.n === p.n);
+          if (pk) add(`${pk.n} (${p.parent})`, pk.d, `choice:${p.g}:${p.parent}:${featureKey(pk.n)}`);
+          continue;
+        }
+        const opt = all.find(x => x.g === p.g && x.n.toLowerCase() === p.n.toLowerCase());
+        if (!opt) { unknownArch.push(p.n); continue; }
+        if (opt.k === 'talent') { add(opt.n, opt.d, `choice:${opt.g}:${featureKey(opt.n)}`); continue; }
+        // Subdomain: its domain's powers, with the subdomain's replacement power, and its replacement spells
+        let powers = opt.p || [], spellOpt = opt;
+        if (opt.g === 'Subdomain' && opt.assoc) {
+          const dom = all.find(x => x.g === 'Domain' && x.n.toLowerCase().startsWith(opt.assoc.toLowerCase()));
+          if (dom) {
+            const repl = powers.filter(pw => pw.r);
+            powers = dom.p.filter(pw => !repl.some(rp => featureKey(rp.r) === featureKey(pw.n))).concat(powers);
+            const sp = new Map((dom.sp || []).map(([L, n]) => [L, n]));
+            (opt.sp || []).forEach(([L, n]) => sp.set(L, n));
+            spellOpt = Object.assign({}, opt, { sp: [...sp.entries()], st: 'spell' });
+          }
+        }
+        for (const pw of powers) if (pw.l <= c.level) add(pw.n.toLowerCase() === opt.n.toLowerCase() ? opt.n : `${pw.n} (${opt.n})`, pw.d, `choice:${opt.g}:${opt.n}:${featureKey(pw.n)}`);
+        addSpells(spellOpt);
+      }
+      for (const opt of all.filter(x => x.k === 'auto' && x.l <= c.level)) add(opt.n, opt.d, `choice:${opt.g}:${featureKey(opt.n)}`);
     }
-    if (added || updated || removed) changed(true);
-    const parts = [added ? `added ${added}` : '', updated ? `updated ${updated} to your level` : '', removed ? `removed ${removed} that your archetype replaces` : ''].filter(Boolean);
+    // Take out archetype/choice features and bonus spells no longer chosen (unless edited or given bonuses)
+    for (const x of list.slice()) {
+      if (!/^(arch|choice):/.test(x.src || '') || wanted.has(x.src)) continue;
+      if ((x.bonuses || []).length || (x.srcHash !== undefined && x.srcHash !== textHash(x.text))) { kept.push(`${x.name} (no longer chosen)`); continue; }
+      list.splice(list.indexOf(x), 1); removed++;
+    }
+    for (const lvl of App.ch.spellcasting.levels) {
+      const before = lvl.spells.length;
+      lvl.spells = lvl.spells.filter(s => !s.srcTag || wantSpells.has(s.srcTag) || s.prepared);
+      spellsRemoved += before - lvl.spells.length;
+    }
+    if (added || updated || removed || spellsAdded || spellsRemoved) changed(true);
+    const parts = [added ? `added ${added}` : '', updated ? `updated ${updated} to your level` : '', removed ? `removed ${removed} that were replaced or unpicked` : '',
+      spellsAdded ? `${spellsAdded} bonus spell${spellsAdded === 1 ? '' : 's'} added to the Spells tab` : '', spellsRemoved ? `${spellsRemoved} bonus spell${spellsRemoved === 1 ? '' : 's'} removed` : ''].filter(Boolean);
     const msg = parts.length ? 'Class features: ' + parts.join(', ') : 'Your class features are already listed';
-    toast(msg + (missing.length ? `. Not in the SRD tables: ${missing.join(', ')}` : '') + (unknownArch.length ? `. Archetypes not in the rules data: ${unknownArch.join(', ')}` : '')
+    toast(msg + (missing.length ? `. Not in the SRD tables: ${missing.join(', ')}` : '') + (unknownArch.length ? `. Not in the rules data: ${unknownArch.join(', ')}` : '')
       + (kept.length ? `. Kept because you edited them: ${kept.join(', ')}` : '') + '.');
   }
 

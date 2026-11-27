@@ -2,7 +2,7 @@
 // Data files in data/srd/ are built by tools/build_srd.py and loaded only when a tab needs them.
 (() => {
   'use strict';
-  const KINDS = ['feats', 'traits', 'spells', 'items', 'gear', 'weapons', 'armor', 'classes', 'archetypes'];
+  const KINDS = ['feats', 'traits', 'spells', 'items', 'gear', 'weapons', 'armor', 'classes', 'archetypes', 'choices'];
   const cache = {}, pending = {};
   const ver = (document.querySelector('script[src*="js/srd.js"]') || { src: '' }).src.split('?v=')[1] || '1';
 
@@ -150,6 +150,19 @@
     return c ? c.list.filter(a => a.c === classKey(className)).sort((x, y) => x.n.localeCompare(y.n)) : [];
   }
   function archetype(className, name) { return archetypesFor(className).find(a => key(a.n) === key(name)) || null; }
+  // Class choices (domains, bloodlines, talents...). Some classes choose from another class's list.
+  const SHARED_CHOICES = {
+    inquisitor: [['cleric', 'Domain'], ['cleric', 'Subdomain']], druid: [['cleric', 'Domain']], ninja: [['rogue', 'Rogue talent'], ['rogue', 'Advanced talent']],
+    slayer: [['rogue', 'Rogue talent']], skald: [['barbarian', 'Rage power']], samurai: [['cavalier', 'Order']], antipaladin: [],
+  };
+  function choicesFor(className) {
+    const c = cache.choices;
+    if (!c) return [];
+    const k = classKey(className);
+    const shared = SHARED_CHOICES[k] || [];
+    return c.list.filter(x => x.c === k || shared.some(([sc, g]) => x.c === sc && x.g === g));
+  }
+  function choice(className, group, name) { return choicesFor(className).find(x => x.g === group && key(x.n) === key(name)) || null; }
   // Description of a class feature from any class (the character's classes first).
   function classFeatureText(name, classNames) {
     const c = cache.classes;
@@ -163,5 +176,5 @@
     return '';
   }
 
-  window.PF_SRD = { CUSTOM, USE_SRD, KINDS, load, ensure, narrow, archetypesFor, archetype, find, findAny, priceOf, enhOf, datalist, classFeatures, classFeatureText, key, loaded: k => !!cache[k] };
+  window.PF_SRD = { CUSTOM, USE_SRD, KINDS, load, ensure, narrow, archetypesFor, archetype, choicesFor, choice, find, findAny, priceOf, enhOf, datalist, classFeatures, classFeatureText, key, loaded: k => !!cache[k] };
 })();
