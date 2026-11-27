@@ -78,6 +78,11 @@
   // Controls
   function inp(path, o = {}) {
     const v = get(path);
+    if (o.list && o.list.startsWith('srd-')) {
+      const row = pathGet(App.ch, path.split('/').slice(0, -1).join('/'));
+      if (row && row.srdCustom) o = Object.assign({}, o, { list: 'srd-off', ph: 'Custom: type your own', title: 'Custom entry: no SRD autofill. Clear the field and pick (Use SRD list) to switch autofill back on.' });
+      else if (!o.title) o = Object.assign({}, o, { title: 'Pick from the list to fill in the details, or pick (Custom) to type your own' });
+    }
     const isNum = o.type === 'num';
     const cls = (isNum ? 'n ' : '') + (o.cls || '');
     return `<input ${isNum ? 'type="number" step="any" inputmode="decimal"' : 'type="text"'} class="${cls}" data-bind="${esc(path)}" data-type="${o.type || 'text'}" value="${esc(v)}"` +
@@ -168,7 +173,7 @@
       features: renderFeatures, notes: renderNotes, settings: renderSettings }[App.tab] || renderOverview;
     const wnames = App.ch.weapons.map(w => w.name).concat(...(App.ch.companions || []).map(c => (c.attacks || []).map(a => a.name))).filter(Boolean);
     const focusBind = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.bind : null;
-    main.innerHTML = fn() + `<datalist id="weapon-names">${[...new Set(wnames)].map(w => `<option value="${esc(w)}">`).join('')}</datalist>`;
+    main.innerHTML = fn() + `<datalist id="srd-off"><option value="${esc(window.PF_SRD ? window.PF_SRD.USE_SRD : '')}" label="Switch SRD suggestions and autofill back on"></datalist><datalist id="weapon-names">${[...new Set(wnames)].map(w => `<option value="${esc(w)}">`).join('')}</datalist>`;
     updateOutputs();
     srdDatalists(App.tab);
     if (focusBind) { const f = main.querySelector(`[data-bind="${CSS.escape(focusBind)}"]`); if (f) f.focus({ preventScroll: true }); }
@@ -1243,6 +1248,19 @@
     const el = e.target;
     if (!el.dataset || !el.dataset.bind) return;
     if (el.tagName === 'SELECT' || el.type === 'checkbox') return; // handled on change
+    if (window.PF_SRD && (el.value === window.PF_SRD.CUSTOM || el.value === window.PF_SRD.USE_SRD)) {
+      const parts = el.dataset.bind.split('/'); const field = parts.pop();
+      const row = pathGet(App.ch, parts.join('/'));
+      if (row) {
+        if (el.value === window.PF_SRD.CUSTOM) row.srdCustom = true; else delete row.srdCustom;
+        row[field] = '';
+        el.value = '';
+        toast(row.srdCustom ? 'Custom entry: type anything. Autofill is off for this one.' : 'SRD suggestions and autofill are back on.');
+        el.focus();
+        changed(true);
+      }
+      return;
+    }
     applyBind(el);
     updateOutputs();
   });
@@ -1765,7 +1783,7 @@
     const parts = path.split('/'); const field = parts.pop();
     const obj = pathGet(App.ch, parts.join('/'));
     const name = obj && obj[field];
-    if (!obj || blankish(name)) return 0;
+    if (!obj || blankish(name) || obj.srdCustom) return 0;
     await SRD.ensure(rule.kinds);
     const it = rule.lookup ? rule.lookup(name) : (SRD.findAny(rule.kinds, field === 'text' ? String(name).split(':')[0] : name) || {}).item;
     if (!it) return 0;

@@ -6,6 +6,7 @@
   const cache = {}, pending = {};
   const ver = (document.querySelector('script[src*="js/srd.js"]') || { src: '' }).src.split('?v=')[1] || '1';
 
+  const CUSTOM = '(Custom)', USE_SRD = '(Use SRD list)';
   const key = s => String(s || '').toLowerCase().replace(/[’‘]/g, "'").replace(/\s+/g, ' ').trim();
 
   function load(kind) {
@@ -79,7 +80,8 @@
       }));
       const dl = document.createElement('datalist');
       dl.id = id;
-      dl.innerHTML = opts.join('');
+      // First entry: type your own entry with no autofill
+      dl.innerHTML = `<option value="${CUSTOM}" label="Type your own (no autofill)">` + opts.join('');
       document.body.appendChild(dl);
     });
   }
@@ -122,5 +124,5 @@
     return '';
   }
 
-  window.PF_SRD = { KINDS, load, ensure, find, findAny, priceOf, enhOf, datalist, classFeatures, classFeatureText, key, loaded: k => !!cache[k] };
+  window.PF_SRD = { CUSTOM, USE_SRD, KINDS, load, ensure, find, findAny, priceOf, enhOf, datalist, classFeatures, classFeatureText, key, loaded: k => !!cache[k] };
 })();

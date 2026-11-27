@@ -66,7 +66,7 @@ The webhook URL is stored only in this browser. It is never written into exporte
 
 ## Autofill from the Pathfinder Reference Document
 
-Name fields suggest entries as you type. Pick one (or type its exact name) and the sheet fills in the fields you left blank. It never overwrites anything you typed.
+Name fields suggest entries as you type. Pick one (or type its exact name) and the sheet fills in the fields you left blank. It never overwrites anything you typed. The first entry in every list is **(Custom)**: pick it to type your own entry (homebrew, or a renamed version) with no autofill. To switch autofill back on for that row, clear the field and pick **(Use SRD list)**.
 
 - **Feats** (yours and companions'): prerequisites and benefit text.
 - **Traits:** the trait's text after its name.
