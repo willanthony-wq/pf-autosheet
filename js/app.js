@@ -656,10 +656,10 @@
       ${notes.length ? `<h3 style="margin:8px 0 4px">Situational</h3><ul class="small notes-list">${notes.map(x => `<li><strong>${esc(x.label || x.src)}</strong>${x.label && x.label !== x.src ? ` <span class="muted">(${esc(x.src)})</span>` : ''}: ${esc(x.text)}</li>`).join('')}</ul>` : ''}
       ${ch.race.senses ? `<p class="small"><strong>Senses:</strong> ${esc(ch.race.senses)}</p>` : ''}${ch.languages ? `<p class="small"><strong>Languages:</strong> ${esc(ch.languages)}</p>` : ''}`);
 
-    // Buffs and Skills share one column so Skills always sits directly under Buffs.
-    // Spells, Resources and Active Bonuses stack in the column beside them.
-    const stack = `<div class="play-stack span-2">${buffs}${skills}</div>`;
-    const side = `<div class="play-stack">${spells}${res}${active}</div>`;
+    // Buffs, Skills and Spells share one column, in that order.
+    // Resources and Active Bonuses stack in the column beside them.
+    const stack = `<div class="play-stack span-2">${buffs}${skills}${spells}</div>`;
+    const side = `<div class="play-stack">${res}${active}</div>`;
     return `<div class="grid play-grid">${header}${checks}${attacks}${playCompanionCards()}${stack}${side}</div>`;
   }
 
