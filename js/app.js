@@ -152,7 +152,7 @@
     ['Paizo rulebooks', [['CRB', 'Core Rulebook'], ['APG', "Advanced Player's Guide"], ['UM', 'Ultimate Magic'], ['UC', 'Ultimate Combat'], ['ARG', 'Advanced Race Guide'],
       ['ACG', 'Advanced Class Guide'], ['UCa', 'Ultimate Campaign'], ['UE', 'Ultimate Equipment'], ['MA', 'Mythic Adventures'], ['TG', 'Technology Guide'],
       ['PU', 'Pathfinder Unchained (classes)'], ['OA', 'Occult Adventures (classes)'], ['UI', 'Ultimate Intrigue (vigilante)'], ['UW', 'Ultimate Wilderness (shifter)'], ['CS', 'Campaign Setting prestige classes']]],
-    ['Bestiaries and GM books', [['B1', 'Bestiary'], ['B2', 'Bestiary 2'], ['B3', 'Bestiary 3'], ['B4', 'Bestiary 4'], ['MC', 'Monster Codex'], ['NPC', 'NPC Codex'], ['GMG', 'GameMastery Guide'],
+    ['Bestiaries', [['B1', 'Bestiary'], ['B2', 'Bestiary 2'], ['B3', 'Bestiary 3'], ['B4', 'Bestiary 4'], ['MC', 'Monster Codex'],
       ['Monstrous', 'Monster racial hit dice classes']]],
     ['Other and third-party', [['Eberron', 'Eberron prestige classes (3.5)'], ['DSP-Psi', 'Psionics (Dreamscarred Press)'], ['DSP-PoW', 'Path of War (Dreamscarred Press)'],
       ['NeoExodus', 'Classes of NeoExodus: Machinesmith'], ['NeoExodus WoMD', 'NeoExodus: Weapons of Machinesmith Destruction'], ['Rite Publishing', 'Rite Publishing (Program Feat)']]],
