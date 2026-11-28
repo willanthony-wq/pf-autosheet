@@ -1,0 +1,1385 @@
+[
+ {
+  "id": "F00633",
+  "rule": {
+   "uses": {
+    "max": "floor(cls / 2) + wis",
+    "unit": "uses",
+    "per": "day",
+    "extra": [
+     [
+      "Extra Fervor",
+      2
+     ]
+    ]
+   },
+   "roll": {
+    "count": "1 + floor((cls - 2) / 3)",
+    "die": 6,
+    "label": "positive or negative energy"
+   },
+   "note": "Extra Fervor feat (+2 uses) from the feat's own text"
+  }
+ },
+ {
+  "id": "F00634",
+  "rule": null
+ },
+ {
+  "id": "F00635",
+  "rule": {
+   "cost": {
+    "from": "Fervor",
+    "n": 2
+   },
+   "roll": {
+    "count": "1 + floor((cls - 2) / 3)",
+    "die": 6,
+    "dc": "10 + floor(cls / 2) + wis",
+    "label": "positive or negative energy"
+   }
+  }
+ },
+ {
+  "id": "F00636",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "minutes",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": "min(5, 1 + floor((cls - 7) / 3))",
+     "type": "Enhancement",
+     "situational": true,
+     "text": "Sacred armor active (armor enhancement, max +5 total)"
+    }
+   ],
+   "note": "Enhancement adds to the armor's own enhancement up to +5 total; part can be traded for armor special abilities"
+  }
+ },
+ {
+  "id": "F00816",
+  "rule": null
+ },
+ {
+  "id": "F01468",
+  "rule": null
+ },
+ {
+  "id": "F01611",
+  "rule": null
+ },
+ {
+  "id": "F00668",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "minutes",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Climb",
+     "value": 4,
+     "type": "Racial",
+     "situational": true,
+     "text": "Totem transformation (movement)"
+    },
+    {
+     "target": "nat",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Totem transformation (toughness)"
+    },
+    {
+     "target": "cmb",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Totem transformation (natural weapons), grapple only"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00964",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "minutes",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Perception",
+     "value": 4,
+     "type": "Racial",
+     "situational": true,
+     "text": "Totem transformation (senses)"
+    },
+    {
+     "target": "nat",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Totem transformation (toughness)"
+    },
+    {
+     "target": "cmb",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Totem transformation (natural weapons), grapple only"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01323",
+  "rule": null
+ },
+ {
+  "id": "F01324",
+  "rule": {
+   "uses": {
+    "max": "floor((cls - 4) / 2)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "note": "druid wild shape uses at effective druid level cls - 2"
+  }
+ },
+ {
+  "id": "F01325",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "saves",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against being moved (push, pull, bull rush, drag)"
+    },
+    {
+     "target": "cmd",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against being moved (push, pull, bull rush, drag)"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01367",
+  "rule": null
+ },
+ {
+  "id": "F01368",
+  "rule": null
+ },
+ {
+  "id": "F01369",
+  "rule": {
+   "roll": {
+    "count": "1",
+    "die": 6,
+    "label": "precision"
+   }
+  }
+ },
+ {
+  "id": "F01378",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Handle Animal",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Regarding your animal companion (also wild empathy)"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01379",
+  "rule": null
+ },
+ {
+  "id": "F01403",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "init",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "In plains terrain"
+    },
+    {
+     "target": "skill",
+     "skill": "Kn. Geography",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "In plains terrain"
+    },
+    {
+     "target": "skill",
+     "skill": "Perception",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "In plains terrain"
+    },
+    {
+     "target": "skill",
+     "skill": "Stealth",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "In plains terrain"
+    },
+    {
+     "target": "skill",
+     "skill": "Survival",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "In plains terrain"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01404",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "speed",
+     "value": 10,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Light or no armor and light load"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01405",
+  "rule": null
+ },
+ {
+  "id": "F01407",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": 4,
+     "type": "Dodge (stacks)",
+     "situational": true,
+     "text": "Against enemy charge attacks"
+    },
+    {
+     "target": "dmg",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Readied action against a charging foe"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01461",
+  "rule": null
+ },
+ {
+  "id": "F01462",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "saves",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against death effects, energy drain, necromancy (and stabilization checks)"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01465",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01513",
+  "rule": null
+ },
+ {
+  "id": "F01514",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "minutes",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "speed",
+     "value": 10,
+     "type": "Enhancement",
+     "situational": true,
+     "text": "Totem transformation (movement)"
+    },
+    {
+     "target": "nat",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Totem transformation (scales)"
+    },
+    {
+     "target": "cmb",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Totem transformation (natural weapons), grapple only"
+    }
+   ],
+   "note": "minutes per day = druid level, from the dragon shaman ability it references"
+  }
+ },
+ {
+  "id": "F01515",
+  "rule": null
+ },
+ {
+  "id": "F01516",
+  "rule": {
+   "uses": {
+    "max": "floor((cls - 4) / 2)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "note": "druid wild shape uses at effective druid level cls - 2 (reptile/dinosaur forms use cls + 2 for the form)"
+  }
+ },
+ {
+  "id": "F01517",
+  "rule": null
+ },
+ {
+  "id": "F01570",
+  "rule": null
+ },
+ {
+  "id": "F01571",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "minutes",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "nat",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Totem transformation (shark skin)"
+    }
+   ],
+   "note": "minutes per day = druid level, from the dragon shaman ability it references"
+  }
+ },
+ {
+  "id": "F01572",
+  "rule": null
+ },
+ {
+  "id": "F01573",
+  "rule": {
+   "uses": {
+    "max": "floor((cls - 4) / 2)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "note": "druid wild shape uses at effective druid level cls - 2 (shark forms use cls + 2 for the form)"
+  }
+ },
+ {
+  "id": "F01574",
+  "rule": null
+ },
+ {
+  "id": "F01707",
+  "rule": null
+ },
+ {
+  "id": "F01708",
+  "rule": null
+ },
+ {
+  "id": "F01711",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "saves",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against sonic effects"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01733",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "init",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "In swamp terrain"
+    },
+    {
+     "target": "skill",
+     "skill": "Kn. Geography",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "In swamp terrain"
+    },
+    {
+     "target": "skill",
+     "skill": "Perception",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "In swamp terrain"
+    },
+    {
+     "target": "skill",
+     "skill": "Stealth",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "In swamp terrain"
+    },
+    {
+     "target": "skill",
+     "skill": "Swim",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "In swamp terrain"
+    },
+    {
+     "target": "skill",
+     "skill": "Survival",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "In swamp terrain"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01734",
+  "rule": null
+ },
+ {
+  "id": "F01735",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "saves",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against disease and monstrous humanoid abilities"
+    },
+    {
+     "target": "note",
+     "situational": false,
+     "text": "DR floor(druid level / 2)/- against swarm attacks"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01869",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Diplomacy",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Kn. History",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Kn. Local",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Kn. Nobility",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": false
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01870",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "saves",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against divinations and enchantments"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01940",
+  "rule": {
+   "uses": {
+    "max": "max(1, floor(cls / 2) + int)",
+    "unit": "uses",
+    "per": "day",
+    "extra": [
+     [
+      "Extra Inspiration",
+      3
+     ]
+    ]
+   },
+   "roll": {
+    "count": "1",
+    "die": 6,
+    "label": "inspiration"
+   },
+   "note": "pool size and d6 die from the investigator inspiration ability the text references"
+  }
+ },
+ {
+  "id": "F01941",
+  "rule": {
+   "uses": {
+    "max": "cls >= 6 ? floor((cls - 4) / 2) : 1",
+    "unit": "uses",
+    "per": "day"
+   },
+   "note": "druid wild shape minus the 6th-level extra use (replaced by natural expertise); druid 20 is at will"
+  }
+ },
+ {
+  "id": "F01979",
+  "rule": {
+   "uses": {
+    "max": "cls >= 15 ? 3 : cls >= 12 ? 2 : 1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F00655",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Handle Animal",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "To influence animals of your chosen kind"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00656",
+  "rule": null
+ },
+ {
+  "id": "F00682",
+  "rule": null
+ },
+ {
+  "id": "F00684",
+  "rule": null
+ },
+ {
+  "id": "F00685",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F00688",
+  "rule": {
+   "uses": {
+    "max": "4 + cha",
+    "unit": "rounds",
+    "per": "day",
+    "extra": [
+     [
+      "Extra Performance",
+      6
+     ]
+    ]
+   },
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "cls >= 17 ? 4 : cls >= 11 ? 3 : cls >= 5 ? 2 : 1",
+     "type": "Luck",
+     "situational": true,
+     "text": "While archaeologist's luck is active"
+    },
+    {
+     "target": "saves",
+     "value": "cls >= 17 ? 4 : cls >= 11 ? 3 : cls >= 5 ? 2 : 1",
+     "type": "Luck",
+     "situational": true,
+     "text": "While archaeologist's luck is active"
+    },
+    {
+     "target": "skills",
+     "value": "cls >= 17 ? 4 : cls >= 11 ? 3 : cls >= 5 ? 2 : 1",
+     "type": "Luck",
+     "situational": true,
+     "text": "While archaeologist's luck is active"
+    },
+    {
+     "target": "dmg",
+     "value": "cls >= 17 ? 4 : cls >= 11 ? 3 : cls >= 5 ? 2 : 1",
+     "type": "Luck",
+     "situational": true,
+     "text": "While archaeologist's luck is active (weapon damage)"
+    }
+   ],
+   "note": "text gives 4 + Cha rounds with no per-level increase; counts as bardic performance, so Extra Performance applies"
+  }
+ },
+ {
+  "id": "F00689",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Disable Device",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Perception",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": false
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00691",
+  "rule": null
+ },
+ {
+  "id": "F00704",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 2) / 6)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F00705",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Spellcraft",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "To identify magic items or decipher scrolls"
+    },
+    {
+     "target": "saves",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against magical traps, language-dependent effects, symbols, glyphs and magical writings"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00706",
+  "rule": null
+ },
+ {
+  "id": "F00707",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 10) / 3)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F00814",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Diplomacy",
+     "value": "cls >= 17 ? 5 : cls >= 13 ? 4 : cls >= 9 ? 3 : cls >= 5 ? 2 : 1",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "In the region where you are famous"
+    },
+    {
+     "target": "skill",
+     "skill": "Intimidate",
+     "value": "cls >= 17 ? 5 : cls >= 13 ? 4 : cls >= 9 ? 3 : cls >= 5 ? 2 : 1",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "In the region where you are famous"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00847",
+  "rule": {
+   "uses": {
+    "max": "1 + floor(cls / 5)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Diplomacy",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Kn. History",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Kn. Local",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Kn. Nobility",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": false
+    }
+   ],
+   "note": "uses = rerolls on these skills"
+  }
+ },
+ {
+  "id": "F00890",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "cmb",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Chosen combat maneuvers"
+    },
+    {
+     "target": "cmd",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against chosen combat maneuvers"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00891",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "saves",
+     "value": "min(5, 1 + floor((cls - 2) / 4))",
+     "type": "Morale",
+     "situational": true,
+     "text": "Against mind-affecting effects (including fear)"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00892",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 5) / 3)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "note": "text says +1 per 3 levels beyond 5th (6 at 20th) but also 'maximum of eight at 20th'; used the per-level rule"
+  }
+ },
+ {
+  "id": "F00912",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Bluff",
+     "value": "cls >= 17 ? 5 : cls >= 13 ? 4 : cls >= 9 ? 3 : cls >= 5 ? 2 : 1",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "In the region where you are famous"
+    },
+    {
+     "target": "skill",
+     "skill": "Intimidate",
+     "value": "cls >= 17 ? 5 : cls >= 13 ? 4 : cls >= 9 ? 3 : cls >= 5 ? 2 : 1",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "In the region where you are famous"
+    }
+   ],
+   "note": "progression from the celebrity bard's famous ability the text references"
+  }
+ },
+ {
+  "id": "F00915",
+  "rule": {
+   "cost": {
+    "from": "Bardic Performance",
+    "n": 1
+   },
+   "note": "battle dance rounds are bardic performance rounds (1 per round); inspire courage etc. apply to self only"
+  }
+ },
+ {
+  "id": "F00916",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "speed",
+     "value": "min(30, 10 + 5 * floor((cls - 1) / 4))",
+     "type": "Enhancement",
+     "situational": true,
+     "text": "While performing a battle dance"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00917",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "note",
+     "situational": false,
+     "text": "+half bard level on Perform (dance); may use Perform (dance) bonus in place of Acrobatics"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00918",
+  "rule": null
+ },
+ {
+  "id": "F00919",
+  "rule": null
+ },
+ {
+  "id": "F00927",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Kn. Local",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Perception",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Sense Motive",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Diplomacy",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "To gather information"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00928",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "saves",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against illusions, or to see through disguises and anti-divination"
+    },
+    {
+     "target": "cl",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "CL checks to see through disguises and protections against divination"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00931",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "saves",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against fear, energy drain, death effects and necromantic effects"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00932",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Kn. Religion",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "To identify undead and their abilities"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00933",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "note",
+     "situational": false,
+     "text": "Perform (keyboard/percussion) replaces Intimidate to demoralize, +half bard level; saves vs your fear effects -2, -1 more per 5 levels beyond 5th"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01087",
+  "rule": {
+   "cost": {
+    "from": "Bardic Performance",
+    "n": 4
+   },
+   "note": "4 rounds per creature affected"
+  }
+ },
+ {
+  "id": "F01089",
+  "rule": null
+ },
+ {
+  "id": "F01240",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Kn. Arcana",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Spellcraft",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Use Magic Device",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": false
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01241",
+  "rule": null
+ },
+ {
+  "id": "F01242",
+  "rule": null
+ },
+ {
+  "id": "F01245",
+  "rule": null
+ },
+ {
+  "id": "F01508",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Bluff",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Sleight of Hand",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Stealth",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": false
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01509",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "cl",
+     "value": "cls >= 14 ? 4 : cls >= 6 ? 2 : 0",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "CL checks vs spell resistance of foes denied Dex bonus"
+    },
+    {
+     "target": "note",
+     "situational": false,
+     "text": "Spell and bardic performance DCs +1 (+2 at 10th, +3 at 18th) vs foes denied their Dex bonus"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01510",
+  "rule": null
+ },
+ {
+  "id": "F01511",
+  "rule": {
+   "roll": {
+    "count": "1 + floor((cls - 5) / 5)",
+    "die": 6,
+    "label": "precision"
+   }
+  }
+ },
+ {
+  "id": "F01549",
+  "rule": {
+   "uses": {
+    "max": "1 + floor(cls / 5)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Kn. Geography",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Kn. Local",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Kn. Nature",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Linguistics",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": false
+    }
+   ],
+   "note": "uses = rerolls on these skills"
+  }
+ },
+ {
+  "id": "F01551",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "saves",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against air and water effects and effects that would knock you prone"
+    },
+    {
+     "target": "cmd",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against grapple, overrun and trip"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01623",
+  "rule": {
+   "uses": {
+    "max": "max(0, cha)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01722",
+  "rule": null
+ },
+ {
+  "id": "F01723",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Bluff",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Disguise",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Kn. Local",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Sleight of Hand",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Diplomacy",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "To influence crowds or gather information"
+    },
+    {
+     "target": "skill",
+     "skill": "Intimidate",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "To influence crowds"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01724",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 5) / 6)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "note": "uses = take 20 on Bluff or Disguise"
+  }
+ },
+ {
+  "id": "F01899",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Kn. Nature",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": false
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00660",
+  "rule": null
+ },
+ {
+  "id": "F00661",
+  "rule": {
+   "dc": "10 + floor(cls / 2) + wis"
+  }
+ },
+ {
+  "id": "F00662",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 10) / 4)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F00663",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "rounds",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F00664",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F00665",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   },
+   "note": "uses = astral projection; ethereal jaunt is at will"
+  }
+ },
+ {
+  "id": "F01427",
+  "rule": null
+ },
+ {
+  "id": "F01428",
+  "rule": null
+ },
+ {
+  "id": "F01429",
+  "rule": null
+ },
+ {
+  "id": "F01635",
+  "rule": null
+ }
+]

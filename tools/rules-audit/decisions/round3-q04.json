@@ -1,0 +1,981 @@
+[
+ {
+  "id": "F01636",
+  "rule": null
+ },
+ {
+  "id": "F01665",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Intimidate",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "To demoralize a foe"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01667",
+  "rule": {
+   "uses": {
+    "max": "3 + cha",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "ceil(cls / 2)",
+    "die": 6,
+    "dc": "10 + floor(cls / 2) + cha",
+    "label": "positive energy (undead only)"
+   }
+  }
+ },
+ {
+  "id": "F01668",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "fort",
+     "value": 4,
+     "type": "Insight",
+     "situational": true,
+     "text": "Against death effects and to avoid/remove negative levels"
+    },
+    {
+     "target": "ref",
+     "value": 4,
+     "type": "Insight",
+     "situational": true,
+     "text": "Against death effects"
+    },
+    {
+     "target": "will",
+     "value": 4,
+     "type": "Insight",
+     "situational": true,
+     "text": "Against death effects"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01857",
+  "rule": null
+ },
+ {
+  "id": "F01858",
+  "rule": null
+ },
+ {
+  "id": "F01888",
+  "rule": null
+ },
+ {
+  "id": "F01889",
+  "rule": {
+   "dc": "10 + floor(cls / 2) + wis",
+   "note": "Will save DC for the study ability"
+  }
+ },
+ {
+  "id": "F01971",
+  "rule": {
+   "uses": {
+    "max": "3 + cha",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "ceil((cls - 3) / 2)",
+    "die": 6,
+    "dc": "10 + floor((cls - 3) / 2) + cha",
+    "label": "positive energy"
+   },
+   "note": "effective cleric level is shaman level - 3"
+  }
+ },
+ {
+  "id": "F01972",
+  "rule": null
+ },
+ {
+  "id": "F01973",
+  "rule": null
+ },
+ {
+  "id": "F00680",
+  "rule": null
+ },
+ {
+  "id": "F00681",
+  "rule": null
+ },
+ {
+  "id": "F01046",
+  "rule": {
+   "uses": {
+    "max": "3 + floor(cls / 2)",
+    "unit": "points",
+    "per": "day"
+   },
+   "note": "Arcanist arcane reservoir formula (3 + 1/2 level) from published rules; text refers to arcanist"
+  }
+ },
+ {
+  "id": "F01047",
+  "rule": null
+ },
+ {
+  "id": "F01540",
+  "rule": null
+ },
+ {
+  "id": "F01541",
+  "rule": null
+ },
+ {
+  "id": "F01542",
+  "rule": null
+ },
+ {
+  "id": "F01588",
+  "rule": null
+ },
+ {
+  "id": "F01589",
+  "rule": {
+   "uses": {
+    "max": "max(1, int)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01590",
+  "rule": null
+ },
+ {
+  "id": "F01591",
+  "rule": null
+ },
+ {
+  "id": "F01637",
+  "rule": {
+   "uses": {
+    "max": "1 + (cls >= 8 ? 1 : 0) + (cls >= 16 ? 1 : 0)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01638",
+  "rule": {
+   "uses": {
+    "max": "1 + (cls >= 6 ? 1 : 0) + (cls >= 11 ? 1 : 0) + (cls >= 16 ? 1 : 0)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01653",
+  "rule": null
+ },
+ {
+  "id": "F01654",
+  "rule": null
+ },
+ {
+  "id": "F01655",
+  "rule": null
+ },
+ {
+  "id": "F01656",
+  "rule": null
+ },
+ {
+  "id": "F01670",
+  "rule": null
+ },
+ {
+  "id": "F01671",
+  "rule": null
+ },
+ {
+  "id": "F00695",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Perception",
+     "value": "1 + floor((cls - 2) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": false,
+     "text": "Hawkeye"
+    }
+   ],
+   "note": "also +5 ft bow range increment per bonus step (not tracked)"
+  }
+ },
+ {
+  "id": "F00696",
+  "rule": null
+ },
+ {
+  "id": "F00697",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With bows"
+    },
+    {
+     "target": "dmg",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With bows"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00699",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": "cls >= 17 ? 4 : 2",
+     "type": "Dodge (stacks)",
+     "situational": true,
+     "text": "Against ranged attacks"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00700",
+  "rule": null
+ },
+ {
+  "id": "F00714",
+  "rule": null
+ },
+ {
+  "id": "F00716",
+  "rule": null
+ },
+ {
+  "id": "F00779",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "cmb",
+     "value": "1 + floor((cls - 2) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Bull rush, drag, reposition"
+    },
+    {
+     "target": "cmd",
+     "value": "1 + floor((cls - 2) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against bull rush, drag, reposition"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00780",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "1 + floor((cls - 3) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With close weapon group"
+    },
+    {
+     "target": "dmg",
+     "value": "3 + floor((cls - 3) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With close weapon group"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00781",
+  "rule": null
+ },
+ {
+  "id": "F00783",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "cmb",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Using Stand Still"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00798",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "cmb",
+     "value": "1 + floor((cls - 2) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Disarm, dirty trick, steal"
+    },
+    {
+     "target": "cmd",
+     "value": "1 + floor((cls - 2) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against disarm, dirty trick, steal"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00800",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against a creature that attacked you since your last turn"
+    },
+    {
+     "target": "dmg",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against a creature that attacked you since your last turn"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00801",
+  "rule": null
+ },
+ {
+  "id": "F00804",
+  "rule": null
+ },
+ {
+  "id": "F00859",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "rDmg",
+     "value": "max(1, floor(dex / 2))",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Crossbow attack as a readied action"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00860",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "rAtk",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With crossbows"
+    },
+    {
+     "target": "rDmg",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With crossbows"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00861",
+  "rule": null
+ },
+ {
+  "id": "F00862",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Stealth",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "When sniping"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00863",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "rDmg",
+     "value": "max(1, dex)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Crossbow attack as a readied action"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00865",
+  "rule": null
+ },
+ {
+  "id": "F00866",
+  "rule": null
+ },
+ {
+  "id": "F00867",
+  "rule": null
+ },
+ {
+  "id": "F00885",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": 1,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With implanted/cybernetic-arm weapons"
+    }
+   ],
+   "note": "damage bonus scaling ('1 per 4 levels gained') is ambiguous; not added"
+  }
+ },
+ {
+  "id": "F00886",
+  "rule": null
+ },
+ {
+  "id": "F00887",
+  "rule": null
+ },
+ {
+  "id": "F00970",
+  "rule": null
+ },
+ {
+  "id": "F00971",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With spears"
+    },
+    {
+     "target": "dmg",
+     "value": "2 * (1 + floor((cls - 5) / 4))",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With spears"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00973",
+  "rule": null
+ },
+ {
+  "id": "F00974",
+  "rule": null
+ },
+ {
+  "id": "F00975",
+  "rule": null
+ },
+ {
+  "id": "F01080",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "cmb",
+     "value": "1 + floor((cls - 2) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Disarm"
+    },
+    {
+     "target": "cmd",
+     "value": "1 + floor((cls - 2) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against disarm"
+    },
+    {
+     "target": "skill",
+     "skill": "Bluff",
+     "value": "1 + floor((cls - 2) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "To feint or create a diversion to hide"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01081",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": "1 + floor((cls - 2) / 4)",
+     "type": "Dodge (stacks)",
+     "situational": true,
+     "text": "Not in medium/heavy armor or load"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01082",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "mAtk",
+     "value": "1 + floor((cls - 5) / 6)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Melee weapon in one hand, other hand free"
+    },
+    {
+     "target": "mDmg",
+     "value": "1 + floor((cls - 5) / 6)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Melee weapon in one hand, other hand free"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01083",
+  "rule": null
+ },
+ {
+  "id": "F01093",
+  "rule": null
+ },
+ {
+  "id": "F01094",
+  "rule": null
+ },
+ {
+  "id": "F01095",
+  "rule": null
+ },
+ {
+  "id": "F01263",
+  "rule": {
+   "uses": {
+    "max": "3 + floor(cls / 2)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01288",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "fort",
+     "value": "1 + floor((cls - 2) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against paralysis, slow, entangle"
+    },
+    {
+     "target": "ref",
+     "value": "1 + floor((cls - 2) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against paralysis, slow, entangle"
+    },
+    {
+     "target": "will",
+     "value": "1 + floor((cls - 2) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against paralysis, slow, entangle"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01289",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "After moving at least 5 ft before attacking"
+    },
+    {
+     "target": "dmg",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "After moving at least 5 ft before attacking"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01290",
+  "rule": null
+ },
+ {
+  "id": "F01291",
+  "rule": {
+   "uses": {
+    "max": "floor(cls / 5)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "speed",
+     "value": 10,
+     "type": "Untyped (stacks)",
+     "situational": false,
+     "text": "Fleet footed"
+    }
+   ],
+   "note": "uses = take 20 on Acrobatics"
+  }
+ },
+ {
+  "id": "F01292",
+  "rule": null
+ },
+ {
+  "id": "F01344",
+  "rule": null
+ },
+ {
+  "id": "F01385",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "cmd",
+     "value": "1 + floor((cls - 2) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against bull rush, overrun, trip"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01386",
+  "rule": null
+ },
+ {
+  "id": "F01387",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 5) / 4)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With readied brace weapon"
+    },
+    {
+     "target": "dmg",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With readied brace weapon"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01388",
+  "rule": null
+ },
+ {
+  "id": "F01389",
+  "rule": null
+ },
+ {
+  "id": "F01390",
+  "rule": null
+ },
+ {
+  "id": "F01415",
+  "rule": null
+ },
+ {
+  "id": "F01416",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "1 + floor((cls - 3) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Readied attacks and attacks of opportunity with spear/polearm"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01417",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With spears and polearms"
+    },
+    {
+     "target": "dmg",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With spears and polearms"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01419",
+  "rule": null
+ },
+ {
+  "id": "F01420",
+  "rule": null
+ },
+ {
+  "id": "F01421",
+  "rule": null
+ },
+ {
+  "id": "F01469",
+  "rule": null
+ },
+ {
+  "id": "F01470",
+  "rule": null
+ },
+ {
+  "id": "F01471",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While mounted or adjacent to mount"
+    },
+    {
+     "target": "dmg",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While mounted or adjacent to mount"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01472",
+  "rule": null
+ },
+ {
+  "id": "F01473",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 11) / 4)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "note": "rerolls a Ride check or the mount's saving throw"
+  }
+ },
+ {
+  "id": "F01474",
+  "rule": null
+ },
+ {
+  "id": "F01527",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "fort",
+     "value": "1 + floor((cls - 2) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against energy drain and death effects"
+    },
+    {
+     "target": "ref",
+     "value": "1 + floor((cls - 2) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against energy drain and death effects"
+    },
+    {
+     "target": "will",
+     "value": "1 + floor((cls - 2) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against energy drain and death effects"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01528",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With natural weapons"
+    },
+    {
+     "target": "dmg",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With natural weapons"
+    },
+    {
+     "target": "cmb",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Grapple"
+    },
+    {
+     "target": "cmd",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against grapple"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01529",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Natural weapon at end of a charge"
+    },
+    {
+     "target": "ac",
+     "value": "-floor(cls / 2)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "After charging"
+    }
+   ],
+   "note": "these replace the normal +2 charge attack bonus and -2 AC; also applies to CMB for bull rush/overrun when charging"
+  }
+ },
+ {
+  "id": "F01531",
+  "rule": null
+ },
+ {
+  "id": "F01579",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": "1 + floor((cls - 3) / 4)",
+     "type": "Dodge (stacks)",
+     "situational": true,
+     "text": "Wielding a shield and fighting defensively, Combat Expertise or total defense"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01580",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Shield bash"
+    },
+    {
+     "target": "dmg",
+     "value": "1 + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Shield bash"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01581",
+  "rule": null
+ }
+]

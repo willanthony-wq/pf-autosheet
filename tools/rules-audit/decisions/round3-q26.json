@@ -1,0 +1,369 @@
+[
+ {
+  "id": "F04242",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "str",
+     "value": 4,
+     "type": "Size",
+     "situational": true,
+     "text": "In raven form"
+    },
+    {
+     "target": "dex",
+     "value": -2,
+     "type": "Size",
+     "situational": true,
+     "text": "In raven form"
+    },
+    {
+     "target": "nat",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "In raven form (natural armor)"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F04243",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04244",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04245",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04246",
+  "rule": {
+   "uses": {
+    "max": "floor(level / 4)",
+    "unit": "uses",
+    "per": "day",
+    "note": "Text says 'but see Special' (Special not in text)"
+   },
+   "dc": "10 + floor(level / 2) + wis"
+  }
+ },
+ {
+  "id": "F04247",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04248",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04249",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04250",
+  "rule": {
+   "uses": {
+    "max": "2",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04251",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04252",
+  "rule": {
+   "uses": {
+    "max": "druid",
+    "unit": "minutes",
+    "per": "day",
+    "note": "minutes"
+   }
+  }
+ },
+ {
+  "id": "F04253",
+  "rule": {
+   "uses": {
+    "max": "max(1, wis)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "dc": "10 + floor(level / 2) + wis"
+  }
+ },
+ {
+  "id": "F04254",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04255",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04256",
+  "rule": {
+   "uses": {
+    "max": "3",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04257",
+  "rule": {
+   "uses": {
+    "max": "3",
+    "unit": "uses",
+    "per": "day",
+    "note": "Three abilities, once each per day"
+   }
+  }
+ },
+ {
+  "id": "F04258",
+  "rule": {
+   "uses": {
+    "max": "2",
+    "unit": "uses",
+    "per": "day",
+    "note": "Two abilities, once each per day"
+   }
+  }
+ },
+ {
+  "id": "F04259",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day",
+    "note": "Disguise self; shadow walk from level 9 and plane shift from level 13 are each also once per day"
+   }
+  }
+ },
+ {
+  "id": "F04260",
+  "rule": {
+   "uses": {
+    "max": "4",
+    "unit": "uses",
+    "per": "day",
+    "note": "Four spell-like abilities, once each; requires Cha score 11+"
+   }
+  }
+ },
+ {
+  "id": "F04261",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04262",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04263",
+  "rule": {
+   "uses": {
+    "max": "3",
+    "unit": "uses",
+    "per": "day",
+    "note": "Requires Cha score 11+"
+   }
+  }
+ },
+ {
+  "id": "F04264",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04265",
+  "rule": {
+   "uses": {
+    "max": "3",
+    "unit": "uses",
+    "per": "day",
+    "note": "Three abilities, once each; requires Cha score 11+"
+   }
+  }
+ },
+ {
+  "id": "F04266",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "1",
+    "die": 6,
+    "label": "acid, cold, electricity or fire"
+   },
+   "note": "Lasts 1 round per level"
+  }
+ },
+ {
+  "id": "F04267",
+  "rule": {
+   "uses": {
+    "max": "3",
+    "unit": "uses",
+    "per": "day",
+    "note": "Three abilities, once each (nondetection is constant)"
+   }
+  }
+ },
+ {
+  "id": "F04268",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04269",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04270",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04271",
+  "rule": {
+   "uses": {
+    "max": "max(1, con)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "1",
+    "die": 2,
+    "label": "Dex damage"
+   },
+   "dc": "10 + floor(level / 2) + con"
+  }
+ },
+ {
+  "id": "F04272",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F04273",
+  "rule": {
+   "uses": {
+    "max": "3",
+    "unit": "uses",
+    "per": "day",
+    "note": "Three abilities, once each; requires Cha score 11+"
+   }
+  }
+ }
+]

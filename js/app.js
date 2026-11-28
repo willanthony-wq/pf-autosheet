@@ -1075,6 +1075,80 @@
       return keys.some(k => eb === k || k.startsWith(eb + ' ') || eb.startsWith(k + ' '));
     });
   }
+  // ----- Rules for a feature (js/rules.js): uses counter, what Use rolls, uses of another ability it spends, switch-on bonuses
+  const lcs = s => String(s || '').toLowerCase().trim();
+  function charClassSlugs() { return App.d.classes.filter(c => c.name && c.level).map(c => E.classSlug(c.name)); }
+  function ruleFor(f, list) {
+    const R = window.PF_RULES;
+    if (!R || !R.loaded() || !f) return null;
+    const name = list === 'racialFeatures' ? raceFeatureLabel(f) : featureLabel(f.name);
+    const q = { name, classes: charClassSlugs(), archetypes: App.ch.classes.flatMap(c => c.archetypes || []) };
+    const parts = String(f.src || '').split(':');
+    if (list === 'feats') q.kind = 'feat';
+    else if (list === 'racialFeatures') { q.kind = 'race'; q.owner = App.ch.info.race; }
+    else if (parts[0] === 'class') { q.kind = 'class'; q.owner = parts[1]; q.cls = E.classSlug(parts[1]); }
+    else if (parts[0] === 'arch') { q.kind = 'archetype'; q.owner = parts[1]; }
+    else if (parts[0] === 'choice' && parts.length >= 4) { q.kind = 'choice-power'; q.owner = `${parts[2]} (${parts[1]})`; q.name = name.replace(/\s*\([^)]*\)\s*$/, ''); }
+    else if (parts[0] === 'choice') { q.kind = 'choice'; q.owner = parts[1]; }
+    const e = R.find(q);
+    if (!e) return null;
+    // The class level the formulas use: the class that grants it (mythic: tier)
+    const have = new Set(q.classes);
+    const cls = e.k === 'mythic' ? 'tier' : (e.c && have.has(e.c)) ? e.c : (q.cls && have.has(q.cls)) ? q.cls : (e.c || 'level');
+    return { e, r: e.r, uid: R.uid(e), cls };
+  }
+  function ruleEval(expr, cls) {
+    if (typeof expr === 'number') return expr;
+    const v = E.evalBonus(String(expr).replace(/\bcls\b/g, cls || 'level'), App.d.formulaVars);
+    return typeof v === 'number' && isFinite(v) ? v : null;
+  }
+  function ruleMax(rr) {
+    const u = rr.r.uses;
+    let m = ruleEval(u.max, rr.cls);
+    if (m === null) return null;
+    for (const [feat, per] of u.extra || []) m += per * App.ch.feats.filter(x => lcs(x.name).startsWith(lcs(feat))).length;
+    return Math.max(0, Math.floor(m));
+  }
+  const ruleUsed = rr => Math.max(0, +((App.ch.featureUses || {})[rr.uid]) || 0);
+  function ruleSpend(rr, n) {
+    App.ch.featureUses = App.ch.featureUses || {};
+    App.ch.featureUses[rr.uid] = Math.max(0, ruleUsed(rr) + n);
+  }
+  // A counter for a feature: a resource with its name (imports), else the rules' uses counter
+  function featureCounter(f, list) {
+    const name = list === 'racialFeatures' ? raceFeatureLabel(f) : f.name;
+    const r = featureResource({ name });
+    if (r >= 0) return { res: App.ch.resources[r], r, rr: ruleFor(f, list) };
+    const rr = ruleFor(f, list);
+    if (rr && rr.r.uses) { const max = ruleMax(rr); if (max !== null) return { rr, max, left: Math.max(0, max - ruleUsed(rr)) }; }
+    return rr ? { rr } : null;
+  }
+  // "cost": the uses of another ability this one spends (paladin channel: 2 lay on hands; vindicator's shield: 1 channel)
+  function spendCost(rr) {
+    const c = rr && rr.r.cost;
+    if (!c) return '';
+    const k = window.PF_RULES.key(c.from);
+    const lists = [['classFeatures', App.ch.classFeatures], ['racialFeatures', App.ch.racialFeatures || []], ['feats', App.ch.feats]];
+    for (const [list, arr] of lists) for (const f of arr) {
+      const nm = list === 'racialFeatures' ? raceFeatureLabel(f) : f.name;
+      if (window.PF_RULES.key(nm) !== k) continue;
+      const fc = featureCounter(f, list);
+      if (fc && fc.res && /^\d+$/.test(String(fc.res.uses))) { const u = +fc.res.uses; if (u < c.n) return `not enough ${c.from} left (${u})`; fc.res.uses = u - c.n; return `spent ${c.n} ${c.from} (${u - c.n} left)`; }
+      if (fc && fc.rr && fc.max !== undefined) { if (fc.left < c.n) return `not enough ${c.from} left (${fc.left})`; ruleSpend(fc.rr, c.n); return `spent ${c.n} ${c.from} (${fc.left - c.n} left)`; }
+    }
+    return `spends ${c.n} use${c.n === 1 ? '' : 's'} of ${c.from}`;
+  }
+  // A class feature whose effect carries its bonuses (Rage, Smite Evil...) doesn't also keep switch-on copies of them,
+  // which could be switched on twice
+  function dropEffectDupes(ch) {
+    const effs = (ch.effects || []).filter(e => !/^import adjustments/i.test(e.name || '')).map(e => baseName(e.name)).filter(k => k.length >= 4);
+    for (const f of ch.classFeatures || []) {
+      if (!(f.bonuses || []).some(b => b.situational)) continue;
+      const m = /^(?:class|arch):[^:]*:(.+)$/.exec(f.src || '');
+      const keys = [baseName(f.name), m ? m[1].toLowerCase() : ''].filter(k => k.length >= 4);
+      if (effs.some(eb => keys.some(k => eb === k || k.startsWith(eb + ' ') || eb.startsWith(k + ' ')))) f.bonuses = f.bonuses.filter(b => !b.situational);
+    }
+  }
   // Hero Lab's placeholder for an unchosen option: "Vindicator's Sacred Shield +7 (- Custom / magic armor -)"
   const featureLabel = n => String(n || '').replace(/\s*\(-[^)]*-\)/g, '').trim();
   // Class features the Play tab already shows another way are left off the card automatically: a "pick N" summary
@@ -1129,25 +1203,41 @@
     const shown = featureShownTest(), raceShown = raceShownTest();
     // Class features and racial features in one list (racial ones are tagged "race")
     const feats = ch.classFeatures.map((f, i) => ({ f, i, list: 'classFeatures', label: featureLabel(f.name), r: featureResource(f), e: featureEffect(f) })).filter(x => x.f.name && shown(x.f))
+      // Feats with uses per day (Stunning Fist...) join the list, tagged "feat"
+      .concat(ch.feats.map((f, i) => ({ f, i, list: 'feats', label: f.name, feat: true, r: -1 })).filter(x => { if (!x.f.name || x.f.play === false) return false; const rr = ruleFor(x.f, 'feats'); return !!(rr && (rr.r.uses || rr.r.roll)); }))
       .concat((ch.racialFeatures || []).map((f, i) => ({ f, i, list: 'racialFeatures', label: raceFeatureLabel(f), race: true })).filter(x => x.label && raceShown(x.f)).map(x => Object.assign(x, { r: featureResource({ name: x.label }) })));
     if (!classes.length && !feats.length) return '';
     // Starred features first, each group A to Z
     const az = (a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base', numeric: true });
     const sorted = feats.filter(x => x.f.fav).sort(az).concat(feats.filter(x => !x.f.fav).sort(az));
-    const rows = sorted.map(({ f, i, r, e, list, label, race }) => {
+    const rows = sorted.map(({ f, i, r, e, list, label, race, feat }) => {
       const eff = e >= 0 && e !== undefined ? ch.effects[e] : null;
+      const fc = featureCounter(f, list), rr = fc && fc.rr;
       // ...or its own switch-on bonuses (stigmata, bane, inspire courage, favored enemy...)
-      const sitPaths = list === 'classFeatures' ? (f.bonuses || []).map((b, j) => (b && b.situational && b.target !== 'note' ? `${list}/${i}/bonuses/${j}` : null)).filter(Boolean) : [];
-      const sitOn = sitPaths.some(p => get(p).active !== false);
-      const sw = !eff && sitPaths.length ? `<button class="chip sit${sitOn ? ' on' : ''}" data-action="toggle-situational" data-paths="${esc(sitPaths.join('|'))}" aria-pressed="${sitOn}" title="${esc((f.bonuses || []).filter(b => b.situational && b.text).map(b => b.text)[0] || 'Switch its bonus on while it applies')}. Click to switch ${sitOn ? 'off' : 'on'}.">${sitOn ? 'on' : 'off'}</button>` : eff ? `<label class="chip${eff.active ? ' on' : ''}" title="Switches the ${esc(eff.name)} effect on or off (also on the Buffs card and the Effects tab)"><input type="checkbox" data-bind="effects/${e}/active" data-type="bool" data-rerender${eff.active ? ' checked' : ''}>${eff.active ? 'on' : 'off'}</label>` : '';
-      const res = r >= 0 ? ch.resources[r] : null, short = shortRules(f.text);
+      // Switch-on bonuses, one switch per option (bonuses grouped by their condition: rage is one switch, mutagen or
+      // stigmata one per choice). Bonuses the rules know but the feature doesn't have yet are added on the first click.
+      const sitOf = arr => { const g = new Map(); (arr || []).forEach((b, j) => { if (!b || !b.situational || b.target === 'note') return; const k = String(b.text || '').trim(); if (!g.has(k)) g.set(k, []); g.get(k).push(j); }); return [...g]; };
+      const chipLabel = (k, many, on) => (many ? (k.length > 26 ? k.slice(0, 24) + '…' : k || 'on') : (on ? 'on' : 'off'));
+      const own = ['classFeatures', 'feats'].includes(list) ? sitOf(f.bonuses) : [];
+      const ruleGroups = !eff && !own.length && rr ? sitOf(rr.r.bonuses) : [];
+      const sw = eff ? null
+        : own.length ? own.map(([k, js]) => { const paths = js.map(j => `${list}/${i}/bonuses/${j}`), on = js.some(j => f.bonuses[j].active !== false); return `<button class="chip sit${on ? ' on' : ''}" data-action="toggle-situational" data-paths="${esc(paths.join('|'))}" aria-pressed="${on}" title="${esc(k || 'Switch its bonus on while it applies')}. Click to switch ${on ? 'off' : 'on'}.">${esc(chipLabel(k, own.length > 1, on))}</button>`; }).join('')
+        : ruleGroups.length ? ruleGroups.map(([k], gi) => `<button class="chip sit" data-action="rule-switch" data-list="${list}" data-i="${i}" data-group="${gi}" title="${esc(k || 'Switch its bonus on while it applies')}. Click to switch on.">${esc(chipLabel(k, ruleGroups.length > 1, false))}</button>`).join('')
+        : '';
+      const swHtml = sw !== null ? sw : `<label class="chip${eff.active ? ' on' : ''}" title="Switches the ${esc(eff.name)} effect on or off (also on the Buffs card and the Effects tab)"><input type="checkbox" data-bind="effects/${e}/active" data-type="bool" data-rerender${eff.active ? ' checked' : ''}>${eff.active ? 'on' : 'off'}</label>`;
+      const res = fc && fc.res ? fc.res : null, short = shortRules(f.text);
+      if (res) r = fc.r;
       const uses = res ? (res.uses === '' || res.uses === undefined ? 0 : res.uses) : null;
-      const empty = res && /^\d+$/.test(String(uses)) && +uses <= 0;
+      const auto = !res && fc && fc.max !== undefined;
+      const empty = (res && /^\d+$/.test(String(uses)) && +uses <= 0) || (auto && fc.left <= 0);
+      const unit = rr && rr.r.uses && rr.r.uses.unit && rr.r.uses.unit !== 'uses' ? ` <span class="sub">${esc(rr.r.uses.unit)}</span>` : '';
+      const autoCounter = auto ? `<span class="counter"><button class="btn small" data-action="fu-bump" data-uid="${esc(rr.uid)}" data-max="${fc.max}" data-d="1" aria-label="Use one">−</button><strong>${fc.left}</strong><span class="muted">/ ${fc.max}</span><button class="btn small" data-action="fu-bump" data-uid="${esc(rr.uid)}" data-max="${fc.max}" data-d="-1" aria-label="Get one back">+</button>${unit}</span>` : '';
+      const canUse = !!(res || auto || (rr && (rr.r.roll || rr.r.cost || rr.r.dc !== undefined)));
       const counter = res ? `<span class="counter"><button class="btn small" data-action="bump" data-path="resources/${r}/uses" data-d="-1" aria-label="Use one">−</button><strong>${esc(uses)}</strong>${res.max !== '' && res.max !== undefined && res.max !== null ? `<span class="muted">/ ${esc(res.max)}</span>` : ''}<button class="btn small" data-action="bump" data-path="resources/${r}/uses" data-d="1" aria-label="Add one">+</button></span>` : '';
       const fav = !!f.fav;
       return `<div class="play-res play-feat${fav ? ' fav' : ''}">
-        <span class="res-name"${short ? ` title="${esc(short)}"` : ''}><button class="star-btn${fav ? ' on' : ''}" data-action="toggle-fav" data-path="${list}/${i}" aria-pressed="${fav}" title="${fav ? 'Unstar' : 'Star this to highlight it and keep it at the top'}">${fav ? '★' : '☆'}</button>${esc(label)}${race ? ' <span class="sub">race</span>' : ''}</span>
-        <span class="inline" style="flex-wrap:nowrap">${sw}${counter}<button class="btn small${res ? '' : ' ghost'}" data-action="feature-use" data-list="${list}" data-i="${i}"${empty ? ' disabled' : ''} title="${res ? 'Use it: take one use and post what it does' : 'Post what it does'} (Shift-click: private)">${res ? 'Use' : 'Show'}</button></span></div>`;
+        <span class="res-name"${short ? ` title="${esc(short)}"` : ''}><button class="star-btn${fav ? ' on' : ''}" data-action="toggle-fav" data-path="${list}/${i}" aria-pressed="${fav}" title="${fav ? 'Unstar' : 'Star this to highlight it and keep it at the top'}">${fav ? '★' : '☆'}</button>${esc(label)}${race ? ' <span class="sub">race</span>' : feat ? ' <span class="sub">feat</span>' : ''}</span>
+        <span class="inline sw-row">${swHtml}${counter}${autoCounter}<button class="btn small${canUse ? '' : ' ghost'}" data-action="feature-use" data-list="${list}" data-i="${i}"${empty ? ' disabled' : ''} title="${canUse ? 'Use it: takes a use, rolls its dice and posts what it does' : 'Post what it does'} (Shift-click: private)">${canUse ? 'Use' : 'Show'}</button></span></div>`;
     }).join('');
     const classLine = (ch.info.race ? [`<strong>${esc(ch.info.race)}</strong>`] : []).concat(classes.map(([c, a]) => `<strong>${esc(c.name)} ${esc(c.level)}</strong>${a.length ? ` <span class="sub">${esc(a.join(', '))}</span>` : ''}`)).join(' · ');
     return card('Classes & Features', `${classLine ? `<div class="small" style="margin-bottom:6px">${classLine}</div>` : ''}
@@ -2662,11 +2752,21 @@
         toast(!now ? `${nm || 'It'}: shown on the Play tab's ${card} card.` : `${nm || 'It'}: left off the Play tab.`);
       },
       'feature-use': () => {
-        const isRace = el.dataset.list === 'racialFeatures', f0 = (isRace ? App.ch.racialFeatures : App.ch.classFeatures)[+el.dataset.i];
+        const list = el.dataset.list || 'classFeatures', isRace = list === 'racialFeatures';
+        const f0 = (list === 'racialFeatures' ? App.ch.racialFeatures : list === 'feats' ? App.ch.feats : App.ch.classFeatures)[+el.dataset.i];
         if (!f0) return;
         const f = isRace ? { name: raceFeatureLabel(f0), text: f0.text } : f0;
-        const r = featureResource(f), res = r >= 0 ? App.ch.resources[r] : null;
+        const fc = featureCounter(f0, list), rr = fc && fc.rr;
+        const r = fc && fc.res ? fc.r : -1, res = r >= 0 ? App.ch.resources[r] : null;
         let left = '';
+        if (!res && fc && fc.max !== undefined) {
+          if (fc.left <= 0) { toast(`${featureLabel(f.name)}: none left. Rest, or get one back with +.`); return; }
+          ruleSpend(rr, 1); left = `${fc.left - 1} / ${fc.max}${rr.r.uses.unit && rr.r.uses.unit !== 'uses' ? ' ' + rr.r.uses.unit : ''} left`;
+          changed(true);
+        }
+        const costNote = rr && rr.r.cost ? spendCost(rr) : '';
+        if (/^not enough/.test(costNote)) { toast(`${featureLabel(f.name)}: ${costNote}.`); return; }
+        if (costNote) changed(true);
         if (res && /^\d+$/.test(String(res.uses === '' || res.uses === undefined ? 0 : res.uses))) {
           const u = +res.uses || 0;
           if (u <= 0) { toast(`${f.name}: no uses left. Rest or add one with +.`); return; }
@@ -2675,12 +2775,36 @@
         }
         // Dice and DC in the name, its resource or a short text: "Lay on Hands (7d6 …)", "Channel Positive Energy 7d6 (15/day, DC 25)"
         const where = [f.name, res ? res.name : '', String(f.text || '').length < 100 ? f.text : ''].join(' ');
-        const dm = where.match(/\b(\d+d\d+(?:\s*[+-]\s*\d+)?)\b/), dcm = where.match(/\bDC\s*(\d+)/i);
+        let dm = where.match(/\b(\d+d\d+(?:\s*[+-]\s*\d+)?)\b/), dcm = where.match(/\bDC\s*(\d+)/i);
         let total = null;
         const lines = [];
+        // The rules' dice and DC come first (they follow your levels)
+        const ro = rr && rr.r.roll;
+        if (ro) {
+          const n = ruleEval(ro.count, rr.cls), b = ro.bonus !== undefined ? ruleEval(ro.bonus, rr.cls) : 0, dc = ro.dc !== undefined ? ruleEval(ro.dc, rr.cls) : null;
+          if (n !== null && n > 0) { dm = [null, `${Math.floor(n)}d${ro.die}${b ? (b > 0 ? '+' : '') + Math.floor(b) : ''}`]; }
+          if (dc !== null) dcm = [null, String(Math.floor(dc))];
+        }
+        if (rr && rr.r.dc !== undefined) { const v = ruleEval(rr.r.dc, rr.cls); if (v !== null) dcm = [null, String(Math.floor(v))]; }
         if (dm) { try { const rr = DICE.rollExpr(dm[1].replace(/\s+/g, '')); total = rr.total; lines.push(`**${rr.total}** (${rr.text})${dcm ? ` · DC ${dcm[1]}` : ''}`); } catch (e2) { /* not dice after all */ } }
         else if (dcm) lines.push(`DC ${dcm[1]}`);
-        emit({ title: `${who()} uses ${featureLabel(f.name)}`, total, kind: total === null ? 'info' : undefined, lines: lines.concat([shortRules(f.text), left].filter(Boolean)) }, priv);
+        emit({ title: `${who()} uses ${featureLabel(f.name)}`, total, kind: total === null ? 'info' : undefined, lines: lines.concat([ro && ro.label && total !== null ? ro.label : '', shortRules(f.text), left, costNote].filter(Boolean)) }, priv);
+      },
+      'fu-bump': () => {
+        const uid = el.dataset.uid, max = +el.dataset.max || 0;
+        App.ch.featureUses = App.ch.featureUses || {};
+        App.ch.featureUses[uid] = Math.max(0, Math.min(max, (+App.ch.featureUses[uid] || 0) + (+el.dataset.d)));
+        changed(true);
+      },
+      'rule-switch': () => {
+        // Adds all of the rules' switch-on bonuses to the feature (off), then switches on the option clicked
+        const list = el.dataset.list, f = (App.ch[list] || [])[+el.dataset.i], rr = f && ruleFor(f, list);
+        if (!rr) return;
+        const sit = (rr.r.bonuses || []).filter(b => b.situational && b.target !== 'note');
+        const keys = [...new Set(sit.map(b => String(b.text || '').trim()))], want = keys[+el.dataset.group || 0];
+        f.bonuses = (f.bonuses || []).concat(sit.map(b => Object.assign({ label: '', skill: '', weapon: '', text: '' }, b, {
+          value: typeof b.value === 'string' ? b.value.replace(/\bcls\b/g, rr.cls) : b.value, active: String(b.text || '').trim() === want, situational: true })));
+        changed(true);
       },
       'lay-row-move': () => {
         const r = +el.dataset.r, to = r + (+el.dataset.d);
@@ -2952,6 +3076,9 @@
     App.ch.resources.forEach(r => { if (r.max !== '' && r.max !== undefined) r.uses = r.max; });
     App.ch.hp.nonlethal = 0;
     if (App.ch.mythic) App.ch.mythic.powerUsed = 0;   // mythic power refreshes each day
+    // Daily uses from the rules (weekly ones keep counting)
+    const fu = App.ch.featureUses || {};
+    for (const k of Object.keys(fu)) { const e = window.PF_RULES && window.PF_RULES.byUid(k); if (!(e && e.r.uses && e.r.uses.per === 'week')) delete fu[k]; }
     changed(true);
     toast('Rested.');
   }
@@ -3769,6 +3896,7 @@
     await SRD.ensure(['classes', 'archetypes', 'choices']);
     if (!App.d.classes.some(c => c.name && c.level > 0)) { if (!auto) toast('Set your classes and levels on the Character tab first.'); return; }
     const res = syncClassFeatures(App.ch, App.d, { bonuses: true });
+    dropEffectDupes(App.ch);
     const did = res.added || res.updated || res.removed || res.spellsAdded || res.spellsRemoved || res.effects;
     if (did) changed(true);
     const msg = syncSummary(res);
@@ -3830,6 +3958,7 @@
     const oldBonuses = new Set(ch.classFeatures.flatMap(f => f.bonuses || []));
     const d = E.compute(ch);
     const res = syncClassFeatures(ch, d, { bonuses: hl, adopt: hl });
+    dropEffectDupes(ch);
     // 3. An archetype or choice feature that the import already listed: keep the imported one (its name has the current numbers)
     for (const s of ch.classFeatures.filter(x => !before.has(x) && /^(arch|choice):/.test(x.src || ''))) {
       const k = featureKey(s.name);
@@ -3959,7 +4088,7 @@
   // ---------- Boot ----------
   // Every script defines one of these. One can go missing when the browser mixes cached old files with new
   // ones right after an update; a hard reload fixes it.
-  const PARTS = { PF_DATA: 'data.js', PF_3PP: 'classes-3pp.js', PF_ATTACK_GROUP: 'attacks-extra.js', PF_MAGIC: 'magic.js', PF_MODEL: 'model.js', PF_RACES: 'races.js', PF_COMPANION: 'companion.js',
+  const PARTS = { PF_DATA: 'data.js', PF_3PP: 'classes-3pp.js', PF_ATTACK_GROUP: 'attacks-extra.js', PF_MAGIC: 'magic.js', PF_MODEL: 'model.js', PF_RULES: 'rules.js', PF_RACES: 'races.js', PF_COMPANION: 'companion.js',
     PF_FEATS: 'feats.js', PF_ENGINE: 'engine.js', PF_HEROLAB: 'herolab.js', PF_IMPORT: 'import.js', PF_DICE: 'dice.js', PF_DISCORD: 'discord.js', PF_SRD: 'srd.js' };
   function missingParts() { return Object.keys(PARTS).filter(k => !window[k]).map(k => PARTS[k]); }
   function boot() {
@@ -3979,6 +4108,8 @@
     renderLog();
     const id = App.roster.current && App.roster.ids.includes(App.roster.current) ? App.roster.current : App.roster.ids[0];
     if (!id || !loadCharacter(id)) render();
+    // Uses counters, rolls and switches for class features: once loaded, draw again
+    if (window.PF_RULES) window.PF_RULES.load().then(() => { if (App.ch) render(); });
   }
   window.PF_APP = App;
   boot();

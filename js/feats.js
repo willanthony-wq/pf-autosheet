@@ -271,6 +271,13 @@
     const nm = kind === 'feature' ? String(name || '').toLowerCase().replace(/\s*[+\u2212-]?\d.*$/, '').replace(/\s*\(.*$/, '').trim() : name;
     const fn = kind === 'feature' ? (FEATURES.find(([k]) => nm === k) || [])[1] : lookup(list, name);
     const fill = b => Object.assign({ label: '', skill: '', weapon: '', text: '', active: true }, b);
+    if (!fn && kind === 'feature' && window.PF_RULES && window.PF_RULES.loaded()) {
+      const e = window.PF_RULES.find({ name, cls, classes: cls ? [cls] : [] });
+      if (e && e.r.bonuses && e.r.bonuses.length) {
+        const c = e.k === 'mythic' ? 'tier' : (cls || e.c || 'level');
+        return e.r.bonuses.map(b => fill(Object.assign({}, b, { value: typeof b.value === 'string' ? b.value.replace(/\bcls\b/g, c) : b.value, active: !b.situational })));
+      }
+    }
     if (!fn) {
       if (!text || kind === 'item' || kind === 'evolution') return null;
       const picks = String((String(name || '').match(/\(([^)]*)\)\s*$/) || [])[1] || '').split(/,\s*/).map(x => skillAt(x.trim().toLowerCase())).filter(Boolean);

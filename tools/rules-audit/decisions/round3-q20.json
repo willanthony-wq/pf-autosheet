@@ -1,0 +1,1019 @@
+[
+ {
+  "id": "F02934",
+  "rule": null
+ },
+ {
+  "id": "F02935",
+  "rule": {
+   "roll": {
+    "count": "max(1, floor(cls / 2))",
+    "die": 4,
+    "dc": "10 + floor(cls / 2) + cha",
+    "label": "damage"
+   },
+   "note": "Hex save DC (10 + 1/2 shaman level + Cha) is from the shaman hex rules, not this text"
+  }
+ },
+ {
+  "id": "F02936",
+  "rule": {
+   "dc": "10 + floor(cls / 2) + cha",
+   "note": "Hex save DC from shaman hex rules, not this text"
+  }
+ },
+ {
+  "id": "F02937",
+  "rule": null
+ },
+ {
+  "id": "F03042",
+  "rule": {
+   "dc": "10 + floor(cls / 2) + cha",
+   "note": "Hex save DC from shaman hex rules, not this text"
+  }
+ },
+ {
+  "id": "F03043",
+  "rule": {
+   "roll": {
+    "count": "max(1, floor(cls / 2))",
+    "die": 6,
+    "dc": "10 + floor(cls / 2) + cha",
+    "label": "damage"
+   },
+   "note": "Hex save DC from shaman hex rules, not this text"
+  }
+ },
+ {
+  "id": "F03044",
+  "rule": null
+ },
+ {
+  "id": "F03046",
+  "rule": null
+ },
+ {
+  "id": "F03377",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "rounds",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F03378",
+  "rule": {
+   "dc": "10 + floor(cls / 2) + cha",
+   "note": "Hex save DC from shaman hex rules, not this text"
+  }
+ },
+ {
+  "id": "F03379",
+  "rule": null
+ },
+ {
+  "id": "F03380",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "cmd",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against bull rush or trip while standing on the ground"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03602",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "rounds",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F03635",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "hours",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": "cls >= 7 ? 4 + 2 * (floor((cls - 7) / 4) + 1) : 4",
+     "type": "Armor",
+     "situational": true,
+     "text": "While the air barrier is active"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03637",
+  "rule": null
+ },
+ {
+  "id": "F03638",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "rounds",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F03639",
+  "rule": {
+   "dc": "10 + floor(cls / 2) + cha",
+   "note": "Hex save DC from shaman hex rules, not this text (the ward itself allows no save)"
+  }
+ },
+ {
+  "id": "F02187",
+  "rule": {
+   "roll": {
+    "count": "1",
+    "die": 6,
+    "label": "sonic"
+   }
+  }
+ },
+ {
+  "id": "F02628",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "fort",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against disease and poison"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02903",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "mDmg",
+     "value": 1,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While raging, extra energy damage"
+    }
+   ],
+   "dc": "10 + floor(level / 2) + cha",
+   "note": "Curse DC uses character level as the text states; negative energy"
+  }
+ },
+ {
+  "id": "F02904",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "mDmg",
+     "value": 1,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While raging, extra energy damage"
+    }
+   ],
+   "dc": "10 + floor(level / 2) + cha",
+   "note": "Curse DC uses character level as the text states; fire"
+  }
+ },
+ {
+  "id": "F02905",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "mDmg",
+     "value": 1,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While raging, extra energy damage"
+    }
+   ],
+   "dc": "10 + floor(level / 2) + cha",
+   "note": "Curse DC uses character level as the text states; cold"
+  }
+ },
+ {
+  "id": "F02906",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "mDmg",
+     "value": 1,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While raging, extra energy damage"
+    }
+   ],
+   "dc": "10 + floor(level / 2) + cha",
+   "note": "Curse DC uses character level as the text states; cold"
+  }
+ },
+ {
+  "id": "F02907",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "mDmg",
+     "value": 1,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While raging, extra energy damage"
+    }
+   ],
+   "dc": "10 + floor(level / 2) + cha",
+   "note": "Curse DC uses character level as the text states; electricity"
+  }
+ },
+ {
+  "id": "F02908",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "mDmg",
+     "value": 1,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While raging, extra energy damage"
+    }
+   ],
+   "dc": "10 + floor(level / 2) + cha",
+   "note": "Curse DC uses character level as the text states; acid"
+  }
+ },
+ {
+  "id": "F02909",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "mDmg",
+     "value": 1,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While raging, extra energy damage"
+    }
+   ],
+   "dc": "10 + floor(level / 2) + cha",
+   "note": "Curse DC uses character level as the text states; fire"
+  }
+ },
+ {
+  "id": "F03208",
+  "rule": null
+ },
+ {
+  "id": "F03498",
+  "rule": null
+ },
+ {
+  "id": "F02203",
+  "rule": {
+   "cost": {
+    "from": "Grit",
+    "n": 1
+   },
+   "note": "1 grit for bleed equal to Dex; 2 grit for 1 ability damage instead"
+  }
+ },
+ {
+  "id": "F02302",
+  "rule": null
+ },
+ {
+  "id": "F02373",
+  "rule": {
+   "cost": {
+    "from": "Grit",
+    "n": 1
+   }
+  }
+ },
+ {
+  "id": "F02374",
+  "rule": {
+   "cost": {
+    "from": "Grit",
+    "n": 1
+   },
+   "note": "1 grit per range increment beyond the first"
+  }
+ },
+ {
+  "id": "F02389",
+  "rule": {
+   "cost": {
+    "from": "Grit",
+    "n": 1
+   },
+   "dc": "10 + floor(cls / 2) + dex"
+  }
+ },
+ {
+  "id": "F02555",
+  "rule": null
+ },
+ {
+  "id": "F02570",
+  "rule": {
+   "cost": {
+    "from": "Grit",
+    "n": 1
+   }
+  }
+ },
+ {
+  "id": "F02716",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "init",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While you have at least 1 grit point"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02717",
+  "rule": {
+   "cost": {
+    "from": "Grit",
+    "n": 1
+   },
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against the triggering ranged attack (+4 if you drop prone instead)"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02899",
+  "rule": null
+ },
+ {
+  "id": "F02990",
+  "rule": {
+   "cost": {
+    "from": "Grit",
+    "n": 1
+   },
+   "dc": "10 + floor(cls / 2) + wis"
+  }
+ },
+ {
+  "id": "F03150",
+  "rule": null
+ },
+ {
+  "id": "F03198",
+  "rule": null
+ },
+ {
+  "id": "F03308",
+  "rule": {
+   "cost": {
+    "from": "Grit",
+    "n": 1
+   },
+   "note": "1 grit for a skill check reroll, 2 grit for a saving throw reroll"
+  }
+ },
+ {
+  "id": "F03353",
+  "rule": null
+ },
+ {
+  "id": "F03405",
+  "rule": {
+   "cost": {
+    "from": "Grit",
+    "n": 2
+   },
+   "dc": "10 + floor(cls / 2) + wis"
+  }
+ },
+ {
+  "id": "F03439",
+  "rule": {
+   "cost": {
+    "from": "Grit",
+    "n": 1
+   }
+  }
+ },
+ {
+  "id": "F03531",
+  "rule": null
+ },
+ {
+  "id": "F02204",
+  "rule": {
+   "cost": {
+    "from": "Panache",
+    "n": 1
+   },
+   "note": "1 panache for bleed equal to Dex (min 1); 2 panache for 1 ability damage instead"
+  }
+ },
+ {
+  "id": "F02303",
+  "rule": null
+ },
+ {
+  "id": "F02379",
+  "rule": {
+   "cost": {
+    "from": "Panache",
+    "n": 1
+   },
+   "dc": "10 + floor(cls / 2) + dex"
+  }
+ },
+ {
+  "id": "F02412",
+  "rule": {
+   "cost": {
+    "from": "Panache",
+    "n": 1
+   },
+   "roll": {
+    "count": "1",
+    "die": 6,
+    "label": "added to the check"
+   }
+  }
+ },
+ {
+  "id": "F02453",
+  "rule": {
+   "cost": {
+    "from": "Panache",
+    "n": 1
+   },
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": 4,
+     "type": "Dodge (stacks)",
+     "situational": true,
+     "text": "While fighting defensively with this deed"
+    },
+    {
+     "target": "atk",
+     "value": -2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While fighting defensively with this deed"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02463",
+  "rule": {
+   "cost": {
+    "from": "Panache",
+    "n": 1
+   },
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": "max(0, cha)",
+     "type": "Dodge (stacks)",
+     "situational": true,
+     "text": "Against the triggering melee attack"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02556",
+  "rule": null
+ },
+ {
+  "id": "F02838",
+  "rule": null
+ },
+ {
+  "id": "F02991",
+  "rule": null
+ },
+ {
+  "id": "F03073",
+  "rule": {
+   "cost": {
+    "from": "Panache",
+    "n": 1
+   }
+  }
+ },
+ {
+  "id": "F03146",
+  "rule": null
+ },
+ {
+  "id": "F03172",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "mDmg",
+     "value": "cls",
+     "type": "Precision Damage",
+     "situational": true,
+     "text": "While you have at least 1 panache, with a light or one-handed piercing weapon"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03406",
+  "rule": {
+   "cost": {
+    "from": "Panache",
+    "n": 2
+   },
+   "dc": "10 + floor(cls / 2) + dex"
+  }
+ },
+ {
+  "id": "F03408",
+  "rule": null
+ },
+ {
+  "id": "F03420",
+  "rule": null
+ },
+ {
+  "id": "F03426",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "init",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While you have at least 1 panache point"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03427",
+  "rule": null
+ },
+ {
+  "id": "F03428",
+  "rule": null
+ },
+ {
+  "id": "F03438",
+  "rule": {
+   "cost": {
+    "from": "Panache",
+    "n": 1
+   }
+  }
+ },
+ {
+  "id": "F03080",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "min(5, 1 + floor((cls - 1) / 4))",
+     "type": "Morale",
+     "situational": true,
+     "text": "Against your challenged target that you offered the chance to surrender"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03081",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Mediating a dispute between two other parties",
+     "skill": "Diplomacy"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03082",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "dmg",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "When dealing nonlethal damage"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03083",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 8) / 4)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "note": "Ignores damage equal to cavalier level + Cha from one source (immediate action)"
+  }
+ },
+ {
+  "id": "F03084",
+  "rule": null
+ },
+ {
+  "id": "F03087",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "mDmg",
+     "value": "1 + floor((cls - 1) / 4)",
+     "type": "Morale",
+     "situational": true,
+     "text": "Against your challenged target while you alone threaten it"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03088",
+  "rule": null
+ },
+ {
+  "id": "F03089",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "mAtk",
+     "value": 2,
+     "type": "Morale",
+     "situational": true,
+     "text": "Against demoralized targets"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03091",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "max(0, cha)",
+     "type": "Competence",
+     "situational": true,
+     "text": "For 1 round after declaring the moment of triumph"
+    },
+    {
+     "target": "dmg",
+     "value": "max(0, cha)",
+     "type": "Competence",
+     "situational": true,
+     "text": "For 1 round after declaring the moment of triumph"
+    },
+    {
+     "target": "fort",
+     "value": "max(0, cha)",
+     "type": "Competence",
+     "situational": true,
+     "text": "For 1 round after declaring the moment of triumph"
+    },
+    {
+     "target": "ref",
+     "value": "max(0, cha)",
+     "type": "Competence",
+     "situational": true,
+     "text": "For 1 round after declaring the moment of triumph"
+    },
+    {
+     "target": "will",
+     "value": "max(0, cha)",
+     "type": "Competence",
+     "situational": true,
+     "text": "For 1 round after declaring the moment of triumph"
+    },
+    {
+     "target": "skills",
+     "value": "max(0, cha)",
+     "type": "Competence",
+     "situational": true,
+     "text": "For 1 round after declaring the moment of triumph"
+    },
+    {
+     "target": "ac",
+     "value": "max(0, cha)",
+     "type": "Competence",
+     "situational": true,
+     "text": "For 1 round after declaring the moment of triumph"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03094",
+  "rule": null
+ },
+ {
+  "id": "F03095",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Providing food and water or protecting allies from harsh weather",
+     "skill": "Survival"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03096",
+  "rule": null
+ },
+ {
+  "id": "F03097",
+  "rule": null
+ },
+ {
+  "id": "F03098",
+  "rule": null
+ },
+ {
+  "id": "F03101",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": "1 + floor((cls - 1) / 4)",
+     "type": "Dodge (stacks)",
+     "situational": true,
+     "text": "Against attacks by your challenged target"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03102",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "If you have ranks in it and the check involves your sovereign",
+     "skill": "Kn. Nobility"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03103",
+  "rule": null
+ },
+ {
+  "id": "F03104",
+  "rule": null
+ },
+ {
+  "id": "F03105",
+  "rule": null
+ },
+ {
+  "id": "F03109",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Competence",
+     "situational": true,
+     "text": "Using Bluff to conceal information about your sworn charge",
+     "skill": "Bluff"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03110",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": 2,
+     "type": "Morale",
+     "situational": true,
+     "text": "Directly defending the location you swore to protect"
+    }
+   ],
+   "note": "If a secret is chosen instead: +2 morale on saves and opposed checks to resist revealing information"
+  }
+ },
+ {
+  "id": "F03111",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "cmd",
+     "value": 2,
+     "type": "Dodge (stacks)",
+     "situational": true,
+     "text": "Against bull rush, overrun, reposition, trip when you moved no more than a 5-foot step"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03112",
+  "rule": null
+ },
+ {
+  "id": "F03115",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "1 + floor((cls - 1) / 4)",
+     "type": "Morale",
+     "situational": true,
+     "text": "Against your challenged target after it attacks someone else"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03116",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Using Heal on a creature other than yourself",
+     "skill": "Heal"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03117",
+  "rule": null
+ },
+ {
+  "id": "F03118",
+  "rule": null
+ },
+ {
+  "id": "F03119",
+  "rule": null
+ },
+ {
+  "id": "F03122",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "fort",
+     "value": "1 + floor((cls - 1) / 4)",
+     "type": "Morale",
+     "situational": true,
+     "text": "While threatening the target of your challenge"
+    },
+    {
+     "target": "ref",
+     "value": "1 + floor((cls - 1) / 4)",
+     "type": "Morale",
+     "situational": true,
+     "text": "While threatening the target of your challenge"
+    },
+    {
+     "target": "will",
+     "value": "1 + floor((cls - 1) / 4)",
+     "type": "Morale",
+     "situational": true,
+     "text": "While threatening the target of your challenge"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03123",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "If you have ranks in it and the check involves your chosen faith",
+     "skill": "Kn. Religion"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03124",
+  "rule": {
+   "uses": {
+    "max": "4",
+    "unit": "uses",
+    "per": "day"
+   },
+   "note": "Once per type of check (ability check, attack, save, skill); bonus equals Cha for one roll within 1 minute"
+  }
+ },
+ {
+  "id": "F03125",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 8) / 4)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "max(0, cha)",
+     "type": "Morale",
+     "situational": true,
+     "text": "For 1 round after calling out your deity"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03126",
+  "rule": null
+ },
+ {
+  "id": "F03129",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "1 + floor((cls - 1) / 4)",
+     "type": "Morale",
+     "situational": true,
+     "text": "Against your challenged target while astride your mount"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03130",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Competence",
+     "situational": true,
+     "text": "Using Sense Motive to oppose a Bluff check",
+     "skill": "Sense Motive"
+    }
+   ]
+  }
+ }
+]

@@ -1,0 +1,932 @@
+[
+ {
+  "id": "F00002",
+  "rule": null
+ },
+ {
+  "id": "F00003",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "rAtk",
+     "value": 1,
+     "type": "Enhancement",
+     "situational": true,
+     "text": "Nonmagical arrows (larger enhancement only)"
+    },
+    {
+     "target": "rDmg",
+     "value": 1,
+     "type": "Enhancement",
+     "situational": true,
+     "text": "Nonmagical arrows (larger enhancement only)"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00004",
+  "rule": null
+ },
+ {
+  "id": "F00005",
+  "rule": {
+   "uses": {
+    "max": "min(4, 1 + floor((cls - 4) / 2))",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F00006",
+  "rule": {
+   "uses": {
+    "max": "min(3, 1 + floor((cls - 6) / 2))",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F00010",
+  "rule": null
+ },
+ {
+  "id": "F00013",
+  "rule": {
+   "uses": {
+    "max": "cls >= 7 ? 2 : 1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F00019",
+  "rule": {
+   "dc": "10 + cls + int",
+   "note": "Fortitude save; paralysis lasts 1d6 rounds + assassin level"
+  }
+ },
+ {
+  "id": "F00024",
+  "rule": null
+ },
+ {
+  "id": "F00032",
+  "rule": {
+   "uses": {
+    "max": "4 + con + 2 * (cls - 1)",
+    "unit": "rounds",
+    "per": "day",
+    "extra": [
+     [
+      "Extra Rage",
+      6
+     ]
+    ]
+   },
+   "bonuses": [
+    {
+     "target": "str",
+     "value": "cls >= 20 ? 8 : cls >= 11 ? 6 : 4",
+     "type": "Morale",
+     "situational": true,
+     "text": "While raging"
+    },
+    {
+     "target": "con",
+     "value": "cls >= 20 ? 8 : cls >= 11 ? 6 : 4",
+     "type": "Morale",
+     "situational": true,
+     "text": "While raging"
+    },
+    {
+     "target": "will",
+     "value": "cls >= 20 ? 4 : cls >= 11 ? 3 : 2",
+     "type": "Morale",
+     "situational": true,
+     "text": "While raging"
+    },
+    {
+     "target": "ac",
+     "value": -2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While raging"
+    }
+   ],
+   "note": "Text gives the 1st-level +4/+2; greater rage (11) and mighty rage (20) scaling from the class table"
+  }
+ },
+ {
+  "id": "F00034",
+  "rule": null
+ },
+ {
+  "id": "F00043",
+  "rule": null
+ },
+ {
+  "id": "F00044",
+  "rule": null
+ },
+ {
+  "id": "F00046",
+  "rule": {
+   "uses": {
+    "max": "4 + cha + 2 * (cls - 1)",
+    "unit": "rounds",
+    "per": "day",
+    "extra": [
+     [
+      "Extra Performance",
+      6
+     ]
+    ]
+   }
+  }
+ },
+ {
+  "id": "F00048",
+  "rule": null
+ },
+ {
+  "id": "F00055",
+  "rule": null
+ },
+ {
+  "id": "F00056",
+  "rule": {
+   "uses": {
+    "max": "3 + cha",
+    "unit": "uses",
+    "per": "day",
+    "extra": [
+     [
+      "Extra Channel",
+      2
+     ]
+    ]
+   },
+   "roll": {
+    "count": "ceil(cls / 2)",
+    "die": 6,
+    "dc": "10 + floor(cls / 2) + cha",
+    "label": "positive or negative energy"
+   }
+  }
+ },
+ {
+  "id": "F00064",
+  "rule": null
+ },
+ {
+  "id": "F00065",
+  "rule": null
+ },
+ {
+  "id": "F00071",
+  "rule": null
+ },
+ {
+  "id": "F00074",
+  "rule": null
+ },
+ {
+  "id": "F00075",
+  "rule": null
+ },
+ {
+  "id": "F00079",
+  "rule": null
+ },
+ {
+  "id": "F00080",
+  "rule": null
+ },
+ {
+  "id": "F00082",
+  "rule": null
+ },
+ {
+  "id": "F00086",
+  "rule": {
+   "uses": {
+    "max": "min(8, 1 + floor((cls - 4) / 2))",
+    "unit": "uses",
+    "per": "day",
+    "note": "At will at 20th level"
+   }
+  }
+ },
+ {
+  "id": "F00093",
+  "rule": null
+ },
+ {
+  "id": "F00097",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "mDmg",
+     "value": "cls",
+     "type": "Precision Damage",
+     "situational": true,
+     "text": "Precise strike: light/one-handed piercing weapon, nothing in other hand"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00099",
+  "rule": null
+ },
+ {
+  "id": "F00108",
+  "rule": null
+ },
+ {
+  "id": "F00112",
+  "rule": null
+ },
+ {
+  "id": "F00115",
+  "rule": null
+ },
+ {
+  "id": "F00117",
+  "rule": null
+ },
+ {
+  "id": "F00118",
+  "rule": null
+ },
+ {
+  "id": "F00123",
+  "rule": null
+ },
+ {
+  "id": "F00130",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": "max(0, wis) + floor(cls / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Unarmored, no shield, light load"
+    },
+    {
+     "target": "cmd",
+     "value": "max(0, wis) + floor(cls / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Unarmored, no shield, light load"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00131",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": -2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "During flurry of blows"
+    }
+   ],
+   "note": "Flurry uses monk level as BAB from monk levels; extra attacks not modelled"
+  }
+ },
+ {
+  "id": "F00132",
+  "rule": null
+ },
+ {
+  "id": "F00133",
+  "rule": null
+ },
+ {
+  "id": "F00134",
+  "rule": {
+   "uses": {
+    "max": "cls + floor((level - cls) / 4)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "dc": "10 + floor(level / 2) + wis",
+   "note": "Uses and DC come from the Stunning Fist feat (monk level + 1 per 4 non-monk levels; DC 10 + 1/2 character level + Wis)"
+  }
+ },
+ {
+  "id": "F00139",
+  "rule": {
+   "uses": {
+    "max": "floor(cls / 2) + wis",
+    "unit": "points",
+    "per": "day",
+    "extra": [
+     [
+      "Extra Ki",
+      2
+     ]
+    ]
+   },
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": 4,
+     "type": "Dodge (stacks)",
+     "situational": true,
+     "text": "1 round after spending 1 ki"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00148",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   },
+   "dc": "10 + floor(cls / 2) + wis"
+  }
+ },
+ {
+  "id": "F00152",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "note",
+     "type": "Untyped (stacks)",
+     "situational": false,
+     "text": "DR 10/chaotic; treated as outsider for spells"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00155",
+  "rule": null
+ },
+ {
+  "id": "F00156",
+  "rule": null
+ },
+ {
+  "id": "F00157",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   },
+   "note": "Targets take -2 on saves vs both spells; +2 on CL checks vs SR"
+  }
+ },
+ {
+  "id": "F00161",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 1) / 3)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "max(0, cha)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against the smitten evil target"
+    },
+    {
+     "target": "dmg",
+     "value": "cls",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against the smitten evil target"
+    },
+    {
+     "target": "ac",
+     "value": "max(0, cha)",
+     "type": "Deflection",
+     "situational": true,
+     "text": "Against the smitten target's attacks"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00163",
+  "rule": {
+   "uses": {
+    "max": "floor(cls / 2) + cha",
+    "unit": "uses",
+    "per": "day",
+    "extra": [
+     [
+      "Extra Lay On Hands",
+      2
+     ]
+    ]
+   },
+   "roll": {
+    "count": "floor(cls / 2)",
+    "die": 6,
+    "label": "healing"
+   }
+  }
+ },
+ {
+  "id": "F00166",
+  "rule": null
+ },
+ {
+  "id": "F00168",
+  "rule": null
+ },
+ {
+  "id": "F00169",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 5) / 4)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "note": "Weapon bond: +1 per 3 levels beyond 5th (1 + floor((cls - 5) / 3)), spent on enhancement/properties; mount bond: calls per day"
+  }
+ },
+ {
+  "id": "F00174",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "note",
+     "type": "Untyped (stacks)",
+     "situational": false,
+     "text": "DR 10/evil; channel and lay on hands heal maximum"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00179",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Sleight of Hand",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "To conceal small objects on your person"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00182",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Survival",
+     "value": 5,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "To avoid becoming lost"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00185",
+  "rule": {
+   "cost": {
+    "from": "Bardic Performance",
+    "n": 2
+   },
+   "note": "Spends 2 performance rounds per round of epic tale duration (max 10 rounds)"
+  }
+ },
+ {
+  "id": "F00186",
+  "rule": null
+ },
+ {
+  "id": "F00190",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "week"
+   },
+   "roll": {
+    "count": "1",
+    "die": 4,
+    "bonus": "1",
+    "dc": "15 + cha",
+    "label": "barbarians summoned"
+   }
+  }
+ },
+ {
+  "id": "F00192",
+  "rule": null
+ },
+ {
+  "id": "F00194",
+  "rule": null
+ },
+ {
+  "id": "F00197",
+  "rule": null
+ },
+ {
+  "id": "F00198",
+  "rule": null
+ },
+ {
+  "id": "F00199",
+  "rule": null
+ },
+ {
+  "id": "F00203",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": 2,
+     "type": "Insight",
+     "situational": true,
+     "text": "Against your quarry"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00208",
+  "rule": {
+   "dc": "10 + floor(cls / 2) + wis",
+   "note": "Once per day per favored enemy type"
+  }
+ },
+ {
+  "id": "F00211",
+  "rule": {
+   "roll": {
+    "count": "ceil(cls / 2)",
+    "die": 6,
+    "label": "precision"
+   }
+  }
+ },
+ {
+  "id": "F00216",
+  "rule": null
+ },
+ {
+  "id": "F00219",
+  "rule": {
+   "dc": "10 + floor(cls / 2) + int"
+  }
+ },
+ {
+  "id": "F00228",
+  "rule": null
+ },
+ {
+  "id": "F00229",
+  "rule": {
+   "uses": {
+    "max": "min(4, 1 + floor((cls - 4) / 2))",
+    "unit": "uses",
+    "per": "day"
+   },
+   "dc": "10 + (cls >= 10 ? 7 : 4) + cha",
+   "note": "DC uses spell level of shadow conjuration (4) / greater shadow conjuration (7) + Cha"
+  }
+ },
+ {
+  "id": "F00238",
+  "rule": null
+ },
+ {
+  "id": "F00239",
+  "rule": null
+ },
+ {
+  "id": "F00245",
+  "rule": null
+ },
+ {
+  "id": "F00247",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day",
+    "note": "Bonded object only: cast one spell from spellbook"
+   }
+  }
+ },
+ {
+  "id": "F00248",
+  "rule": null
+ },
+ {
+  "id": "F00254",
+  "rule": null
+ },
+ {
+  "id": "F00258",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "note",
+     "type": "Competence",
+     "situational": false,
+     "text": "Competence bonus equal to alchemist level on Craft (alchemy) checks"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00259",
+  "rule": {
+   "uses": {
+    "max": "cls + int",
+    "unit": "uses",
+    "per": "day",
+    "extra": [
+     [
+      "Extra Bombs",
+      2
+     ]
+    ]
+   },
+   "roll": {
+    "count": "ceil(cls / 2)",
+    "die": 6,
+    "bonus": "int",
+    "dc": "10 + floor(cls / 2) + int",
+    "label": "fire"
+   }
+  }
+ },
+ {
+  "id": "F00261",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "nat",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Mutagen active (natural armor)"
+    },
+    {
+     "target": "str",
+     "value": 4,
+     "type": "Alchemical",
+     "situational": true,
+     "text": "Strength mutagen"
+    },
+    {
+     "target": "int",
+     "value": -2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Strength mutagen"
+    },
+    {
+     "target": "dex",
+     "value": 4,
+     "type": "Alchemical",
+     "situational": true,
+     "text": "Dexterity mutagen"
+    },
+    {
+     "target": "wis",
+     "value": -2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Dexterity mutagen"
+    },
+    {
+     "target": "con",
+     "value": 4,
+     "type": "Alchemical",
+     "situational": true,
+     "text": "Constitution mutagen"
+    },
+    {
+     "target": "cha",
+     "value": -2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Constitution mutagen"
+    }
+   ],
+   "note": "Lasts 10 minutes per alchemist level; switch on the one ability brewed"
+  }
+ },
+ {
+  "id": "F00263",
+  "rule": null
+ },
+ {
+  "id": "F00273",
+  "rule": {
+   "uses": {
+    "max": "4 + cha + 2 * (cls - 1)",
+    "unit": "rounds",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F00275",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Diplomacy",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With creatures sharing a language"
+    },
+    {
+     "target": "skill",
+     "skill": "Intimidate",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With creatures sharing a language"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00281",
+  "rule": null
+ },
+ {
+  "id": "F00283",
+  "rule": null
+ },
+ {
+  "id": "F00285",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 1) / 3)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F00286",
+  "rule": null
+ },
+ {
+  "id": "F00287",
+  "rule": null
+ },
+ {
+  "id": "F00288",
+  "rule": {
+   "uses": {
+    "max": "1 + floor(cls / 5)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F00296",
+  "rule": null
+ },
+ {
+  "id": "F00302",
+  "rule": null
+ },
+ {
+  "id": "F00304",
+  "rule": {
+   "cost": {
+    "from": "Channel Energy",
+    "n": 1
+   },
+   "bonuses": [
+    {
+     "target": "note",
+     "type": "Sacred / Profane",
+     "situational": true,
+     "text": "Sacred/profane AC bonus equal to your channel energy dice, until struck or 24 hours"
+    }
+   ],
+   "note": "Cost of 1 channel use per published rules; text only says he channels energy into the shield"
+  }
+ },
+ {
+  "id": "F00305",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "floor(cls / 2)",
+     "type": "Sacred / Profane",
+     "situational": true,
+     "text": "Stigmata bleeding (attack)"
+    },
+    {
+     "target": "dmg",
+     "value": "floor(cls / 2)",
+     "type": "Sacred / Profane",
+     "situational": true,
+     "text": "Stigmata bleeding (weapon damage)"
+    },
+    {
+     "target": "ac",
+     "value": "floor(cls / 2)",
+     "type": "Sacred / Profane",
+     "situational": true,
+     "text": "Stigmata bleeding (AC)"
+    },
+    {
+     "target": "saves",
+     "value": "floor(cls / 2)",
+     "type": "Sacred / Profane",
+     "situational": true,
+     "text": "Stigmata bleeding (saves)"
+    }
+   ],
+   "note": "Pick one target per activation (also caster level checks); bleed damage floor(cls / 2) per round"
+  }
+ },
+ {
+  "id": "F00315",
+  "rule": null
+ },
+ {
+  "id": "F00316",
+  "rule": null
+ },
+ {
+  "id": "F00317",
+  "rule": null
+ },
+ {
+  "id": "F00318",
+  "rule": null
+ },
+ {
+  "id": "F00320",
+  "rule": null
+ },
+ {
+  "id": "F00321",
+  "rule": null
+ },
+ {
+  "id": "F00322",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 1) / 3)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F00330",
+  "rule": {
+   "uses": {
+    "max": "max(0, wis)",
+    "unit": "uses",
+    "per": "day",
+    "note": "Changes of the most recent teamwork feat"
+   }
+  }
+ },
+ {
+  "id": "F00331",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "rounds",
+    "per": "day"
+   }
+  }
+ }
+]

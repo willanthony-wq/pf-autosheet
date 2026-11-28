@@ -1,0 +1,1028 @@
+[
+ {
+  "id": "F01577",
+  "rule": {
+   "uses": {
+    "max": "cls >= 19 ? 2 : 1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01578",
+  "rule": null
+ },
+ {
+  "id": "F01608",
+  "rule": {
+   "roll": {
+    "count": "1 + (cls >= 6 ? 1 : 0) + (cls >= 10 ? 1 : 0) + (cls >= 12 ? 1 : 0) + (cls >= 20 ? 1 : 0)",
+    "die": 6,
+    "label": "precision"
+   }
+  }
+ },
+ {
+  "id": "F01609",
+  "rule": null
+ },
+ {
+  "id": "F01610",
+  "rule": null
+ },
+ {
+  "id": "F01698",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Until end of turn after a successful Exploit Weakness check"
+    },
+    {
+     "target": "ac",
+     "value": "floor(cls / 2)",
+     "type": "Dodge (stacks)",
+     "situational": true,
+     "text": "Against the observed opponent (analyze option)"
+    }
+   ],
+   "note": "Sense Motive/Reflex bonus amount not given in text"
+  }
+ },
+ {
+  "id": "F01699",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "cmb",
+     "value": "2 + (cls >= 7 ? 1 : 0) + (cls >= 11 ? 1 : 0) + (cls >= 15 ? 1 : 0) + (cls >= 19 ? 1 : 0)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Sunder maneuver checks"
+    },
+    {
+     "target": "cmd",
+     "value": "2 + (cls >= 7 ? 1 : 0) + (cls >= 11 ? 1 : 0) + (cls >= 15 ? 1 : 0) + (cls >= 19 ? 1 : 0)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Defending against sunder"
+    },
+    {
+     "target": "cmb",
+     "value": "cls >= 7 ? 2 + (cls >= 11 ? 1 : 0) + (cls >= 15 ? 1 : 0) + (cls >= 19 ? 1 : 0) : 0",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Disarm maneuver checks (from 7th)"
+    },
+    {
+     "target": "cmd",
+     "value": "cls >= 7 ? 2 + (cls >= 11 ? 1 : 0) + (cls >= 15 ? 1 : 0) + (cls >= 19 ? 1 : 0) : 0",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Defending against disarm (from 7th)"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01713",
+  "rule": {
+   "roll": {
+    "count": "1 + (cls >= 2 ? 1 : 0) + (cls >= 8 ? 1 : 0) + (cls >= 15 ? 1 : 0)",
+    "die": 6,
+    "label": "sneak attack (on grapple damage/pin)"
+   }
+  }
+ },
+ {
+  "id": "F01714",
+  "rule": null
+ },
+ {
+  "id": "F01715",
+  "rule": {
+   "uses": {
+    "max": "cls >= 16 ? 3 : cls >= 10 ? 2 : 1",
+    "unit": "uses",
+    "per": "day"
+   },
+   "note": "base once per day implied by knockout"
+  }
+ },
+ {
+  "id": "F01716",
+  "rule": {
+   "dc": "10 + floor(cls / 2) + str",
+   "note": "DC taken from knockout (10 + 1/2 brawler level + Str), which the text refers to"
+  }
+ },
+ {
+  "id": "F01926",
+  "rule": null
+ },
+ {
+  "id": "F01927",
+  "rule": {
+   "cost": {
+    "from": "Martial Flexibility",
+    "n": 1
+   }
+  }
+ },
+ {
+  "id": "F01928",
+  "rule": null
+ },
+ {
+  "id": "F01929",
+  "rule": {
+   "uses": {
+    "max": "floor(cls / 2) + con",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01042",
+  "rule": {
+   "dc": "10 + floor(cls / 2) + wis"
+  }
+ },
+ {
+  "id": "F01043",
+  "rule": {
+   "dc": "10 + floor(cls / 2) + wis"
+  }
+ },
+ {
+  "id": "F01124",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Bluff",
+     "value": "wis",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Stealth",
+     "value": "wis",
+     "type": "Untyped (stacks)",
+     "situational": false
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01125",
+  "rule": null
+ },
+ {
+  "id": "F01165",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "fort",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against effects from magic items"
+    },
+    {
+     "target": "ref",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against effects from magic items"
+    },
+    {
+     "target": "will",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against effects from magic items"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01167",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01168",
+  "rule": {
+   "dc": "10 + floor(cls / 2) + wis",
+   "note": "DC uses caster level (= inquisitor level); applies per non-artifact magic item"
+  }
+ },
+ {
+  "id": "F01169",
+  "rule": null
+ },
+ {
+  "id": "F01430",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01486",
+  "rule": null
+ },
+ {
+  "id": "F01491",
+  "rule": null
+ },
+ {
+  "id": "F01504",
+  "rule": null
+ },
+ {
+  "id": "F01505",
+  "rule": {
+   "roll": {
+    "count": "1 + floor((cls - 4) / 3)",
+    "die": 6,
+    "label": "precision"
+   }
+  }
+ },
+ {
+  "id": "F01592",
+  "rule": {
+   "roll": {
+    "count": "cls >= 13 ? 4 : cls >= 9 ? 3 : cls >= 5 ? 2 : 1",
+    "die": 8,
+    "bonus": "min(cls, cls >= 13 ? 20 : cls >= 9 ? 15 : cls >= 5 ? 10 : 5)",
+    "label": "healing"
+   },
+   "note": "half benefit if rushed"
+  }
+ },
+ {
+  "id": "F01593",
+  "rule": null
+ },
+ {
+  "id": "F01594",
+  "rule": null
+ },
+ {
+  "id": "F01648",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "fort",
+     "value": "floor((cls - 3) / 4) + 1",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against arcane spells of the first chosen school (later schools have lower bonuses)"
+    },
+    {
+     "target": "ref",
+     "value": "floor((cls - 3) / 4) + 1",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against arcane spells of the first chosen school (later schools have lower bonuses)"
+    },
+    {
+     "target": "will",
+     "value": "floor((cls - 3) / 4) + 1",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against arcane spells of the first chosen school (later schools have lower bonuses)"
+    }
+   ],
+   "note": "+1 per school, each new school raises earlier schools by 1; value shown is the oldest school's bonus"
+  }
+ },
+ {
+  "id": "F01649",
+  "rule": null
+ },
+ {
+  "id": "F01650",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01975",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "fort",
+     "value": "min(5, floor((cls - 2) / 4) + 1)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against a spell identified with Spellcraft (or take the dodge AC bonus instead)"
+    },
+    {
+     "target": "ref",
+     "value": "min(5, floor((cls - 2) / 4) + 1)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against a spell identified with Spellcraft (or take the dodge AC bonus instead)"
+    },
+    {
+     "target": "will",
+     "value": "min(5, floor((cls - 2) / 4) + 1)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against a spell identified with Spellcraft (or take the dodge AC bonus instead)"
+    },
+    {
+     "target": "ac",
+     "value": "min(5, floor((cls - 2) / 4) + 1)",
+     "type": "Dodge (stacks)",
+     "situational": true,
+     "text": "Against an identified spell (instead of the save bonus)"
+    }
+   ],
+   "note": "20th-level ally aura once per day not counted"
+  }
+ },
+ {
+  "id": "F01976",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01051",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "init",
+     "value": "floor(cls / 2)",
+     "type": "Insight",
+     "situational": false
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01053",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "fort",
+     "value": 5,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Allies in raging song, against fear effects"
+    },
+    {
+     "target": "ref",
+     "value": 5,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Allies in raging song, against fear effects"
+    },
+    {
+     "target": "will",
+     "value": 5,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Allies in raging song, against fear effects"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01054",
+  "rule": {
+   "cost": {
+    "from": "Raging Song",
+    "n": 10
+   }
+  }
+ },
+ {
+  "id": "F01120",
+  "rule": {
+   "cost": {
+    "from": "Raging Song",
+    "n": 4
+   },
+   "bonuses": [
+    {
+     "target": "fort",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "On the new save from Rousing Retort"
+    },
+    {
+     "target": "ref",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "On the new save from Rousing Retort"
+    },
+    {
+     "target": "will",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "On the new save from Rousing Retort"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01121",
+  "rule": null
+ },
+ {
+  "id": "F01122",
+  "rule": {
+   "uses": {
+    "max": "cls >= 17 ? 2 : 1",
+    "unit": "uses",
+    "per": "day"
+   },
+   "dc": "10 + floor(cls / 2) + cha"
+  }
+ },
+ {
+  "id": "F01640",
+  "rule": null
+ },
+ {
+  "id": "F01641",
+  "rule": null
+ },
+ {
+  "id": "F01642",
+  "rule": null
+ },
+ {
+  "id": "F01643",
+  "rule": null
+ },
+ {
+  "id": "F01644",
+  "rule": {
+   "dc": "10 + floor(cls / 2) + cha"
+  }
+ },
+ {
+  "id": "F01787",
+  "rule": {
+   "uses": {
+    "max": "floor(cls / 4)",
+    "unit": "uses",
+    "per": "day",
+    "note": "charm animal spell-like ability"
+   },
+   "dc": "11 + cha",
+   "note": "DC = 10 + spell level 1 + Cha (charm animal)"
+  }
+ },
+ {
+  "id": "F01788",
+  "rule": {
+   "uses": {
+    "max": "cls >= 17 ? 3 : cls >= 11 ? 2 : 1",
+    "unit": "uses",
+    "per": "day"
+   },
+   "note": "base once per day implied by text"
+  }
+ },
+ {
+  "id": "F01175",
+  "rule": null
+ },
+ {
+  "id": "F01176",
+  "rule": null
+ },
+ {
+  "id": "F01177",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "value": 10,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Disguise as a specific individual or for voice mimicry, using disguise self/polymorph extract",
+     "skill": "Disguise"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01270",
+  "rule": null
+ },
+ {
+  "id": "F01271",
+  "rule": {
+   "uses": {
+    "max": "1 + floor(cls / 3)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01272",
+  "rule": {
+   "cost": {
+    "from": "Inspiration",
+    "n": 2
+   }
+  }
+ },
+ {
+  "id": "F01605",
+  "rule": {
+   "uses": {
+    "max": "max(1, cha)",
+    "unit": "points",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01606",
+  "rule": null
+ },
+ {
+  "id": "F01672",
+  "rule": {
+   "uses": {
+    "max": "cls + wis",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01673",
+  "rule": null
+ },
+ {
+  "id": "F01674",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "fort",
+     "value": "cls >= 8 ? 6 : cls >= 5 ? 4 : 2",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against death effects and negative energy damage"
+    },
+    {
+     "target": "ref",
+     "value": "cls >= 8 ? 6 : cls >= 5 ? 4 : 2",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against death effects and negative energy damage"
+    },
+    {
+     "target": "will",
+     "value": "cls >= 8 ? 6 : cls >= 5 ? 4 : 2",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against death effects and negative energy damage"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01675",
+  "rule": {
+   "cost": {
+    "from": "Commune with Spirits",
+    "n": 1
+   }
+  }
+ },
+ {
+  "id": "F01676",
+  "rule": {
+   "cost": {
+    "from": "Commune with Spirits",
+    "n": 1
+   },
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": "max(1, wis)",
+     "type": "Insight",
+     "situational": true,
+     "text": "For 1 minute after activating"
+    },
+    {
+     "target": "fort",
+     "value": "max(1, wis)",
+     "type": "Insight",
+     "situational": true,
+     "text": "For 1 minute after activating"
+    },
+    {
+     "target": "ref",
+     "value": "max(1, wis)",
+     "type": "Insight",
+     "situational": true,
+     "text": "For 1 minute after activating"
+    },
+    {
+     "target": "will",
+     "value": "max(1, wis)",
+     "type": "Insight",
+     "situational": true,
+     "text": "For 1 minute after activating"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01693",
+  "rule": null
+ },
+ {
+  "id": "F01694",
+  "rule": null
+ },
+ {
+  "id": "F01695",
+  "rule": null
+ },
+ {
+  "id": "F01994",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Spellcraft",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": false
+    },
+    {
+     "target": "skill",
+     "skill": "Use Magic Device",
+     "value": "max(1, floor(cls / 2))",
+     "type": "Untyped (stacks)",
+     "situational": false
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01995",
+  "rule": {
+   "uses": {
+    "max": "3 + int",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01996",
+  "rule": null
+ },
+ {
+  "id": "F01997",
+  "rule": null
+ },
+ {
+  "id": "F01998",
+  "rule": null
+ },
+ {
+  "id": "F01999",
+  "rule": {
+   "roll": {
+    "count": "ceil(cls / 2)",
+    "die": 6,
+    "bonus": "int",
+    "dc": "10 + floor(cls / 2) + int",
+    "label": "fire"
+   },
+   "note": "splash damage is the minimum roll; text says bombardier level"
+  }
+ },
+ {
+  "id": "F02002",
+  "rule": null
+ },
+ {
+  "id": "F02003",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "init",
+     "value": "int",
+     "type": "Untyped (stacks)",
+     "situational": false
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02004",
+  "rule": null
+ },
+ {
+  "id": "F02005",
+  "rule": {
+   "uses": {
+    "max": "min(4, 1 + floor((cls - 3) / 4))",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02007",
+  "rule": null
+ },
+ {
+  "id": "F02009",
+  "rule": {
+   "cost": {
+    "from": "Repair",
+    "n": 2
+   }
+  }
+ },
+ {
+  "id": "F02010",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "fort",
+     "value": "cls",
+     "type": "Resistance",
+     "situational": true,
+     "text": "Against spells and spell-like abilities (applies to the technologist's items)"
+    },
+    {
+     "target": "ref",
+     "value": "cls",
+     "type": "Resistance",
+     "situational": true,
+     "text": "Against spells and spell-like abilities (applies to the technologist's items)"
+    },
+    {
+     "target": "will",
+     "value": "cls",
+     "type": "Resistance",
+     "situational": true,
+     "text": "Against spells and spell-like abilities (applies to the technologist's items)"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02011",
+  "rule": null
+ },
+ {
+  "id": "F02465",
+  "rule": null
+ },
+ {
+  "id": "F03211",
+  "rule": null
+ },
+ {
+  "id": "F02015",
+  "rule": null
+ },
+ {
+  "id": "F02016",
+  "rule": {
+   "uses": {
+    "max": "3 + cha",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "1",
+    "die": 6,
+    "bonus": "floor(cls / 2)",
+    "label": "acid"
+   }
+  }
+ },
+ {
+  "id": "F02017",
+  "rule": null
+ },
+ {
+  "id": "F02037",
+  "rule": {
+   "uses": {
+    "max": "3 + cha",
+    "unit": "rounds",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02038",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "fort",
+     "value": "cls >= 9 ? 4 : 2",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against poison"
+    },
+    {
+     "target": "ref",
+     "value": "cls >= 9 ? 4 : 2",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against poison"
+    },
+    {
+     "target": "will",
+     "value": "cls >= 9 ? 4 : 2",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against poison"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02039",
+  "rule": null
+ },
+ {
+  "id": "F02057",
+  "rule": null
+ },
+ {
+  "id": "F02058",
+  "rule": {
+   "uses": {
+    "max": "3 + cha",
+    "unit": "uses",
+    "per": "day"
+   },
+   "dc": "10 + floor(cls / 2) + cha"
+  }
+ },
+ {
+  "id": "F02059",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "fort",
+     "value": "cls >= 9 ? 4 : 2",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against charm, cold, fear, fire and sleep effects"
+    },
+    {
+     "target": "ref",
+     "value": "cls >= 9 ? 4 : 2",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against charm, cold, fear, fire and sleep effects"
+    },
+    {
+     "target": "will",
+     "value": "cls >= 9 ? 4 : 2",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against charm, cold, fear, fire and sleep effects"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02060",
+  "rule": {
+   "uses": {
+    "max": "cls >= 20 ? 3 : cls >= 17 ? 2 : 1",
+    "unit": "uses",
+    "per": "day"
+   },
+   "dc": "10 + floor(cls / 2) + cha"
+  }
+ },
+ {
+  "id": "F02110",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "cl",
+     "value": 1,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Spells of the water type"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02111",
+  "rule": {
+   "uses": {
+    "max": "3 + cha",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "1",
+    "die": 6,
+    "bonus": "floor(cls / 2)",
+    "label": "nonlethal"
+   }
+  }
+ },
+ {
+  "id": "F02112",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "nat",
+     "value": "cls >= 9 ? 1 : 0",
+     "type": "Untyped (stacks)",
+     "situational": false
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02113",
+  "rule": {
+   "uses": {
+    "max": "max(0, cha)",
+    "unit": "uses",
+    "per": "day",
+    "note": "suggestion"
+   }
+  }
+ },
+ {
+  "id": "F02114",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02119",
+  "rule": null
+ },
+ {
+  "id": "F02120",
+  "rule": null
+ },
+ {
+  "id": "F02121",
+  "rule": {
+   "uses": {
+    "max": "min(5, 1 + floor((cls - 3) / 4))",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02123",
+  "rule": null
+ }
+]

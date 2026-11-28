@@ -1,0 +1,793 @@
+[
+ {
+  "id": "F01348",
+  "rule": null
+ },
+ {
+  "id": "F01596",
+  "rule": null
+ },
+ {
+  "id": "F01598",
+  "rule": null
+ },
+ {
+  "id": "F01600",
+  "rule": null
+ },
+ {
+  "id": "F01601",
+  "rule": null
+ },
+ {
+  "id": "F01602",
+  "rule": null
+ },
+ {
+  "id": "F01603",
+  "rule": null
+ },
+ {
+  "id": "F01625",
+  "rule": null
+ },
+ {
+  "id": "F01627",
+  "rule": null
+ },
+ {
+  "id": "F01628",
+  "rule": null
+ },
+ {
+  "id": "F01629",
+  "rule": null
+ },
+ {
+  "id": "F01630",
+  "rule": null
+ },
+ {
+  "id": "F01631",
+  "rule": null
+ },
+ {
+  "id": "F01645",
+  "rule": null
+ },
+ {
+  "id": "F01681",
+  "rule": null
+ },
+ {
+  "id": "F01682",
+  "rule": null
+ },
+ {
+  "id": "F01683",
+  "rule": null
+ },
+ {
+  "id": "F00760",
+  "rule": null
+ },
+ {
+  "id": "F00764",
+  "rule": null
+ },
+ {
+  "id": "F00855",
+  "rule": null
+ },
+ {
+  "id": "F00856",
+  "rule": null
+ },
+ {
+  "id": "F00858",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "will",
+     "value": -2,
+     "type": "Untyped (stacks)",
+     "situational": false,
+     "text": "Crossblooded rager drawback"
+    }
+   ],
+   "note": "Also loses the +2 Will morale bonus from bloodrage; gains +1 (greater) / +2 (mighty) instead"
+  }
+ },
+ {
+  "id": "F01105",
+  "rule": null
+ },
+ {
+  "id": "F01106",
+  "rule": null
+ },
+ {
+  "id": "F01283",
+  "rule": null
+ },
+ {
+  "id": "F01453",
+  "rule": null
+ },
+ {
+  "id": "F01652",
+  "rule": null
+ },
+ {
+  "id": "F01701",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "cmb",
+     "value": 1,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Combat maneuver checks"
+    },
+    {
+     "target": "cmd",
+     "value": 1,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against overrun"
+    },
+    {
+     "target": "ref",
+     "value": 1,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against trample attacks"
+    },
+    {
+     "target": "ac",
+     "value": 1,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against charge attacks"
+    },
+    {
+     "target": "atk",
+     "value": 1,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against charging creatures"
+    },
+    {
+     "target": "dmg",
+     "value": 1,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against charging creatures"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01703",
+  "rule": null
+ },
+ {
+  "id": "F01704",
+  "rule": null
+ },
+ {
+  "id": "F00774",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "rDmg",
+     "value": "dex",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With chosen crossbow type"
+    }
+   ],
+   "note": "Crit multiplier +1 with the chosen type; picks another type every 4 levels"
+  }
+ },
+ {
+  "id": "F01114",
+  "rule": null
+ },
+ {
+  "id": "F01115",
+  "rule": null
+ },
+ {
+  "id": "F01333",
+  "rule": null
+ },
+ {
+  "id": "F01334",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "rDmg",
+     "value": "dex + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With two-handed firearms"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01358",
+  "rule": {
+   "uses": {
+    "max": "max(1, cha)",
+    "unit": "points",
+    "per": "day",
+    "extra": [
+     [
+      "Extra Grit",
+      2
+     ]
+    ]
+   },
+   "note": "Grit uses Charisma instead of Wisdom (minimum 1 per the gunslinger class feature)"
+  }
+ },
+ {
+  "id": "F01360",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "will",
+     "value": "floor((cls - 2) / 4) + 1",
+     "type": "Luck",
+     "situational": false,
+     "text": "Lucky"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01361",
+  "rule": {
+   "uses": {
+    "max": "max(0, cha)",
+    "unit": "uses",
+    "per": "day",
+    "note": "Ignore a firearm misfire"
+   }
+  }
+ },
+ {
+  "id": "F01402",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "rDmg",
+     "value": "dex + floor((cls - 5) / 4)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With one-handed firearms"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01757",
+  "rule": null
+ },
+ {
+  "id": "F01758",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "rDmg",
+     "value": "dex",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "With chosen advanced technology firearm"
+    }
+   ],
+   "note": "Picks another firearm type at 9th, 13th and 17th level"
+  }
+ },
+ {
+  "id": "F00777",
+  "rule": null
+ },
+ {
+  "id": "F00778",
+  "rule": {
+   "dc": "10 + floor(cls / 2) + int",
+   "note": "Functions like assassinate; save DC taken from the assassinate slayer talent (10 + half slayer level + Int)"
+  }
+ },
+ {
+  "id": "F00827",
+  "rule": null
+ },
+ {
+  "id": "F00828",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Stealth",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Hiding within or escaping a studied location"
+    },
+    {
+     "target": "skill",
+     "skill": "Sleight of Hand",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Hiding objects from a studied location"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00829",
+  "rule": null
+ },
+ {
+  "id": "F00884",
+  "rule": null
+ },
+ {
+  "id": "F00908",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "will",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Vs. an opponent 2+ alignment steps away you attacked this round"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00909",
+  "rule": null
+ },
+ {
+  "id": "F00910",
+  "rule": {
+   "roll": {
+    "count": "2",
+    "die": 6,
+    "label": "divine"
+   }
+  }
+ },
+ {
+  "id": "F01097",
+  "rule": null
+ },
+ {
+  "id": "F01613",
+  "rule": null
+ },
+ {
+  "id": "F01726",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 4) / 4)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01727",
+  "rule": null
+ },
+ {
+  "id": "F01728",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "minutes",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01881",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day",
+    "note": "Gain +1 use per day for each slayer talent traded"
+   }
+  }
+ },
+ {
+  "id": "F01882",
+  "rule": null
+ },
+ {
+  "id": "F01038",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01267",
+  "rule": null
+ },
+ {
+  "id": "F01268",
+  "rule": {
+   "uses": {
+    "max": "5 + cha",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01269",
+  "rule": null
+ },
+ {
+  "id": "F01362",
+  "rule": {
+   "uses": {
+    "max": "3 + cha",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01363",
+  "rule": null
+ },
+ {
+  "id": "F01364",
+  "rule": null
+ },
+ {
+  "id": "F01365",
+  "rule": null
+ },
+ {
+  "id": "F01366",
+  "rule": null
+ },
+ {
+  "id": "F01662",
+  "rule": null
+ },
+ {
+  "id": "F01663",
+  "rule": null
+ },
+ {
+  "id": "F01664",
+  "rule": {
+   "dc": "10 + floor(cls / 2) + wis",
+   "note": "Hex save DC, uses summoner level as shaman level"
+  }
+ },
+ {
+  "id": "F01740",
+  "rule": null
+ },
+ {
+  "id": "F01741",
+  "rule": null
+ },
+ {
+  "id": "F01742",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While fused with eidolon (shield bonus)"
+    },
+    {
+     "target": "saves",
+     "value": 2,
+     "type": "Circumstance (stacks)",
+     "situational": true,
+     "text": "While fused with eidolon"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01743",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 6) / 6)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F01744",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While fused with eidolon (shield bonus)"
+    },
+    {
+     "target": "saves",
+     "value": 4,
+     "type": "Circumstance (stacks)",
+     "situational": true,
+     "text": "While fused with eidolon"
+    }
+   ],
+   "note": "Replaces Shielded Meld (+2) from 12th level"
+  }
+ },
+ {
+  "id": "F01745",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "rounds",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F00819",
+  "rule": {
+   "uses": {
+    "max": "max(0, 1 + floor((cls - 12) / 4))",
+    "unit": "uses",
+    "per": "day",
+    "note": "Alignment weapon special ability from 12th level"
+   }
+  }
+ },
+ {
+  "id": "F00820",
+  "rule": null
+ },
+ {
+  "id": "F00821",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 4) / 4)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "cost": {
+    "from": "Fervor",
+    "n": 2
+   },
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "max(0, cha)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against the smitten target of opposed alignment"
+    },
+    {
+     "target": "dmg",
+     "value": "cls",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against the smitten target of opposed alignment (2 per level on first hit vs matching outsider)"
+    },
+    {
+     "target": "ac",
+     "value": "max(0, cha)",
+     "type": "Deflection",
+     "situational": true,
+     "text": "Against the smitten target attacks"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00874",
+  "rule": null
+ },
+ {
+  "id": "F00875",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "skill": "Disguise",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": false,
+     "text": "Well-Hidden"
+    },
+    {
+     "target": "skill",
+     "skill": "Stealth",
+     "value": 2,
+     "type": "Untyped (stacks)",
+     "situational": false,
+     "text": "Well-Hidden"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00876",
+  "rule": {
+   "roll": {
+    "count": "floor(cls / 3)",
+    "die": 6,
+    "label": "precision"
+   },
+   "note": "Stacks with sneak attack dice from other classes"
+  }
+ },
+ {
+  "id": "F00877",
+  "rule": {
+   "cost": {
+    "from": "Fervor",
+    "n": 2
+   }
+  }
+ },
+ {
+  "id": "F00878",
+  "rule": null
+ },
+ {
+  "id": "F00934",
+  "rule": null
+ },
+ {
+  "id": "F00935",
+  "rule": {
+   "cost": {
+    "from": "Fervor",
+    "n": 2
+   },
+   "bonuses": [
+    {
+     "target": "saves",
+     "value": "floor(cls / 4)",
+     "type": "Sacred / Profane",
+     "situational": true,
+     "text": "Against spells and spell-like abilities (allies within 30 ft, for warpriest level rounds)"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F00936",
+  "rule": {
+   "cost": {
+    "from": "Fervor",
+    "n": 2
+   }
+  }
+ },
+ {
+  "id": "F00937",
+  "rule": null
+ },
+ {
+  "id": "F00938",
+  "rule": {
+   "uses": {
+    "max": "1 + (cls >= 9 ? 1 : 0) + (cls >= 15 ? 1 : 0)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F00939",
+  "rule": null
+ },
+ {
+  "id": "F00940",
+  "rule": null
+ },
+ {
+  "id": "F00941",
+  "rule": {
+   "cost": {
+    "from": "Fervor",
+    "n": 2
+   }
+  }
+ },
+ {
+  "id": "F01075",
+  "rule": null
+ },
+ {
+  "id": "F01076",
+  "rule": null
+ },
+ {
+  "id": "F01077",
+  "rule": null
+ },
+ {
+  "id": "F01078",
+  "rule": {
+   "cost": {
+    "from": "Fervor",
+    "n": 2
+   },
+   "note": "Raises sacred weapon/armor bonus by 1 for an item the forgepriest created"
+  }
+ },
+ {
+  "id": "F01079",
+  "rule": null
+ },
+ {
+  "id": "F01479",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": "max(0, wis)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While unarmored and unencumbered"
+    },
+    {
+     "target": "cmd",
+     "value": "max(0, wis)",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While unarmored and unencumbered"
+    },
+    {
+     "target": "ac",
+     "value": "floor(cls / 4)",
+     "type": "Deflection",
+     "situational": true,
+     "text": "While unarmored and unencumbered"
+    },
+    {
+     "target": "cmd",
+     "value": "floor(cls / 4)",
+     "type": "Deflection",
+     "situational": true,
+     "text": "While unarmored and unencumbered"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F01481",
+  "rule": null
+ },
+ {
+  "id": "F01482",
+  "rule": null
+ },
+ {
+  "id": "F01483",
+  "rule": null
+ }
+]

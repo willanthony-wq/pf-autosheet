@@ -1,0 +1,1245 @@
+[
+ {
+  "id": "F03449",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F03463",
+  "rule": null
+ },
+ {
+  "id": "F03566",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "fort",
+     "value": 4,
+     "type": "Competence",
+     "situational": true,
+     "text": "Against disease"
+    }
+   ],
+   "note": "-4 on Cha-based skills except Intimidate not applied"
+  }
+ },
+ {
+  "id": "F03651",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "nat",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": false,
+     "text": "Natural armor bonus"
+    }
+   ],
+   "note": "DR 10/- vs wooden weapons not applied"
+  }
+ },
+ {
+  "id": "F02083",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "minutes",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02084",
+  "rule": {
+   "uses": {
+    "max": "1 + floor(cls / 5)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "cls >= 14 ? 3 : cls >= 7 ? 2 : 1",
+     "type": "Morale",
+     "situational": true,
+     "text": "Blood of Heroes active"
+    },
+    {
+     "target": "dmg",
+     "value": "cls >= 14 ? 3 : cls >= 7 ? 2 : 1",
+     "type": "Morale",
+     "situational": true,
+     "text": "Blood of Heroes active"
+    },
+    {
+     "target": "will",
+     "value": "cls >= 14 ? 3 : cls >= 7 ? 2 : 1",
+     "type": "Morale",
+     "situational": true,
+     "text": "Blood of Heroes, against fear"
+    }
+   ],
+   "note": "lasts Cha-bonus rounds"
+  }
+ },
+ {
+  "id": "F02085",
+  "rule": {
+   "uses": {
+    "max": "3 + cha",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02086",
+  "rule": {
+   "uses": {
+    "max": "max(0, cha)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02087",
+  "rule": {
+   "uses": {
+    "max": "floor(cls / 2)",
+    "unit": "rounds",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "str",
+     "value": 4,
+     "type": "Enhancement",
+     "situational": true,
+     "text": "While possessed"
+    },
+    {
+     "target": "dex",
+     "value": 4,
+     "type": "Enhancement",
+     "situational": true,
+     "text": "While possessed"
+    },
+    {
+     "target": "con",
+     "value": 4,
+     "type": "Enhancement",
+     "situational": true,
+     "text": "While possessed"
+    },
+    {
+     "target": "nat",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "While possessed"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02088",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "hours",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": "4 + 2 * max(0, floor((cls - 3) / 4))",
+     "type": "Armor",
+     "situational": true,
+     "text": "While the spirit shield is active"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02089",
+  "rule": {
+   "uses": {
+    "max": "cls >= 15 ? 2 : 1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02090",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 7) / 4)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "floor(cls / 2)",
+    "die": 8,
+    "dc": "10 + floor(cls / 2) + cha",
+    "label": "damage (undead take 1d8 per level)"
+   },
+   "note": "DC not in text; standard oracle revelation DC"
+  }
+ },
+ {
+  "id": "F02091",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "rounds",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02092",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02163",
+  "rule": {
+   "uses": {
+    "max": "1 + floor(cls / 5)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "atk",
+     "value": "cls >= 10 ? 2 : 1",
+     "type": "Morale",
+     "situational": true,
+     "text": "Battlecry active (allies)"
+    },
+    {
+     "target": "skills",
+     "value": "cls >= 10 ? 2 : 1",
+     "type": "Morale",
+     "situational": true,
+     "text": "Battlecry active (allies)"
+    },
+    {
+     "target": "fort",
+     "value": "cls >= 10 ? 2 : 1",
+     "type": "Morale",
+     "situational": true,
+     "text": "Battlecry active (allies)"
+    },
+    {
+     "target": "ref",
+     "value": "cls >= 10 ? 2 : 1",
+     "type": "Morale",
+     "situational": true,
+     "text": "Battlecry active (allies)"
+    },
+    {
+     "target": "will",
+     "value": "cls >= 10 ? 2 : 1",
+     "type": "Morale",
+     "situational": true,
+     "text": "Battlecry active (allies)"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02164",
+  "rule": {
+   "uses": {
+    "max": "1 + (cls >= 7 ? 1 : 0) + (cls >= 15 ? 1 : 0)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02165",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 7) / 4)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02166",
+  "rule": {
+   "uses": {
+    "max": "cls >= 15 ? 2 : 1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02167",
+  "rule": null
+ },
+ {
+  "id": "F02168",
+  "rule": null
+ },
+ {
+  "id": "F02170",
+  "rule": {
+   "uses": {
+    "max": "1 + (cls >= 7 ? 1 : 0) + (cls >= 15 ? 1 : 0)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02171",
+  "rule": null
+ },
+ {
+  "id": "F02216",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "hours",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": "4 + 2 * max(0, floor((cls - 3) / 4))",
+     "type": "Armor",
+     "situational": true,
+     "text": "While the armor of bones is active"
+    }
+   ],
+   "note": "DR 5/bludgeoning at 13th not applied"
+  }
+ },
+ {
+  "id": "F02217",
+  "rule": null
+ },
+ {
+  "id": "F02218",
+  "rule": {
+   "uses": {
+    "max": "3 + cha",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "1",
+    "die": 6,
+    "bonus": "floor(cls / 2)",
+    "label": "negative energy"
+   }
+  }
+ },
+ {
+  "id": "F02219",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "fort",
+     "value": "cls >= 11 ? 4 : 2",
+     "type": "Insight",
+     "situational": true,
+     "text": "Against disease, mind-affecting, poison (7th: also death, sleep, stunning)"
+    },
+    {
+     "target": "ref",
+     "value": "cls >= 11 ? 4 : 2",
+     "type": "Insight",
+     "situational": true,
+     "text": "Against disease, mind-affecting, poison (7th: also death, sleep, stunning)"
+    },
+    {
+     "target": "will",
+     "value": "cls >= 11 ? 4 : 2",
+     "type": "Insight",
+     "situational": true,
+     "text": "Against disease, mind-affecting, poison (7th: also death, sleep, stunning)"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02220",
+  "rule": {
+   "uses": {
+    "max": "1 + (cls >= 10 ? 1 : 0)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02221",
+  "rule": null
+ },
+ {
+  "id": "F02222",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 7) / 4)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02223",
+  "rule": {
+   "uses": {
+    "max": "cls >= 15 ? 2 : 1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02224",
+  "rule": {
+   "uses": {
+    "max": "3 + cha",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02225",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "rounds",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02353",
+  "rule": {
+   "uses": {
+    "max": "1 + floor(cls / 5)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "cls",
+    "die": 4,
+    "dc": "10 + floor(cls / 2) + cha",
+    "label": "damage"
+   },
+   "note": "DC not in text; standard oracle revelation DC"
+  }
+ },
+ {
+  "id": "F02354",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "hours",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": "4 + 2 * max(0, floor((cls - 3) / 4))",
+     "type": "Armor",
+     "situational": true,
+     "text": "While the cloak is active"
+    },
+    {
+     "target": "skill",
+     "value": "2 + 2 * max(0, floor((cls - 3) / 4))",
+     "type": "Circumstance (stacks)",
+     "situational": true,
+     "text": "While the cloak is active",
+     "skill": "Stealth"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02355",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02356",
+  "rule": {
+   "uses": {
+    "max": "3 + cha",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02357",
+  "rule": {
+   "uses": {
+    "max": "1 + (cls >= 10 ? 1 : 0)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "cls",
+    "die": 6,
+    "dc": "10 + floor(cls / 2) + cha",
+    "label": "cold"
+   },
+   "note": "DC not in text; standard oracle revelation DC"
+  }
+ },
+ {
+  "id": "F02358",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "minutes",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02360",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02361",
+  "rule": {
+   "uses": {
+    "max": "3 + cha",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "1",
+    "die": 6,
+    "bonus": "floor(cls / 2)",
+    "label": "cold"
+   }
+  }
+ },
+ {
+  "id": "F02362",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "minutes",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02641",
+  "rule": null
+ },
+ {
+  "id": "F02642",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "speed",
+     "value": 10,
+     "type": "Untyped (stacks)",
+     "situational": false,
+     "text": "Base speed"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02643",
+  "rule": {
+   "uses": {
+    "max": "1 + floor(cls / 5)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "cls",
+    "die": 4,
+    "dc": "10 + floor(cls / 2) + cha",
+    "label": "fire"
+   },
+   "note": "DC not in text; standard oracle revelation DC"
+  }
+ },
+ {
+  "id": "F02644",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "cls",
+    "die": 6,
+    "dc": "10 + floor(cls / 2) + cha",
+    "label": "fire"
+   },
+   "note": "DC not in text; standard oracle revelation DC"
+  }
+ },
+ {
+  "id": "F02645",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02646",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "rounds",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02647",
+  "rule": {
+   "uses": {
+    "max": "1 + floor(cls / 5)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "max(1, floor(cls / 2))",
+    "die": 4,
+    "dc": "10 + floor(cls / 2) + cha",
+    "label": "fire"
+   },
+   "note": "DC not in text; standard oracle revelation DC"
+  }
+ },
+ {
+  "id": "F02649",
+  "rule": {
+   "uses": {
+    "max": "3 + cha",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "1",
+    "die": 6,
+    "bonus": "floor(cls / 2)",
+    "label": "fire"
+   }
+  }
+ },
+ {
+  "id": "F02650",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "minutes",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02736",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "hours",
+    "per": "day"
+   },
+   "bonuses": [
+    {
+     "target": "ac",
+     "value": "4 + 2 * max(0, floor((cls - 3) / 4))",
+     "type": "Armor",
+     "situational": true,
+     "text": "While the coat is active"
+    }
+   ],
+   "note": "DR 5/slashing at 13th not applied"
+  }
+ },
+ {
+  "id": "F02737",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02738",
+  "rule": null
+ },
+ {
+  "id": "F02739",
+  "rule": {
+   "uses": {
+    "max": "1 + (cls >= 10 ? 1 : 0)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "cls",
+    "die": 6,
+    "dc": "10 + floor(cls / 2) + cha",
+    "label": "cold"
+   },
+   "note": "DC not in text; standard oracle revelation DC"
+  }
+ },
+ {
+  "id": "F02740",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "minutes",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02741",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 5) / 5)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02742",
+  "rule": {
+   "uses": {
+    "max": "max(0, cha)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02743",
+  "rule": {
+   "uses": {
+    "max": "1 + floor(cls / 5)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "cls",
+    "die": 4,
+    "dc": "10 + floor(cls / 2) + cha",
+    "label": "fire"
+   },
+   "note": "DC not in text; standard oracle revelation DC"
+  }
+ },
+ {
+  "id": "F02744",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02871",
+  "rule": {
+   "uses": {
+    "max": "1 + cha",
+    "unit": "uses",
+    "per": "day",
+    "extra": [
+     [
+      "Extra Channel",
+      2
+     ]
+    ]
+   },
+   "roll": {
+    "count": "ceil(cls / 2)",
+    "die": 6,
+    "dc": "10 + floor(cls / 2) + cha",
+    "label": "positive energy"
+   },
+   "note": "oracle level as cleric level; dice/DC from channel energy rules"
+  }
+ },
+ {
+  "id": "F02873",
+  "rule": {
+   "uses": {
+    "max": "1 + (cls >= 7 ? 1 : 0) + (cls >= 15 ? 1 : 0)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02874",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "rounds",
+    "per": "day"
+   },
+   "roll": {
+    "count": "1",
+    "die": 6,
+    "bonus": "cls",
+    "label": "positive energy"
+   }
+  }
+ },
+ {
+  "id": "F02875",
+  "rule": null
+ },
+ {
+  "id": "F02876",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "skill",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": false,
+     "text": "Heal checks",
+     "skill": "Heal"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02877",
+  "rule": null
+ },
+ {
+  "id": "F02879",
+  "rule": null
+ },
+ {
+  "id": "F02880",
+  "rule": null
+ },
+ {
+  "id": "F02914",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02915",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02916",
+  "rule": {
+   "uses": {
+    "max": "1 + floor(cls / 5)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "cls",
+    "die": 4,
+    "dc": "10 + floor(cls / 2) + cha",
+    "label": "damage"
+   },
+   "note": "DC not in text; standard oracle revelation DC"
+  }
+ },
+ {
+  "id": "F02917",
+  "rule": {
+   "uses": {
+    "max": "max(0, cha)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02918",
+  "rule": null
+ },
+ {
+  "id": "F02919",
+  "rule": null
+ },
+ {
+  "id": "F02920",
+  "rule": null
+ },
+ {
+  "id": "F02922",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02995",
+  "rule": null
+ },
+ {
+  "id": "F02996",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "speed",
+     "value": 10,
+     "type": "Untyped (stacks)",
+     "situational": false,
+     "text": "Base speed"
+    },
+    {
+     "target": "atk",
+     "value": "cls >= 7 ? 1 + floor((cls - 7) / 4) : 0",
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Metal weapon, moved 10+ feet this round"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02997",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "fort",
+     "value": "cls >= 14 ? 3 : cls >= 7 ? 2 : 1",
+     "type": "Untyped (stacks)",
+     "situational": false,
+     "text": "Fortitude saves"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F02998",
+  "rule": {
+   "uses": {
+    "max": "cls >= 15 ? 2 : 1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F02999",
+  "rule": {
+   "uses": {
+    "max": "3 + cha",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F03000",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F03001",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 7) / 4)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F03003",
+  "rule": {
+   "uses": {
+    "max": "3 + cha",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "1",
+    "die": 8,
+    "bonus": "floor(cls / 2)",
+    "label": "slashing"
+   }
+  }
+ },
+ {
+  "id": "F03004",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "rounds",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F03024",
+  "rule": {
+   "uses": {
+    "max": "1 + floor(cls / 3)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "cls",
+    "die": 6,
+    "label": "damage to objects or constructs"
+   }
+  }
+ },
+ {
+  "id": "F03025",
+  "rule": null
+ },
+ {
+  "id": "F03026",
+  "rule": {
+   "uses": {
+    "max": "1 + floor((cls - 7) / 4)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "min(10, floor(cls / 2))",
+    "die": 6,
+    "dc": "10 + floor(cls / 2) + cha",
+    "label": "damage"
+   },
+   "note": "DC not in text; standard oracle revelation DC"
+  }
+ },
+ {
+  "id": "F03027",
+  "rule": {
+   "uses": {
+    "max": "1 + floor(cls / 4)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F03030",
+  "rule": null
+ },
+ {
+  "id": "F03031",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "rounds",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F03032",
+  "rule": {
+   "uses": {
+    "max": "max(0, cha)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F03360",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "rounds",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F03361",
+  "rule": {
+   "uses": {
+    "max": "cls",
+    "unit": "minutes",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F03362",
+  "rule": {
+   "uses": {
+    "max": "1 + floor(cls / 5)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "max(1, floor(cls / 2))",
+    "die": 6,
+    "dc": "10 + floor(cls / 2) + cha",
+    "label": "bludgeoning (adjacent half, Reflex)"
+   },
+   "bonuses": [
+    {
+     "target": "rAtk",
+     "value": "floor(cls / 4)",
+     "type": "Enhancement",
+     "situational": true,
+     "text": "Mighty pebble"
+    },
+    {
+     "target": "rDmg",
+     "value": "floor(cls / 4)",
+     "type": "Enhancement",
+     "situational": true,
+     "text": "Mighty pebble"
+    }
+   ],
+   "note": "DC not in text; standard oracle revelation DC"
+  }
+ },
+ {
+  "id": "F03363",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "rAtk",
+     "value": 1,
+     "type": "Racial",
+     "situational": true,
+     "text": "Thrown rocks"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03364",
+  "rule": {
+   "uses": {
+    "max": "1 + floor(cls / 5)",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "max(1, floor(cls / 2))",
+    "die": 6,
+    "dc": "10 + floor(cls / 2) + cha",
+    "label": "piercing"
+   },
+   "note": "DC not in text; standard oracle revelation DC"
+  }
+ },
+ {
+  "id": "F03365",
+  "rule": {
+   "uses": {
+    "max": "1",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ },
+ {
+  "id": "F03366",
+  "rule": {
+   "bonuses": [
+    {
+     "target": "cmd",
+     "value": 4,
+     "type": "Untyped (stacks)",
+     "situational": true,
+     "text": "Against bull rush or trip while standing on the ground"
+    }
+   ]
+  }
+ },
+ {
+  "id": "F03367",
+  "rule": {
+   "uses": {
+    "max": "3 + cha",
+    "unit": "uses",
+    "per": "day"
+   },
+   "roll": {
+    "count": "1",
+    "die": 6,
+    "bonus": "floor(cls / 2)",
+    "label": "acid"
+   }
+  }
+ },
+ {
+  "id": "F03450",
+  "rule": {
+   "uses": {
+    "max": "1 + floor(cls / 5)",
+    "unit": "uses",
+    "per": "day"
+   }
+  }
+ }
+]
