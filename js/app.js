@@ -556,7 +556,7 @@
     const stats = `<div class="inline" style="margin:8px 0">
         <span>Mythic power <strong>${dm.powerLeft}</strong> / ${dm.powerMax}</span>
         <span class="counter"><button class="btn small" data-action="bump" data-path="mythic/powerUsed" data-d="1" aria-label="Use one mythic power">−</button><button class="btn small" data-action="bump" data-path="mythic/powerUsed" data-d="-1" aria-label="Regain one mythic power">+</button></span>
-        <button class="btn small" data-action="mythic-surge" title="Roll your surge die (Shift-click: private)">Surge +${esc(dm.surge)}</button>
+        <button class="btn small" data-action="mythic-surge" title="Spend 1 mythic power and roll your surge die (Shift-click: private)">Surge +${esc(dm.surge)}</button>
         <span class="small muted">Bonus HP +${(MY.HP[my.path] || 0) * t}${t >= 2 ? ` · initiative +${t}` : ''} · mythic feats ${dm.feats} (at tiers 1, 3, 5, 7, 9) · path abilities ${picked} / ${t}</span></div>`;
     let picker = '';
     if (data && path) {
@@ -789,10 +789,7 @@
     const checks = card('Saves & Checks', `<div class="save-row">${saveBtn('fort', 'Fort')}${saveBtn('ref', 'Reflex')}${saveBtn('will', 'Will')}</div>
       ${ch.saves.notes ? `<p class="small muted">${esc(ch.saves.notes)}</p>` : ''}
       <div class="ability-row">${M.ABILITIES.map(a => `<div class="ab-cell"><span class="label">${a.toUpperCase()} <span class="muted">${out(`abilities/${a}/score`, '', '')}</span></span>${rollBtn(M.ABILITY_NAMES[a] + ' check', `abilities/${a}/mod`)}</div>`).join('')}</div>
-      ${d.spells.data ? `<div class="inline" style="margin-top:8px"><span class="small">Caster level</span>${rollBtn('Caster level check', 'spells/cl')}<span class="small">Concentration</span>${rollBtn('Concentration', 'spells/concentration')}</div>` : ''}
-      ${d.mythic && d.mythic.tier ? `<div class="inline" style="margin-top:8px"><span class="small">Mythic power <strong>${d.mythic.powerLeft}</strong> / ${d.mythic.powerMax}</span>
-        <span class="counter"><button class="btn small" data-action="bump" data-path="mythic/powerUsed" data-d="1" aria-label="Use one mythic power">−</button><button class="btn small" data-action="bump" data-path="mythic/powerUsed" data-d="-1" aria-label="Regain one mythic power">+</button></span>
-        <button class="btn small" data-action="mythic-surge" title="Roll your surge die (Shift-click: private)">Surge +${esc(d.mythic.surge)}</button></div>` : ''}`);
+      ${d.spells.data ? `<div class="inline" style="margin-top:8px"><span class="small">Caster level</span>${rollBtn('Caster level check', 'spells/cl')}<span class="small">Concentration</span>${rollBtn('Concentration', 'spells/concentration')}</div>` : ''}`);
 
     const atkRows = ch.weapons.map((w, i) => `<tr>
         <td class="l"><strong>${esc(w.name || 'Unnamed weapon')}</strong><div class="sub">${esc(w.crit || '20')}/${esc(w.mult || 'x2')}${w.range ? ' · ' + esc(w.range) + ' ft' : ''}${w.type ? ' · ' + esc(w.type) : ''}${weaponSpecial(w) ? ' · ' + esc(weaponSpecial(w)) : ''}</div></td>
@@ -855,8 +852,41 @@
     // Buffs, Skills and Spells share one column, in that order; Resources sits beside them.
     // (Active Bonuses is in the sidebar under Dice, on every tab.)
     const stack = `<div class="play-stack span-2">${buffs}${skills}${spells}</div>`;
-    const side = `<div class="play-stack">${res}</div>`;
+    const side = `<div class="play-stack">${playMythicCard()}${res}</div>`;
     return `<div class="grid play-grid">${header}${checks}${attacks}${playCompanionCards()}${stack}${side}</div>`;
+  }
+
+  // ----- Play tab: Mythic card (mythic power, surge, and a button for each mythic ability)
+  // What a mythic ability costs, read from its rules text: "expend one use of mythic power", "two uses of mythic power"
+  const COST_WORDS = { a: 1, one: 1, two: 2, three: 3, four: 4, five: 5 };
+  function mythicCost(x) {
+    const m = String((x && x.text) || '').match(/\b(?:expend|expending|expends|spend|spending|spends|use|using|uses)\s+(a|one|two|three|four|five|\d+)\s+(?:additional\s+)?uses?\s+of\s+(?:your\s+|his\s+|her\s+|its\s+)?mythic power/i);
+    return m ? (COST_WORDS[m[1].toLowerCase()] || +m[1] || 1) : 0;
+  }
+  // The first sentences of a rules text, about 300 characters, for the roll log and Discord
+  function shortRules(t) {
+    const parts = String(t || '').replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s+/);
+    let s = '';
+    for (const p of parts) { if (s && (s + ' ' + p).length > 320) break; s = s ? s + ' ' + p : p; }
+    return s.length > 420 ? s.slice(0, 417) + '…' : s;
+  }
+  function playMythicCard() {
+    const my = App.ch.mythic, dm = App.d.mythic;
+    if (!my || !dm || !dm.tier) return '';
+    const n = dm.powerMax, used = Math.min(n, Math.max(0, +my.powerUsed || 0)), left = dm.powerLeft;
+    const pips = `<span class="slot-pips">${Array.from({ length: Math.min(n, 30) }, (_, k) => `<button class="pip${k < used ? ' used' : ''}" data-action="mythic-pip" data-k="${k}" aria-label="Mythic power ${k + 1}${k < used ? ' (used)' : ''}"></button>`).join('')}</span>`;
+    // Mythic power and surge themselves are the counter and button above
+    const rows = my.abilities.map((x, i) => ({ x, i })).filter(({ x }) => x.name && !/^base:(Mythic Power|Surge)$/.test(x.src || '') && !/^(mythic power|surge)\b/i.test(x.name));
+    const list = rows.map(({ x, i }) => {
+      const cost = mythicCost(x), short = shortRules(x.text);
+      return `<div class="play-res"><span class="res-name"${short ? ` title="${esc(short)}"` : ''}>${esc(x.name)}${cost ? ` <span class="sub">${cost} power</span>` : ''}</span>
+        <button class="btn small${cost ? '' : ' ghost'}" data-action="mythic-use" data-i="${i}"${cost > left ? ' disabled' : ''} title="${cost ? `Spend ${cost} mythic power and post what it does` : 'Post what it does'} (Shift-click: private)">${cost ? 'Use' : 'Show'}</button></div>`;
+    }).join('');
+    return card(`Mythic · ${my.path || 'Mythic'} ${dm.tier}`, `<div class="inline"><span class="small">Mythic power <strong>${left}</strong> / ${n}</span>${pips}</div>
+      <div class="inline" style="margin:6px 0 4px"><button class="btn small primary" data-action="mythic-surge"${left < 1 ? ' disabled' : ''} title="Spend 1 mythic power and roll your surge die, to add to a d20 roll you just made (Shift-click: private)">Surge +${esc(dm.surge)}</button>
+        <span class="small muted">Click a dot to mark power used or regained; Rest refills it.</span></div>
+      ${list || '<p class="small muted">No mythic abilities yet. Add them on the Character tab.</p>'}`,
+      { tools: `<button class="btn small ghost" data-action="tab" data-tab="character">Edit</button>` });
   }
 
   // ----- What makes a number: hover or click a Play tile (AC, Touch, CMD, saves...) to see its parts and sources
@@ -2072,7 +2102,26 @@
       'mythic-surge': () => {
         const dm = App.d.mythic;
         if (!dm || !dm.surge) return;
-        try { const r = DICE.rollExpr(dm.surge); emit({ title: `${who()}: Surge (+${dm.surge})`, total: r.total, lines: [r.text] }, priv); } catch (e) { toast(e.message); }
+        if (dm.powerLeft < 1) { toast('No mythic power left. Rest to get it back.'); return; }
+        try {
+          const r = DICE.rollExpr(dm.surge);
+          App.ch.mythic.powerUsed = (+App.ch.mythic.powerUsed || 0) + 1;
+          changed(true);
+          emit({ title: `${who()}: Surge (+${dm.surge})`, total: r.total, lines: [r.text, `Add to the d20 roll · mythic power ${dm.powerLeft - 1} / ${dm.powerMax} left`] }, priv);
+        } catch (e) { toast(e.message); }
+      },
+      'mythic-pip': () => {
+        const my = App.ch.mythic, k = +el.dataset.k;
+        my.powerUsed = (+my.powerUsed || 0) > k ? k : k + 1; changed(true);
+      },
+      'mythic-use': () => {
+        const x = App.ch.mythic.abilities[+el.dataset.i], dm = App.d.mythic;
+        if (!x || !dm) return;
+        const cost = mythicCost(x);
+        if (cost > dm.powerLeft) { toast(`${x.name} needs ${cost} mythic power; you have ${dm.powerLeft}.`); return; }
+        if (cost) { App.ch.mythic.powerUsed = (+App.ch.mythic.powerUsed || 0) + cost; changed(true); }
+        emit({ title: `${who()} uses ${x.name}`, total: null, kind: 'info',
+          lines: [shortRules(x.text), cost ? `Spent ${cost} mythic power · ${dm.powerLeft - cost} / ${dm.powerMax} left` : ''].filter(Boolean) }, priv);
       },
       'mythic-sync': () => syncMythic(false),
       'bump': () => { const p = el.dataset.path; const v = (parseFloat(get(p)) || 0) + (+el.dataset.d); pathSet(App.ch, p, Math.max(0, v)); changed(true); },
