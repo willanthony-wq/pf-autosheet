@@ -61,7 +61,9 @@
     const m = String(className || '').match(/\(([^)]+)\)\s*$/);
     return m ? m[1].split(/\s*[,/]\s*/).map(x => x.trim()).filter(x => x && !/^(unchained|core)$/i.test(x)).map(x => x.replace(/\b\w/g, ch => ch.toUpperCase())) : [];
   }
-  function stripItem(name) { return lc(name).replace(/^\+\d+\s+/, '').replace(/^(masterwork|mwk)\s+/, '').replace(/\s*\(.*\)$/, '').trim(); }
+  // Hero Lab 4 (2012) writes masterwork as a suffix: "Breastplate - Mas"
+  const MAS_SUFFIX = /\s*-\s*(mas|masterwork|mwk)\.?\s*$/i;
+  function stripItem(name) { return lc(name).replace(MAS_SUFFIX, '').replace(/^\+\d+\s+/, '').replace(/^(masterwork|mwk)\s+/, '').replace(/\s*\(.*\)$/, '').trim(); }
   const MATERIAL_WORDS = /\b(mithral|adamantine|darkwood|dragonhide|cold iron|alchemical silver|silver|elysian bronze|angelskin|eel hide|griffon mane|living steel|bulette)\b/g;
   function findArmor(table, name) {
     const n = stripItem(name).replace(MATERIAL_WORDS, '').replace(/\s+/g, ' ').trim(), words = n.split(/\s+/);
@@ -75,7 +77,7 @@
     }
     return null;
   }
-  const enhOf = name => { const m = String(name).match(/(?:^|\s)\+(\d)\b/); return m ? m[1] : (/\b(masterwork|mwk)\b/i.test(name) ? 'Mwk' : '0'); };
+  const enhOf = name => { const m = String(name).match(/(?:^|\s)\+(\d)\b/); return m ? m[1] : (/\b(masterwork|mwk)\b/i.test(name) || MAS_SUFFIX.test(name) ? 'Mwk' : '0'); };
   function crit(text) {
     const t = String(text || '').replace(/×/g, 'x');
     const m = t.match(/(\d+)-20/), x = t.match(/x\s*(\d)/i);
@@ -195,7 +197,7 @@
     const catM = D.attackCategories.find(c => c.name.startsWith('Melee Attack')), catR = D.attackCategories.find(c => c.name.startsWith('Ranged Attack'));
     const wTargets = [];
     const addWeapon = (w, isRanged) => {
-      const name = at(w, 'name'), dmg = at(w, 'damage'), cr = crit(at(w, 'crit'));
+      const name = String(at(w, 'name') || '').trim(), dmg = at(w, 'damage'), cr = crit(at(w, 'crit'));
       const thrown = /thrown/i.test(at(w, 'categorytext'));
       const enh = enhOf(name);
       const out = Object.assign(M.blankWeapon(), {
@@ -871,7 +873,7 @@
       for (const a of attacksFrom(field(off, label))) {
         const L = look(a.name);
         const enh = enhOf(a.name);
-        const w = Object.assign(M.blankWeapon(), { name: a.name, enh, dice: a.dice, crit: a.crit, mult: a.mult, carried: true });
+        const w = Object.assign(M.blankWeapon(), { name: String(a.name || '').trim(), enh, dice: a.dice, crit: a.crit, mult: a.mult, carried: true });
         if (L) { w.weight = L.w || ''; if (L.ty) w.type = L.ty; if (L.rg) w.range = L.rg + ' ft'; }
         if (isRanged) {
           const thrown = L && L.k && L.k !== 'ranged';
