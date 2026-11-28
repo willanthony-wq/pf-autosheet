@@ -850,16 +850,17 @@
       <div class="play-res"><span><strong>Hero points</strong></span><span class="counter"><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="-1">−</button><strong>${esc(ch.heroPoints.current)}</strong><span class="muted">/ ${esc(ch.heroPoints.max)}</span><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="1">+</button></span></div>`);
 
     // The cards are placed by the character's layout (Edit layout). (Active Bonuses is in the sidebar under Dice, on every tab.)
-    const cards = { header, checks, attacks, buffs, skills, spells, mythic: playMythicCard(), resources: res };
+    const cards = { header, checks, attacks, buffs, skills, spells, mythic: playMythicCard(), resources: res, features: playFeaturesCard() };
     playCompanionCards().forEach((h, i) => { cards[`comp:${i}`] = h; });
     return playLayoutHtml(cards);
   }
 
   // ----- Play tab layout: rows of cards, each row full width or split into columns. Saved with the character
-  // (settings.playLayout = { rows: [{ split, cols: [[card ids]] }] }); "Edit layout" unlocks moving cards and changing rows.
+  // (settings.playLayout = { rows: [{ split, cols: [[card ids]] }], hidden: [card ids] }); "Edit layout" unlocks moving,
+  // hiding and showing cards and changing rows. A hidden card keeps its place, so showing it puts it back there.
   const LAYOUT_SPLITS = { full: 'Full width', '2-1': '⅔ + ⅓', '1-2': '⅓ + ⅔', '1-1': '½ + ½', '1-1-1': '⅓ + ⅓ + ⅓' };
   const splitCols = s => (s === 'full' ? 1 : s.split('-').length);
-  const CARD_NAMES = { header: 'Name, HP and defenses', checks: 'Saves & Checks', attacks: 'Attacks', buffs: 'Buffs & Conditions', skills: 'Skills', spells: 'Spells', mythic: 'Mythic', resources: 'Resources' };
+  const CARD_NAMES = { header: 'Name, HP and defenses', checks: 'Saves & Checks', attacks: 'Attacks', buffs: 'Buffs & Conditions', skills: 'Skills', spells: 'Spells', mythic: 'Mythic', resources: 'Resources', features: 'Classes & Features' };
   function cardName(id) {
     if (!id.startsWith('comp:')) return CARD_NAMES[id] || id;
     const c = App.ch.companions[+id.slice(5)];
@@ -870,8 +871,8 @@
       { split: 'full', cols: [['header']] },
       { split: '1-2', cols: [['checks'], ['attacks']] },
       ...compIds.map(id => ({ split: 'full', cols: [[id]] })),
-      { split: '2-1', cols: [['buffs', 'skills', 'spells'], ['mythic', 'resources']] },
-    ] };
+      { split: '2-1', cols: [['buffs', 'skills', 'spells'], ['mythic', 'resources', 'features']] },
+    ], hidden: [] };
   }
   // The character's layout, tidied: known row types, the right number of columns, each card once, every card placed
   function playLayout(ids) {
@@ -888,7 +889,7 @@
     });
     // Cards the saved layout doesn't have yet (a new companion, spells, mythic) go after the card before them in the usual order;
     // a companion gets its own full-width row
-    const order = ['header', 'checks', 'attacks', ...compIds, 'buffs', 'skills', 'spells', 'mythic', 'resources'];
+    const order = ['header', 'checks', 'attacks', ...compIds, 'buffs', 'skills', 'spells', 'mythic', 'resources', 'features'];
     const find = id => { for (let r = 0; r < rows.length; r++) for (let c = 0; c < rows[r].cols.length; c++) { const k = rows[r].cols[c].indexOf(id); if (k >= 0) return { r, c, k }; } return null; };
     for (const id of ids) {
       if (seen.has(id)) continue;
@@ -899,18 +900,22 @@
       else if (at) rows[at.r].cols[at.c].splice(at.k + 1, 0, id);
       else rows.unshift({ split: 'full', cols: [[id]] });
     }
-    return { rows };
+    const hidden = (Array.isArray(saved.hidden) ? saved.hidden : []).filter((id, i, a) => typeof id === 'string' && a.indexOf(id) === i);
+    return { rows, hidden };
   }
   function playLayoutHtml(cards) {
-    const ids = Object.keys(cards).filter(id => cards[id]);
-    const lay = playLayout(ids), edit = !!App.layoutEdit;
+    const all = Object.keys(cards).filter(id => cards[id]);
+    const lay = playLayout(all), edit = !!App.layoutEdit, hidden = new Set(lay.hidden);
+    const ids = all.filter(id => !hidden.has(id));
     App.playLay = { lay, ids };
+    const on = id => cards[id] && !hidden.has(id);
     const arrow = (id, d, label) => `<button class="btn small" data-action="lay-move" data-card="${esc(id)}" data-d="${d}" aria-label="Move ${esc(cardName(id))} ${label}" title="Move ${label}">${d < 0 ? '↑' : '↓'}</button>`;
     const item = id => (edit ? `<div class="lay-item" draggable="true" data-card="${esc(id)}">
-        <div class="lay-bar"><span class="lay-grip" aria-hidden="true">⠿</span><span>${esc(cardName(id))}</span><span class="spacer"></span>${arrow(id, -1, 'up')}${arrow(id, 1, 'down')}</div>${cards[id]}</div>` : cards[id]);
+        <div class="lay-bar"><span class="lay-grip" aria-hidden="true">⠿</span><span>${esc(cardName(id))}</span><span class="spacer"></span>${arrow(id, -1, 'up')}${arrow(id, 1, 'down')}
+          <button class="btn small" data-action="lay-hide" data-card="${esc(id)}" title="Hide this card (show it again from the bar at the top)">Hide</button></div>${cards[id]}</div>` : cards[id]);
     const newRow = r => `<div class="lay-newrow" data-r="${r}">New row here: drop a card</div>`;
     const rows = lay.rows.map((row, ri) => {
-      const shown = row.cols.map(col => col.filter(id => cards[id]));
+      const shown = row.cols.map(col => col.filter(on));
       if (!edit && !shown.some(c => c.length)) return '';
       const cols = shown.map((col, ci) => `<div class="lay-col" data-r="${ri}" data-c="${ci}">${col.map(item).join('') || (edit ? '<div class="lay-empty">Drop a card here</div>' : '')}</div>`).join('');
       const grid = `<div class="play-row s-${row.split}">${cols}</div>`;
@@ -921,9 +926,11 @@
           <button class="btn small ghost" data-action="lay-row-move" data-r="${ri}" data-d="-1" aria-label="Move row ${ri + 1} up"${ri ? '' : ' disabled'}>↑</button>
           <button class="btn small ghost" data-action="lay-row-move" data-r="${ri}" data-d="1" aria-label="Move row ${ri + 1} down"${ri < lay.rows.length - 1 ? '' : ' disabled'}>↓</button></div>${grid}</div>`;
     }).join('');
+    const hiddenHere = all.filter(id => hidden.has(id));
     const bar = edit
-      ? `<div class="lay-toolbar editing"><span class="small">Drag a card by its bar, or use ↑ ↓, onto a column or a "New row" strip. Pick each row's columns. A row with no cards left goes away.</span>
-          <button class="btn small ghost" data-action="lay-reset">Reset to default</button><button class="btn small primary" data-action="lay-edit">Lock layout</button></div>`
+      ? `<div class="lay-toolbar editing"><span class="small">Drag a card by its bar, or use ↑ ↓, onto a column or a "New row" strip. Pick each row's columns. <strong>Hide</strong> takes a card off this tab. A row with no cards left goes away.</span>
+          <button class="btn small ghost" data-action="lay-reset">Reset to default</button><button class="btn small primary" data-action="lay-edit">Lock layout</button>
+          ${hiddenHere.length ? `<div class="lay-hidden"><span class="small"><strong>Hidden:</strong></span>${hiddenHere.map(id => `<button class="btn small" data-action="lay-show" data-card="${esc(id)}" title="Show this card again, where it was">+ ${esc(cardName(id))}</button>`).join('')}</div>` : ''}</div>`
       : `<div class="lay-toolbar"><button class="btn small ghost" data-action="lay-edit" title="Move the cards on this tab and choose each row's columns">Edit layout</button></div>`;
     return `${bar}<div class="play-rows${edit ? ' lay-editing' : ''}">${rows}${edit ? newRow(lay.rows.length) : ''}</div>`;
   }
@@ -933,6 +940,7 @@
     const lay = JSON.parse(JSON.stringify(App.playLay.lay));
     fn(lay);
     lay.rows = lay.rows.filter(r => r.cols.some(c => c.length));
+    lay.hidden = (lay.hidden || []).filter(id => layFind(lay, id));
     App.ch.settings.playLayout = lay;
     changed(true);
   }
@@ -988,6 +996,37 @@
     let s = '';
     for (const p of parts) { if (s && (s + ' ' + p).length > 320) break; s = s ? s + ' ' + p : p; }
     return s.length > 420 ? s.slice(0, 417) + '…' : s;
+  }
+  // ----- Play tab: Classes & Features card (each class feature with its rules text; one with tracked uses can be used here)
+  // The resource that tracks a feature's uses: the same name once "(3/day)", "(Su)" and the like are taken off
+  const baseName = n => String(n || '').toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
+  function featureResource(f) {
+    const b = baseName(f.name);
+    if (b.length < 4) return -1;
+    return App.ch.resources.findIndex(r => { const rb = baseName(r.name); return rb.length >= 4 && (rb === b || rb.startsWith(b + ' ') || b.startsWith(rb + ' ')); });
+  }
+  function playFeaturesCard() {
+    const ch = App.ch, d = App.d;
+    const classes = d.classes.map((c, i) => [c, (ch.classes[i] && ch.classes[i].archetypes) || []]).filter(([c]) => c.data && c.level);
+    const feats = ch.classFeatures.map((f, i) => ({ f, i, r: featureResource(f) })).filter(x => x.f.name);
+    if (!classes.length && !feats.length) return '';
+    // Features with uses to track first, then the rest in the sheet's order
+    const sorted = feats.filter(x => x.r >= 0).concat(feats.filter(x => x.r < 0));
+    const filter = App.featureFilter || '', q = filter.trim().toLowerCase();
+    const rows = sorted.map(({ f, i, r }) => {
+      const res = r >= 0 ? ch.resources[r] : null, short = shortRules(f.text);
+      const uses = res ? (res.uses === '' || res.uses === undefined ? 0 : res.uses) : null;
+      const empty = res && /^\d+$/.test(String(uses)) && +uses <= 0;
+      const counter = res ? `<span class="counter"><button class="btn small" data-action="bump" data-path="resources/${r}/uses" data-d="-1" aria-label="Use one">−</button><strong>${esc(uses)}</strong>${res.max !== '' && res.max !== undefined && res.max !== null ? `<span class="muted">/ ${esc(res.max)}</span>` : ''}<button class="btn small" data-action="bump" data-path="resources/${r}/uses" data-d="1" aria-label="Add one">+</button></span>` : '';
+      return `<div class="play-res feature-row" data-name="${esc(f.name.toLowerCase())}"${q && !f.name.toLowerCase().includes(q) ? ' hidden' : ''}>
+        <span class="res-name"${short ? ` title="${esc(short)}"` : ''}>${esc(f.name)}</span>
+        <span class="inline" style="flex-wrap:nowrap">${counter}<button class="btn small${res ? '' : ' ghost'}" data-action="feature-use" data-i="${i}"${empty ? ' disabled' : ''} title="${res ? 'Use it: take one use and post what it does' : 'Post what it does'} (Shift-click: private)">${res ? 'Use' : 'Show'}</button></span></div>`;
+    }).join('');
+    const classLine = classes.map(([c, a]) => `<strong>${esc(c.name)} ${esc(c.level)}</strong>${a.length ? ` <span class="sub">${esc(a.join(', '))}</span>` : ''}`).join(' · ');
+    return card('Classes & Features', `${classLine ? `<div class="small" style="margin-bottom:6px">${classLine}</div>` : ''}
+      ${feats.length > 8 ? `<input type="text" id="play-feature-filter" placeholder="Filter features…" value="${esc(filter)}" aria-label="Filter class features" style="margin-bottom:6px">` : ''}
+      ${rows || '<p class="small muted">No class features yet. Add them on the Character tab.</p>'}`,
+      { tools: `<button class="btn small ghost" data-action="tab" data-tab="character">Edit</button>` });
   }
   function playMythicCard() {
     const my = App.ch.mythic, dm = App.d.mythic;
@@ -2040,7 +2079,13 @@
     if (e.target.id === 'play-skill-filter') {
       App.skillFilter = e.target.value;
       const q = App.skillFilter.trim().toLowerCase();
-      $$('.skill-cell').forEach(c => { c.hidden = !!q && !c.dataset.skillName.includes(q); });
+      $$('.skill-cell[data-skill-name]').forEach(c => { c.hidden = !!q && !c.dataset.skillName.includes(q); });
+      return;
+    }
+    if (e.target.id === 'play-feature-filter') {
+      App.featureFilter = e.target.value;
+      const q = App.featureFilter.trim().toLowerCase();
+      $$('.feature-row[data-name]').forEach(c => { c.hidden = !!q && !c.dataset.name.includes(q); });
       return;
     }
     const el = e.target;
@@ -2243,6 +2288,21 @@
       'lay-edit': () => { App.layoutEdit = !App.layoutEdit; render(); },
       'lay-reset': () => { App.ch.settings.playLayout = null; changed(true); toast('Play tab layout reset.'); },
       'lay-move': () => layMove(el.dataset.card, +el.dataset.d),
+      'lay-hide': () => layoutChange(lay => { lay.hidden = (lay.hidden || []).filter(x => x !== el.dataset.card).concat(el.dataset.card); }),
+      'lay-show': () => layoutChange(lay => { lay.hidden = (lay.hidden || []).filter(x => x !== el.dataset.card); }),
+      'feature-use': () => {
+        const f = App.ch.classFeatures[+el.dataset.i];
+        if (!f) return;
+        const r = featureResource(f), res = r >= 0 ? App.ch.resources[r] : null;
+        let left = '';
+        if (res && /^\d+$/.test(String(res.uses === '' || res.uses === undefined ? 0 : res.uses))) {
+          const u = +res.uses || 0;
+          if (u <= 0) { toast(`${f.name}: no uses left. Rest or add one with +.`); return; }
+          res.uses = u - 1; left = `${u - 1}${res.max !== '' && res.max !== undefined && res.max !== null ? ' / ' + res.max : ''} left`;
+          changed(true);
+        }
+        emit({ title: `${who()} uses ${f.name}`, total: null, kind: 'info', lines: [shortRules(f.text), left].filter(Boolean) }, priv);
+      },
       'lay-row-move': () => {
         const r = +el.dataset.r, to = r + (+el.dataset.d);
         layoutChange(lay => { if (to >= 0 && to < lay.rows.length) [lay.rows[r], lay.rows[to]] = [lay.rows[to], lay.rows[r]]; });

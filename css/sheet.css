@@ -374,6 +374,8 @@ label.choice input { margin-top: 3px; accent-color: var(--accent); }
 .lay-newrow.drop-on { border-color: var(--gold); background: var(--panel); color: var(--ink); }
 .lay-row { display: flex; flex-direction: column; gap: 10px; }
 .lay-row-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.lay-hidden { flex-basis: 100%; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 6px; border-top: 1px solid var(--line); }
+.feature-row .counter { flex-wrap: nowrap; white-space: nowrap; }
 
 /* ---------- Formula value cell and help ---------- */
 .val-cell { display: flex; align-items: center; gap: 4px; min-width: 0; }
