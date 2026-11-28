@@ -275,7 +275,7 @@
       if (/^Damage Reduction/i.test(at(s, 'name')) || /^\d+\/./.test(name)) continue;   // shown as DR
       const mSrc = mythicSrc(s);
       if (mSrc) { ch.mythic.abilities.push({ name: at(s, 'name').replace(/\s*\((Ex|Su|Sp)\)$/, ''), text: txt(kid(s, 'description')), bonuses: [], src: mSrc }); continue; }
-      ch.classFeatures.push({ name: at(s, 'name').replace(/\s*\((Ex|Su|Sp)\)$/, ''), text: txt(kid(s, 'description')), bonuses: [] });
+      ch.classFeatures.push({ name: at(s, 'name').replace(/\s*\((Ex|Su|Sp)\)$/, '').replace(/\s*\(-[^)]*-\)/g, '').trim(), text: txt(kid(s, 'description')), bonuses: [] });
     }
     // Rage as a switchable effect
     const rageName = [...seen].find(n => /^(mighty |greater )?rage\b/.test(n));

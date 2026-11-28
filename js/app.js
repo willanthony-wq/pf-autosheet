@@ -530,6 +530,7 @@
     return (r, i) => {
       const b = baseName(r.name);
       if (!b) return '';
+      if (atWill(r)) return 'it can be used at will (nothing to count)';
       if (feat.has(i)) return 'its uses are on the Classes & Features card';
       if (sla.has(b)) return 'it is a spell-like ability whose uses the Spells card counts';
       if (myth && (myth.has(b) || /^mythic power\b/.test(b))) return 'it is on the Mythic card';
@@ -1051,11 +1052,31 @@
   // ----- Play tab: Classes & Features card (each class feature with its rules text; one with tracked uses can be used here)
   // The resource that tracks a feature's uses: the same name once "(3/day)", "(Su)" and the like are taken off
   const baseName = n => String(n || '').toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
+  // (Hero Lab may put the class in front: "Paladin Channel Positive Energy 7d6 (15/day, DC 25)"; at-will abilities have no uses to count)
+  const atWill = r => /\b(at will|constant)\b/i.test(r.name || '') || String(r.max) === '0';
   function featureResource(f) {
     const b = baseName(f.name);
     if (b.length < 4) return -1;
-    return App.ch.resources.findIndex(r => { const rb = baseName(r.name); return rb.length >= 4 && (rb === b || rb.startsWith(b + ' ') || b.startsWith(rb + ' ')); });
+    const classes = App.d.classes.filter(c => c.name).map(c => c.name.toLowerCase().replace(/\s*\(.*\)$/, ''));
+    const strip = s => { const c = classes.find(x => s.startsWith(x + ' ')); return c ? s.slice(c.length + 1) : s; };
+    return App.ch.resources.findIndex(r => {
+      if (atWill(r)) return false;
+      const rb = strip(baseName(r.name));
+      return rb.length >= 4 && (rb === b || rb.startsWith(b + ' ') || b.startsWith(rb + ' '));
+    });
   }
+  // The effect a class feature switches on (Smite Evil, Rage, Vindicator's Shield), matched by name or by the class table's name
+  function featureEffect(f) {
+    const m = /^(?:class|arch):[^:]*:(.+)$/.exec(f.src || '');
+    const keys = [baseName(f.name), m ? m[1].toLowerCase() : ''].filter(k => k.length >= 4);
+    return App.ch.effects.findIndex(e => {
+      const eb = baseName(e.name);
+      if (eb.length < 4 || /^import adjustments/.test(eb)) return false;
+      return keys.some(k => eb === k || k.startsWith(eb + ' ') || eb.startsWith(k + ' '));
+    });
+  }
+  // Hero Lab's placeholder for an unchosen option: "Vindicator's Sacred Shield +7 (- Custom / magic armor -)"
+  const featureLabel = n => String(n || '').replace(/\s*\(-[^)]*-\)/g, '').trim();
   // Class features the Play tab already shows another way are left off the card automatically: a "pick N" summary
   // ("Arcanist exploit (×6)"), a feature whose picks are listed one by one (Greater exploits, Domains, Greatwork), and
   // cantrips, orisons or knacks when there's a Spells card. featurePlayReason() gives why ('' = shown); the ▶ button on
@@ -1066,8 +1087,12 @@
     const picks = ch.classFeatures.filter(f => /^choice:/.test(f.src || ''));
     const groups = new Set(picks.map(f => sing(f.src.split(':')[1])).concat(ch.classes.flatMap(c => (c.choices || []).map(x => sing(x.g)))).filter(Boolean));
     const spells = !!(d.spells.data || ch.spellcasting.levels.some(l => l.spells.length));
+    // "Immune to fear" notes on Aura of Courage, Aura of Resolve, Divine Health...
+    const immune = ch.classFeatures.flatMap(o => (o.bonuses || []).filter(b => b.target === 'note' && /immune to/i.test(b.text || '')).map(b => [o, String(b.text).toLowerCase()]));
     return f => {
       if (/^choice:/.test(f.src || '')) return '';
+      const im = /^immunity to (\w+)/i.exec(f.name || '');
+      if (im) { const by = immune.find(([o, t]) => o !== f && t.includes('immune to ' + im[1].toLowerCase().slice(0, 5))); if (by) return `the immunity is part of ${featureLabel(by[0].name)}`; }
       if (picks.length && /\(\s*[x×]\s*\d+\s*\)/i.test(f.name)) return 'it only counts your picks, which are listed one by one';
       const m = /^class:[^:]*:(.+)$/.exec(f.src || ''), key = sing(m ? m[1] : f.name);
       if (m && [...groups].some(g => key === g || key.endsWith(' ' + g))) return 'your picks for it are listed one by one';
@@ -1103,13 +1128,15 @@
     const classes = d.classes.map((c, i) => [c, (ch.classes[i] && ch.classes[i].archetypes) || []]).filter(([c]) => c.data && c.level);
     const shown = featureShownTest(), raceShown = raceShownTest();
     // Class features and racial features in one list (racial ones are tagged "race")
-    const feats = ch.classFeatures.map((f, i) => ({ f, i, list: 'classFeatures', label: f.name, r: featureResource(f) })).filter(x => x.f.name && shown(x.f))
+    const feats = ch.classFeatures.map((f, i) => ({ f, i, list: 'classFeatures', label: featureLabel(f.name), r: featureResource(f), e: featureEffect(f) })).filter(x => x.f.name && shown(x.f))
       .concat((ch.racialFeatures || []).map((f, i) => ({ f, i, list: 'racialFeatures', label: raceFeatureLabel(f), race: true })).filter(x => x.label && raceShown(x.f)).map(x => Object.assign(x, { r: featureResource({ name: x.label }) })));
     if (!classes.length && !feats.length) return '';
     // Starred features first, each group A to Z
     const az = (a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base', numeric: true });
     const sorted = feats.filter(x => x.f.fav).sort(az).concat(feats.filter(x => !x.f.fav).sort(az));
-    const rows = sorted.map(({ f, i, r, list, label, race }) => {
+    const rows = sorted.map(({ f, i, r, e, list, label, race }) => {
+      const eff = e >= 0 && e !== undefined ? ch.effects[e] : null;
+      const sw = eff ? `<label class="chip${eff.active ? ' on' : ''}" title="Switches the ${esc(eff.name)} effect on or off (also on the Buffs card and the Effects tab)"><input type="checkbox" data-bind="effects/${e}/active" data-type="bool" data-rerender${eff.active ? ' checked' : ''}>${eff.active ? 'on' : 'off'}</label>` : '';
       const res = r >= 0 ? ch.resources[r] : null, short = shortRules(f.text);
       const uses = res ? (res.uses === '' || res.uses === undefined ? 0 : res.uses) : null;
       const empty = res && /^\d+$/.test(String(uses)) && +uses <= 0;
@@ -1117,7 +1144,7 @@
       const fav = !!f.fav;
       return `<div class="play-res play-feat${fav ? ' fav' : ''}">
         <span class="res-name"${short ? ` title="${esc(short)}"` : ''}><button class="star-btn${fav ? ' on' : ''}" data-action="toggle-fav" data-path="${list}/${i}" aria-pressed="${fav}" title="${fav ? 'Unstar' : 'Star this to highlight it and keep it at the top'}">${fav ? '★' : '☆'}</button>${esc(label)}${race ? ' <span class="sub">race</span>' : ''}</span>
-        <span class="inline" style="flex-wrap:nowrap">${counter}<button class="btn small${res ? '' : ' ghost'}" data-action="feature-use" data-list="${list}" data-i="${i}"${empty ? ' disabled' : ''} title="${res ? 'Use it: take one use and post what it does' : 'Post what it does'} (Shift-click: private)">${res ? 'Use' : 'Show'}</button></span></div>`;
+        <span class="inline" style="flex-wrap:nowrap">${sw}${counter}<button class="btn small${res ? '' : ' ghost'}" data-action="feature-use" data-list="${list}" data-i="${i}"${empty ? ' disabled' : ''} title="${res ? 'Use it: take one use and post what it does' : 'Post what it does'} (Shift-click: private)">${res ? 'Use' : 'Show'}</button></span></div>`;
     }).join('');
     const classLine = (ch.info.race ? [`<strong>${esc(ch.info.race)}</strong>`] : []).concat(classes.map(([c, a]) => `<strong>${esc(c.name)} ${esc(c.level)}</strong>${a.length ? ` <span class="sub">${esc(a.join(', '))}</span>` : ''}`)).join(' · ');
     return card('Classes & Features', `${classLine ? `<div class="small" style="margin-bottom:6px">${classLine}</div>` : ''}
@@ -2643,7 +2670,14 @@
           res.uses = u - 1; left = `${u - 1}${res.max !== '' && res.max !== undefined && res.max !== null ? ' / ' + res.max : ''} left`;
           changed(true);
         }
-        emit({ title: `${who()} uses ${f.name}`, total: null, kind: 'info', lines: [shortRules(f.text), left].filter(Boolean) }, priv);
+        // Dice and DC in the name, its resource or a short text: "Lay on Hands (7d6 …)", "Channel Positive Energy 7d6 (15/day, DC 25)"
+        const where = [f.name, res ? res.name : '', String(f.text || '').length < 100 ? f.text : ''].join(' ');
+        const dm = where.match(/\b(\d+d\d+(?:\s*[+-]\s*\d+)?)\b/), dcm = where.match(/\bDC\s*(\d+)/i);
+        let total = null;
+        const lines = [];
+        if (dm) { try { const rr = DICE.rollExpr(dm[1].replace(/\s+/g, '')); total = rr.total; lines.push(`**${rr.total}** (${rr.text})${dcm ? ` · DC ${dcm[1]}` : ''}`); } catch (e2) { /* not dice after all */ } }
+        else if (dcm) lines.push(`DC ${dcm[1]}`);
+        emit({ title: `${who()} uses ${featureLabel(f.name)}`, total, kind: total === null ? 'info' : undefined, lines: lines.concat([shortRules(f.text), left].filter(Boolean)) }, priv);
       },
       'lay-row-move': () => {
         const r = +el.dataset.r, to = r + (+el.dataset.d);
