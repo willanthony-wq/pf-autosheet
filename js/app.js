@@ -207,8 +207,8 @@
 
   // ---------- Rendering ----------
   const TABS = [
-    ['play', 'Play'], ['character', 'Character'], ['race', 'Race'], ['skills', 'Skills'], ['combat', 'Combat'], ['spells', 'Spells'],
-    ['effects', 'Effects'], ['feats', 'Feats'], ['features', 'Gear'], ['companion', 'Companion'], ['notes', 'Notes'], ['settings', 'Settings'],
+    ['play', 'Play'], ['character', 'Character'], ['race', 'Race'], ['skills', 'Skills'], ['feats', 'Feats'], ['combat', 'Combat'],
+    ['features', 'Gear'], ['spells', 'Spells'], ['effects', 'Effects'], ['companion', 'Companion'], ['notes', 'Notes'], ['settings', 'Settings'],
   ];
 
   function render() {
