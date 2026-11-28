@@ -35,6 +35,47 @@
 
   const KINDS = ['Animal Companion', 'Eidolon', 'Familiar', 'Other'];
 
+  // What each progression ability does (Core Rulebook animal companions and familiars, APG eidolons)
+  const EVADE = 'On a successful Reflex save for half damage it takes no damage';
+  const ABILITY_TEXT = {
+    link: { 'Animal Companion': 'You handle it as a free action (push it as a move action), and get a +4 circumstance bonus on wild empathy and Handle Animal checks with it.',
+      Eidolon: 'You and your eidolon share a mental link: you can talk telepathically at any distance on the same plane.' },
+    'share spells': { 'Animal Companion': 'A spell you cast with a target of "You" can also affect it if it is within 5 ft.; you can cast spells on it that don\'t normally affect animals.',
+      Eidolon: 'You can cast a spell with a target of "You" on your eidolon instead (as a touch spell).',
+      Familiar: 'A spell you cast with a target of "You" can also affect it if it is within 5 ft.' },
+    evasion: EVADE + '.',
+    'improved evasion': EVADE + ', and only half damage on a failed save.',
+    'ability score increase': '+1 to one ability score each time: enter it in the Adj. column.',
+    devotion: '+4 morale bonus on Will saves against enchantment spells and effects. Switch it on while one applies.',
+    multiattack: 'Multiattack as a bonus feat if it has 3 or more natural attacks (secondary attacks at -2 instead of -5); otherwise a second attack with its main natural weapon at -5.',
+    darkvision: 'Darkvision 60 ft.',
+    alertness: "While it is within arm's reach, you have the Alertness feat (+2 on Perception and Sense Motive).",
+    'empathic link': 'You share an empathic link with it up to 1 mile away.',
+    'deliver touch spells': 'It can deliver a touch spell you cast (you cast it, it touches the target).',
+    'speak with master': 'It can talk with you in a language only the two of you understand.',
+    'speak with animals of its kind': 'It can talk with animals of roughly its own kind.',
+    'spell resistance': 'Spell resistance equal to your level + 5 (it can lower it for your spells).',
+    'scry on familiar': 'Once per day you can scry on it (as the scrying spell).',
+  };
+  function abilityText(name, kind) {
+    const t = ABILITY_TEXT[String(name).toLowerCase().replace(/\s*\(.*$/, '').replace(/\s+\d+$/, '')];
+    return !t ? '' : typeof t === 'string' ? t : (t[kind] || Object.values(t)[0]);
+  }
+  // The progression's special abilities as a list: one entry each, repeats counted ("Ability score increase" x3)
+  function specialList(strings, kind, lvl) {
+    const out = [];
+    for (const s of strings) for (let part of String(s).split(/,\s*/)) {
+      part = part.trim();
+      if (!part) continue;
+      part = part.charAt(0).toUpperCase() + part.slice(1);
+      if (/^spell resistance/i.test(part)) part = `Spell resistance ${lvl + 5}`;
+      const had = out.find(x => x.name.toLowerCase() === part.toLowerCase());
+      if (had) { had.count++; continue; }
+      out.push({ name: part, count: 1, text: abilityText(part, kind) });
+    }
+    return out;
+  }
+
   // Common buffs for companions (bonuses are editable after adding).
   const B = (target, value, type, extra) => Object.assign({ label: '', target, value, type, skill: '', weapon: '', text: '', active: true }, extra || {});
   const BUFF_PRESETS = {
@@ -136,6 +177,11 @@
       base = { fort: g.fort ? good(hd) : poor(hd), ref: g.ref ? good(hd) : poor(hd), will: g.will ? good(hd) : poor(hd) };
     }
     out.hd = hd; out.bab = bab; out.baseSaves = base; out.natBonus = natBonus; out.physBonus = physBonus; out.tricks = tricks;
+    out.specials = specialList(out.special, c.kind, lvl);
+    out.hasDevotion = out.specials.some(x => /^devotion$/i.test(x.name));
+    // Multiattack: a bonus feat once it has 3 or more natural attacks
+    const natAttacks = (c.attacks || []).reduce((t, a) => t + (a.ranged === true ? 0 : Math.max(1, Math.floor(n(a.count)) || 1)), 0);
+    out.autoMultiattack = out.specials.some(x => /^multiattack$/i.test(x.name)) && natAttacks >= 3;
 
     // ---- Bonuses: buffs, feats, gear, evolutions and conditions, with the same stacking rules as the character
     const E = window.PF_ENGINE;
@@ -159,7 +205,7 @@
       return { ab, md };
     };
     let pass = scoresFrom(null);
-    const ctx = {};
+    const ctx = { devotion: out.hasDevotion && !!c.devotion };
     let rows = bonusRows(c, vars(pass.md), ctx);
     pass = scoresFrom(rows);
     const V = vars(pass.md);
@@ -224,7 +270,7 @@
       const fxAtk = ranged ? T('rAtk') : T('mAtk');
       const fxDmg = ranged ? T('rDmg') : T('mDmg');
       const atk = bab + m[abil] + size.atk + n(a.misc) + n(c.atkMisc) + fxAtk + E.stack(mine, 'wAtk')
-        + (secondary ? (c.multiattack ? -2 : -5) : 0) - (ranged ? 0 : pa);
+        + (secondary ? (c.multiattack || out.autoMultiattack ? -2 : -5) : 0) - (ranged ? 0 : pa);
       // Power Attack: +2 damage per -1 (x1.5 for Str x1.5 attacks, half for secondary/off-hand)
       const paDmg = ranged || !pa ? 0 : Math.floor(pa * 2 * (mult >= 1.5 ? 1.5 : mult < 1 ? 0.5 : 1));
       const dmg = Math.floor(m.str * mult) + n(a.dmgMisc) + paDmg + fxDmg + E.stack(mine, 'wDmg');
@@ -283,6 +329,8 @@
     for (const f of c.feats || []) E.pushBonuses(rows, f.bonuses || [], 'feat', x => x.label || f.name || 'Feat', 'Untyped (stacks)', V);
     for (const g of c.gear || []) E.pushBonuses(rows, g.bonuses || [], 'gear', x => x.label || g.item || g.slot || 'Gear', 'Enhancement', V);
     for (const e of c.evolutions || []) E.pushBonuses(rows, e.bonuses || [], 'evolution', x => x.label || e.name || 'Evolution', 'Untyped (stacks)', V);
+    // Devotion, switched on while an enchantment is in play
+    if (ctx.devotion) rows.push({ src: 'ability', name: 'Devotion', type: 'Morale', v: { will: 4 }, text: '' });
     ctx.loseDex = false;
     const condMap = new Map(window.PF_DATA.conditions.map(x => [x.name, x]));
     for (const name of c.conditions || []) {
@@ -297,5 +345,5 @@
     return rows;
   }
 
-  window.PF_COMPANION = { KINDS, AC_SKILLS, BASE_FORMS, BUFF_PRESETS, blankCompanion, normalize, compute };
+  window.PF_COMPANION = { KINDS, AC_SKILLS, BASE_FORMS, BUFF_PRESETS, blankCompanion, normalize, compute, abilityText };
 })();

@@ -447,6 +447,7 @@
       <code>cl</code> your caster level<br>
       <code>str dex con int wis cha</code> ${forCompanion ? "the companion's " : ''}ability modifiers<br>
       <code>ranks</code> ranks in the skill this bonus targets<br>
+      <code>ranks_bluff</code>, <code>ranks_kn_local</code>… ranks in a named skill (lowercase, spaces and dots as _)<br>
       ${forCompanion ? '' : '<code>speed fly swim burrow climb</code> your base speeds (for effects such as Haste)<br>'}
       <code>class1 class2 class3</code> levels in your 1st, 2nd, 3rd class<br>
       a class name, e.g. <code>rogue</code>, <code>druid</code>, <code>monk_unchained</code>: your levels in it (spaces and brackets become _)<br>
@@ -722,7 +723,10 @@
     return `<span class="feat-tags"><span class="tag${same ? ' warn' : ''}" title="${same ? 'Two traits of the same category: normally only one is allowed' : 'Trait category'}">${esc(cat)}${same ? ' ⚠ twice' : ''}</span></span>`;
   }
   // Standard bonuses (js/feats.js); null if that file didn't load
-  function featSuggest(...args) { return window.PF_FEATS ? window.PF_FEATS.suggest(...args) : null; }
+  function featSuggest(...args) {
+    if (args[0] === 'evolution') { const e = evoEntry(args[1]); if (e && (e.b || []).length) return evoBonuses(e, args[1]); }
+    return window.PF_FEATS ? window.PF_FEATS.suggest(...args) : null;
+  }
   function suggestBonuses(key, i, kind) {
     const item = pathGet(App.ch, `${key}/${i}`);
     const name = /traits$/.test(key) ? item.text : /(slots|gear)$/.test(key) ? item.item : item.name;
@@ -1576,13 +1580,61 @@
         // Like your own worn items: a description box once the row holds something
         if (String(x.item || '').trim() || String(x.text || '').trim()) desc = area(`${p}/text`, { rows: 3, ph: 'Description' });
       } else {
-        head = `${inp(`${p}/name`, { ph: 'Improved Natural Armor' })}${inp(`${p}/cost`, { type: 'num', aria: 'Cost', title: 'Evolution points' })}`; kind = 'evolution';
+        head = `${inp(`${p}/name`, { ph: 'Improved Natural Armor', list: 'srd-evolutions', title: 'Pick an evolution to fill in its cost, rules text, bonuses and attack. Name a choice in brackets: Skilled (Stealth), Ability Increase (Dex)' })}${inp(`${p}/cost`, { type: 'num', aria: 'Cost', title: 'Evolution points' })}`; kind = 'evolution';
+        const warn = evoWarnings(ci, x);
+        if (String(x.name || '').trim() || String(x.text || '').trim()) desc = (warn ? `<p class="small warn-text">${esc(warn)}</p>` : '') + area(`${p}/text`, { rows: 3, ph: 'Description' });
       }
       const hasBonuses = (x.bonuses || []).length > 0;
       return `<div class="feature-item${key === 'buffs' && !x.active ? ' inactive-item' : ''}"><div class="feature-head comp-${key}">${head}${removeBtn(base, i)}</div>${desc}
         ${bonusEditor(`${p}/bonuses`, x.bonuses, { varsPath })}
         ${addBonusButtons(`${p}/bonuses`, defType, hasBonuses ? null : kind, i, base)}</div>`;
     }).join('') || '<p class="small muted">None yet.</p>';
+  }
+
+  // ----- Eidolon evolutions (data/srd/evolutions.json)
+  const evoBase = name => String(name || '').replace(/\s*\(.*$/, '').trim();
+  const evoEntry = name => (SRD && SRD.loaded('evolutions') ? SRD.find('evolutions', name) || SRD.find('evolutions', evoBase(name)) : null);
+  // Evolutions each base form starts with (they count for another evolution's requirements)
+  const EVO_FREE = { Biped: ['claws', 'limbs'], Quadruped: ['bite', 'limbs'], Serpentine: ['bite', 'climb', 'reach', 'tail', 'tail slap'] };
+  function evoWarnings(ci, x) {
+    const c = App.ch.companions[ci], dc = App.d.companions[ci], e = evoEntry(x.name);
+    if (!e || !c || !dc) return '';
+    const out = [];
+    if (e.lvl && dc.effLevel < e.lvl) out.push(`Needs summoner level ${e.lvl}`);
+    if (e.forms && !e.forms.includes(c.baseForm || 'Biped')) out.push(`Only for the ${e.forms.join(' or ')} base form${e.forms.length > 1 ? 's' : ''}`);
+    const have = new Set((EVO_FREE[c.baseForm || 'Biped'] || []).concat((c.evolutions || []).filter(y => y !== x).map(y => evoBase(y.name).toLowerCase())));
+    const miss = (e.req || []).filter(r => !have.has(evoBase(r).toLowerCase()));
+    if (miss.length) out.push(`Needs the ${miss.join(' and ')} evolution${miss.length > 1 ? 's' : ''}`);
+    return out.join(' · ');
+  }
+  // Its bonuses per pick: a skill or ability named in brackets fills the choice; situational ones start off
+  function evoBonuses(e, name) {
+    const pick = String((String(name || '').match(/\(([^)]*)\)\s*$/) || [])[1] || '').trim();
+    const ab = (M.ABILITIES.find(a => pick.toLowerCase().startsWith(a)) || M.ABILITIES.find(a => (M.ABILITY_NAMES[a] || '').toLowerCase() === pick.toLowerCase()));
+    const skill = pick ? (skillNameList().find(s => s.toLowerCase() === pick.toLowerCase()) || skillNameList().find(s => s.toLowerCase().startsWith(pick.toLowerCase())) || '') : '';
+    return (e.b || []).map(b => {
+      const o = Object.assign({ label: '', skill: '', weapon: '', text: '', active: true }, b, { active: !b.situational });
+      if (o.target === 'pick-ability') { o.target = ab || 'str'; if (ab) o.text = ''; }
+      if (o.skill === 'pick') { o.skill = skill; if (skill) o.text = ''; }
+      return o;
+    });
+  }
+  // Picking an evolution: cost, text, bonuses, its natural attack (sized), and Large sets the size
+  function fillEvolution(o, it, f, path) {
+    const ci = +path.split('/')[1], c = App.ch.companions[ci];
+    let n = f('text', it.d);
+    if (it.cost && E.n(o.cost) <= 1 && E.n(o.cost) !== it.cost) { o.cost = it.cost; n++; }
+    if (!(o.bonuses || []).length && (it.b || []).length) { o.bonuses = evoBonuses(it, o.name); n++; }
+    if (it.atk && c) {
+      const [nm, count, primary, med, lg, huge] = it.atk;
+      if (!c.attacks.some(a => SRD.key(a.name).startsWith(SRD.key(nm)))) {
+        const dice = c.size === 'Huge' ? huge : c.size === 'Large' ? lg : med;
+        c.attacks.push({ name: nm, count, secondary: primary ? 'false' : 'true', ability: 'str', dmgMult: '', dice, crit: '20', mult: 'x2', misc: 0, dmgMisc: 0, iterative: false, ranged: false, notes: 'Evolution' });
+        toast(`Added the ${nm.toLowerCase()} attack (${count > 1 ? count + ' × ' : ''}${dice}, ${primary ? 'primary' : 'secondary'}).`);
+      }
+    }
+    if (it.n === 'Large' && c && c.size === 'Medium') { c.size = 'Large'; toast('Size set to Large.'); }
+    return n;
   }
 
   // ----- Companions (animal companions, eidolons, familiars, others)
@@ -1593,6 +1645,16 @@
   }
   function compLevelLabel(kind) {
     return { 'Animal Companion': 'Effective druid level', Eidolon: 'Summoner level', Familiar: 'Master level' }[kind] || '';
+  }
+  // The progression's special abilities: hover for the rules; Devotion switches its +4 on
+  function compSpecialChips(ci, onlySwitches) {
+    const c = App.ch.companions[ci], dc = App.d.companions[ci];
+    return dc.specials.filter(x => !onlySwitches || /^devotion$/i.test(x.name)).map(x => {
+      const nm = x.name + (x.count > 1 ? ` ×${x.count}` : '');
+      if (/^devotion$/i.test(x.name)) return `<label class="chip${c.devotion ? ' on' : ''}" title="${esc(x.text)}"><input type="checkbox" data-bind="companions/${ci}/devotion" data-type="bool" data-rerender${c.devotion ? ' checked' : ''}>◐ Devotion (vs enchantment)</label>`;
+      if (/^multiattack$/i.test(x.name) && dc.autoMultiattack) return `<span class="chip" title="${esc(x.text)} It has 3 or more natural attacks, so its secondary attacks are at -2.">${esc(nm)} ✓</span>`;
+      return `<span class="chip" title="${esc(x.text || x.name)}">${esc(nm)}</span>`;
+    }).join('');
   }
   function renderCompanion() {
     const ch = App.ch;
@@ -1633,7 +1695,7 @@
       ${c.kind === 'Other' ? `<p class="inline small" style="margin-top:8px">Good saves:
         <label class="inline">${chk(`${p}/goodSaves/fort`)} Fort</label><label class="inline">${chk(`${p}/goodSaves/ref`)} Ref</label><label class="inline">${chk(`${p}/goodSaves/will`)} Will</label></p>` : ''}
       <div class="pills">${summary}</div>
-      ${dc.special.length ? `<p class="small"><strong>Special:</strong> ${dc.special.map(esc).join('; ')}</p>` : ''}`,
+      ${dc.specials.length ? `<div class="chips comp-specials" style="margin-top:8px"><span class="small"><strong>Special:</strong></span> ${compSpecialChips(ci)}</div>` : ''}`,
       { cls: 'span-2', tools: `<button class="btn small danger" data-action="comp-remove" data-c="${ci}">Remove</button>` });
 
     const abRows = M.ABILITIES.map(a => `<tr><td class="l ability-name">${M.ABILITY_NAMES[a]}</td>
@@ -1730,7 +1792,7 @@
       ${c.kind === 'Animal Companion' || c.kind === 'Familiar' ? field('Tricks', area(`${p}/tricks`, { rows: 2, ph: 'Attack, Come, Defend, Down, Guard…' })) : ''}
       <div style="margin-top:8px">${field('Special abilities & upgrades', area(`${p}/special`, { rows: 3, ph: 'Scent, trip, gear upgrades…' }))}</div>`);
     const groups = {};
-    const srcLabel = { buff: 'Buffs', feat: 'Feats', gear: 'Gear', evolution: 'Evolutions', condition: 'Conditions' };
+    const srcLabel = { buff: 'Buffs', feat: 'Feats', gear: 'Gear', evolution: 'Evolutions', ability: 'Abilities', condition: 'Conditions' };
     for (const r of dc.rows) (groups[r.src] = groups[r.src] || new Set()).add(r.name);
     const notes = [];
     for (const k of ['buffs', 'feats', 'gear', 'evolutions']) for (const x of c[k] || []) if (k !== 'buffs' || x.active) for (const b of x.bonuses || []) if (b.active !== false && b.target === 'note' && b.text) notes.push(`<strong>${esc(x.name || x.item || 'Note')}</strong>: ${esc(b.text)}`);
@@ -1790,7 +1852,7 @@
           <div><div class="save-row">${save('fort', 'Fort')}${save('ref', 'Reflex')}${save('will', 'Will')}</div>
             <div class="inline" style="margin-top:8px"><span class="inline explain" ${ex('init')} aria-label="Initiative: show what makes this number"><span class="small">Init${xi}</span>${rollBtn('Initiative', `${dp}/init`, { who })}</span><span class="inline explain" ${ex('cmb')} aria-label="CMB: show what makes this number"><span class="small">CMB${xi}</span>${rollBtn('Combat maneuver', `${dp}/cmb`, { who })}</span></div>
             <div class="chips" style="margin-top:8px"><label class="chip${c.powerAttack ? ' on' : ''}"><input type="checkbox" data-bind="companions/${ci}/powerAttack" data-type="bool" data-rerender${c.powerAttack ? ' checked' : ''}>Power Attack</label>
-              ${c.buffs.map((b, bi) => `<label class="chip${b.active ? ' on' : ''}" title="Buff (Companion tab)"><input type="checkbox" data-bind="companions/${ci}/buffs/${bi}/active" data-type="bool" data-rerender${b.active ? ' checked' : ''}>${esc(b.name || 'Buff')}</label>`).join('')}${situationalChips(situationalGroups(compSituationalLists(ci)))}</div>
+              ${dc.hasDevotion ? compSpecialChips(ci, true) : ''}${c.buffs.map((b, bi) => `<label class="chip${b.active ? ' on' : ''}" title="Buff (Companion tab)"><input type="checkbox" data-bind="companions/${ci}/buffs/${bi}/active" data-type="bool" data-rerender${b.active ? ' checked' : ''}>${esc(b.name || 'Buff')}</label>`).join('')}${situationalChips(situationalGroups(compSituationalLists(ci)))}</div>
             <div class="chips" style="margin-top:6px">${c.conditions.map(nm => `<button class="chip cond on" data-action="comp-toggle-condition" data-c="${ci}" data-name="${esc(nm)}" title="Click to remove">${esc(nm)} ✕</button>`).join('')}
               <select class="comp-add-condition" data-c="${ci}" aria-label="Add a condition" style="width:auto"><option value="">+ Condition…</option>${D.conditions.filter(x => !c.conditions.includes(x.name)).map(x => `<option>${esc(x.name)}</option>`).join('')}</select></div>
             ${res}</div>
@@ -3535,7 +3597,7 @@
         const cls = App.ch.spellcasting.className;
         return [spellListId(L), ['spells'], x => !SRD.hasSpellList(cls) || SRD.spellLevel(x, cls) === L];
       }) : []),
-      companion: [['srd-creatures', ['companions', 'monsters']], ['srd-feats', ['feats']], ['srd-spells', ['spells']], ['srd-worn', ['items'], x => x.slot && x.slot !== 'none']],
+      companion: [['srd-creatures', ['companions', 'monsters']], ['srd-feats', ['feats']], ['srd-spells', ['spells']], ['srd-worn', ['items'], x => x.slot && x.slot !== 'none'], ['srd-evolutions', ['evolutions']]],
     }[tab] || [];
     if ((tab === 'character' || tab === 'overview') && (!SRD.loaded('archetypes') || !SRD.loaded('choices'))) SRD.ensure(['archetypes', 'choices']).then(() => { if (App.tab === tab) render(); });
     want.forEach(([id, kinds, filter]) => SRD.datalist(id, kinds, filter));
@@ -3572,6 +3634,7 @@
     // "+1 keen flaming longsword": the longsword, without the enhancement and magic abilities
     { re: /^weapons\/\d+\/name$/, kinds: ['weapons'], lookup: name => SRD.find('weapons', name) || (window.PF_MAGIC ? SRD.find('weapons', window.PF_MAGIC.baseWeaponName(name)) : null), fill: fillWeapon },
     { re: /^(spellcasting\/levels\/\d+\/spells|spellcasting\/sla\/\d+\/items|companions\/\d+\/spells)\/\d+\/name$/, kinds: ['spells'], fill: fillSpell },
+    { re: /^companions\/\d+\/evolutions\/\d+\/name$/, kinds: ['evolutions'], lookup: evoEntry, fill: fillEvolution },
     // Companion species: animal companion statistics (Core Rulebook, APG, Bestiaries) or a Bestiary stat block
     { re: /^companions\/\d+\/species$/, kinds: ['companions', 'monsters'], lookup: creatureLookup, fill: fillSpecies },
   ];

@@ -24,7 +24,10 @@ module.exports = function fixups(out, items) {
   // Natural armor bonuses don't stack with each other: type them Natural Armor (the dragon disciple's increase stacks, so it
   // stays untyped)
   let nat = 0;
-  for (const e of out) for (const b of e.r.bonuses || []) if (b.target === 'nat' && b.type === 'Untyped (stacks)' && !/increase/i.test(b.text || '')) { b.type = 'Natural Armor'; nat++; }
+  for (const e of out) for (const b of e.r.bonuses || []) if (b.target === 'nat' && b.type === 'Untyped (stacks)' && !/increase/i.test(b.text || '')) {
+    b.type = 'Natural Armor'; nat++;
+    if (/typed Untyped because no natural type/i.test(e.r.note || '')) delete e.r.note;   // the audit's note from before the type existed
+  }
   if (nat) log.push(`${nat} natural armor bonuses typed Natural Armor`);
   const S = 'Shield';
   // Shield bonuses the audit could only note (no Shield type then), from the full text
@@ -38,6 +41,8 @@ module.exports = function fixups(out, items) {
   if (ss) { ss.r.bonuses = [{ target: 'ac', value: 'max(0, int)', type: S, situational: true, text: 'Until the end of your next turn' }]; log.push('Spell Shield: shield bonus equal to Int'); }
   // Inherent bonus, from the full text: "+2 inherent bonus to your Strength at 9th, +4 at 13th, +6 at 17th"
   if (ensure('choice-power', 'Abyssal (Bloodline)', 'Strength of the Abyss', { bonuses: [{ target: 'str', value: 'cls >= 17 ? 6 : cls >= 13 ? 4 : 2', type: 'Inherent', situational: false, text: 'Abyssal bloodline' }] })) log.push('Strength of the Abyss: inherent Strength');
+  // Pools counted in skill ranks (formulas can name a skill's ranks since ranks_<skill> was added)
+  if (ensure('archetype', 'Chameleon', 'Misdirection', { uses: { max: 'ranks_bluff', unit: 'points', per: 'day', note: 'Stealth points equal to ranks in Bluff' } })) log.push('Misdirection: stealth points = Bluff ranks');
   // The sheet's Monk Flurry attack type already applies the chained monk's -2: no separate switch for it
   const fl = find('class', 'Monk', 'Flurry of Blows');
   if (fl && fl.r.bonuses) { delete fl.r.bonuses; if (!Object.keys(fl.r).some(k => k !== 'note')) out.splice(out.indexOf(fl), 1); log.push('Monk Flurry of Blows: -2 left to the Monk Flurry attack type'); }

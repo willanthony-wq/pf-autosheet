@@ -3,7 +3,7 @@
 // Third-party material (data/3pp/, e.g. the Machinesmith) is added after the SRD's own entries.
 (() => {
   'use strict';
-  const KINDS = ['feats', 'traits', 'spells', 'items', 'gear', 'weapons', 'armor', 'classes', 'archetypes', 'choices', 'races', 'monsters', 'companions'];
+  const KINDS = ['feats', 'traits', 'spells', 'items', 'gear', 'weapons', 'armor', 'classes', 'archetypes', 'choices', 'races', 'monsters', 'companions', 'evolutions'];
   // Rules sources switched off on the Settings tab ("APG", "UM"...): their entries leave suggestion lists and pickers
   let disabled = new Set(), disabledSig = '';
   function setDisabled(list) {

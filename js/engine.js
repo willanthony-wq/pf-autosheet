@@ -188,12 +188,14 @@
       const unknown = [];
       const body = key.replace(/[a-z_][a-z0-9_]*/g, id => {
         if (BASE_VARS.has(id) || MATH_FNS.has(id)) return id;
+        // ranks_bluff, ranks_kn_local...: ranks in that skill
+        if (/^ranks_[a-z0-9_]+$/.test(id)) return 'R("' + id.slice(6) + '")';
         if (!CLASS_SLUGS.has(id)) unknown.push(id);
         return 'L("' + id + '")';
       });
       try {
         const fn = new Function('V', 'const {level=0,bab=0,cl=0,str=0,dex=0,con=0,int=0,wis=0,cha=0,ranks=0,speed=0,fly=0,swim=0,burrow=0,climb=0,tier=0}=V; const {max,min,floor,ceil,abs}=Math;' +
-          ' const C=V.C||{}; const L=k=>Object.prototype.hasOwnProperty.call(C,k)?C[k]:0; return (' + body + ');');
+          ' const C=V.C||{}; const L=k=>Object.prototype.hasOwnProperty.call(C,k)?C[k]:0; const RR=V.R||{}; const R=k=>RR[k]||0; return (' + body + ');');
         out = { fn, unknown };
       } catch (e) { out = null; }
     }
@@ -241,6 +243,13 @@
   function speedVars(ch) {
     const sp = (ch.info && ch.info.speeds) || {};
     return { speed: n(sp.base), fly: n(sp.fly), swim: n(sp.swim), burrow: n(sp.burrow), climb: n(sp.climb) };
+  }
+  // Ranks in each skill for formulas (ranks_bluff), keyed like class names: lowercase, other characters as _
+  function skillRankVars(ch) {
+    const R = {};
+    for (const [name, s] of Object.entries(ch.skills || {})) R[classSlug(name)] = n(s && s.ranks);
+    for (const s of ch.specialty || []) if (s && s.base) R[classSlug(s.base + ' ' + (s.detail || ''))] = n(s.ranks);
+    return R;
   }
   function abilityVars(d, level, bab) {
     const V = { level, bab, cl: d.quickCl || 0, tier: d.mythicTier || 0, C: classVars(d) };
@@ -375,13 +384,13 @@
     d.mythicTier = mythicTier(ch);
     { const M2 = window.PF_MODEL.MYTHIC, t = d.mythicTier;
       d.mythic = { tier: t, path: (ch.mythic && ch.mythic.path) || '', powerMax: M2.powerMax(t), powerLeft: Math.max(0, M2.powerMax(t) - n(ch.mythic && ch.mythic.powerUsed)), surge: t ? '1' + M2.surgeDie(t) : '', feats: M2.feats(t), boosts: M2.boosts(t) }; }
-    ctx.vars = abilityVars({ mods: quickMods(ch), quickCl: d.quickCl, classes: d.classes, mythicTier: d.mythicTier }, d.level, d.bab);
+    ctx.vars = Object.assign(abilityVars({ mods: quickMods(ch), quickCl: d.quickCl, classes: d.classes, mythicTier: d.mythicTier }, d.level, d.bab), { R: skillRankVars(ch) });
     let rows = buildEffectRows(ch, Object.assign({}, ctx, { hpMax: 0 }));
     computeAbilities(ch, d, rows);
-    ctx.vars = abilityVars(d, d.level, d.bab);
+    ctx.vars = Object.assign(abilityVars(d, d.level, d.bab), { R: skillRankVars(ch) });
     rows = buildEffectRows(ch, Object.assign({}, ctx, { hpMax: 0 }));
     computeAbilities(ch, d, rows);
-    ctx.vars = abilityVars(d, d.level, d.bab);
+    ctx.vars = Object.assign(abilityVars(d, d.level, d.bab), { R: skillRankVars(ch) });
     computeHp(ch, d, rows);
     ctx.hpMax = d.hp.max; ctx.hpCurrent = d.hp.current;
     rows = buildEffectRows(ch, ctx);
