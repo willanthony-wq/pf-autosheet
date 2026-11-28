@@ -275,7 +275,11 @@
       if (/^Damage Reduction/i.test(at(s, 'name')) || /^\d+\/./.test(name)) continue;   // shown as DR
       const mSrc = mythicSrc(s);
       if (mSrc) { ch.mythic.abilities.push({ name: at(s, 'name').replace(/\s*\((Ex|Su|Sp)\)$/, ''), text: txt(kid(s, 'description')), bonuses: [], src: mSrc }); continue; }
-      ch.classFeatures.push({ name: at(s, 'name').replace(/\s*\((Ex|Su|Sp)\)$/, '').replace(/\s*\(-[^)]*-\)/g, '').trim(), text: txt(kid(s, 'description')), bonuses: [] });
+      const fname = at(s, 'name').replace(/\s*\((Ex|Su|Sp)\)$/, '').replace(/\s*\(-[^)]*-\)/g, '').trim();
+      // Switch-on bonuses the sheet knows for it (stigmata, bane, inspire courage...); only situational ones, since
+      // Hero Lab's totals already include what is always on
+      const sitB = ((window.PF_FEATS && window.PF_FEATS.suggest('feature', fname, Object.keys(D.skillMeta))) || []).filter(b => b.situational);
+      ch.classFeatures.push({ name: fname, text: txt(kid(s, 'description')), bonuses: sitB });
     }
     // Rage as a switchable effect
     const rageName = [...seen].find(n => /^(mighty |greater )?rage\b/.test(n));

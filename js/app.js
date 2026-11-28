@@ -1136,7 +1136,10 @@
     const sorted = feats.filter(x => x.f.fav).sort(az).concat(feats.filter(x => !x.f.fav).sort(az));
     const rows = sorted.map(({ f, i, r, e, list, label, race }) => {
       const eff = e >= 0 && e !== undefined ? ch.effects[e] : null;
-      const sw = eff ? `<label class="chip${eff.active ? ' on' : ''}" title="Switches the ${esc(eff.name)} effect on or off (also on the Buffs card and the Effects tab)"><input type="checkbox" data-bind="effects/${e}/active" data-type="bool" data-rerender${eff.active ? ' checked' : ''}>${eff.active ? 'on' : 'off'}</label>` : '';
+      // ...or its own switch-on bonuses (stigmata, bane, inspire courage, favored enemy...)
+      const sitPaths = list === 'classFeatures' ? (f.bonuses || []).map((b, j) => (b && b.situational && b.target !== 'note' ? `${list}/${i}/bonuses/${j}` : null)).filter(Boolean) : [];
+      const sitOn = sitPaths.some(p => get(p).active !== false);
+      const sw = !eff && sitPaths.length ? `<button class="chip sit${sitOn ? ' on' : ''}" data-action="toggle-situational" data-paths="${esc(sitPaths.join('|'))}" aria-pressed="${sitOn}" title="${esc((f.bonuses || []).filter(b => b.situational && b.text).map(b => b.text)[0] || 'Switch its bonus on while it applies')}. Click to switch ${sitOn ? 'off' : 'on'}.">${sitOn ? 'on' : 'off'}</button>` : eff ? `<label class="chip${eff.active ? ' on' : ''}" title="Switches the ${esc(eff.name)} effect on or off (also on the Buffs card and the Effects tab)"><input type="checkbox" data-bind="effects/${e}/active" data-type="bool" data-rerender${eff.active ? ' checked' : ''}>${eff.active ? 'on' : 'off'}</label>` : '';
       const res = r >= 0 ? ch.resources[r] : null, short = shortRules(f.text);
       const uses = res ? (res.uses === '' || res.uses === undefined ? 0 : res.uses) : null;
       const empty = res && /^\d+$/.test(String(uses)) && +uses <= 0;

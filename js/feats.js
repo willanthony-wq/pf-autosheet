@@ -139,6 +139,10 @@
   // `cls` is the class slug (paladin, monk...), for features that differ by class.
   const FEATURES = [
     ['divine grace', () => [{ target: 'saves', value: 'max(0, cha)', type: U }]],
+    // Holy vindicator stigmata: a sacred bonus of half the vindicator level to one thing at a time (switched on at the table)
+    ...[['ac', 'ac', 'AC'], ['attack rolls', 'atk', 'attack rolls'], ['saving throws', 'saves', 'saving throws'], ['weapon damage', 'dmg', 'weapon damage']].map(([k, t, what]) =>
+      [`stigmata: ${k}`, (n, cls) => [sit(t, `max(1, floor(${cls || 'holy_vindicator'} / 2))`, 'Sacred / Profane', `Stigmata on ${what}: bleeding, you gain a sacred bonus of half your vindicator level (one stigmata at a time)`)]]),
+    ['stigmata: caster level checks', () => [sit('note', '', 'Sacred / Profane', 'Stigmata on caster level checks: a sacred bonus of half your vindicator level on caster level checks and concentration (one stigmata at a time)')]],
     ['unholy resilience', () => [{ target: 'saves', value: 'max(0, cha)', type: U }]],
     ['nature sense', () => [{ target: 'skill', skill: 'Kn. Nature', value: 2, type: U }, { target: 'skill', skill: 'Survival', value: 2, type: U }]],
     ['fast movement', (n, cls) => cls === 'monk'
