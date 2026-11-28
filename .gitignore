@@ -8,3 +8,6 @@ _test/
 
 # Reference copies of the test characters (real character data; kept on this computer only)
 reference/
+
+# Google Drive / Windows folder settings
+desktop.ini
