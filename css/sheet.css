@@ -252,6 +252,9 @@ select.class-select { min-width: 190px; }
 .icon-btn.sit-btn { font-size: 14px; }
 .icon-btn.sit-btn:hover { color: var(--accent); }
 .icon-btn.sit-btn.on { color: var(--accent); background: var(--calc); }
+.icon-btn.play-flag { font-size: 12px; }
+.icon-btn.play-flag:hover { color: var(--accent); }
+.icon-btn.play-flag.on { color: var(--accent); background: var(--calc); }
 .bonus-row.situational { border-left: 3px solid var(--accent); padding-left: 3px; }
 .chip.sit:not(.on) { border-style: dashed; }
 /* What makes a number: Play tiles show their breakdown on hover or click */
@@ -304,7 +307,7 @@ input.bad { outline: 2px solid var(--bad); }
 .feature-head.feats { grid-template-columns: 56px 1fr 28px; }
 .feature-head.traits { grid-template-columns: 110px 1fr 28px; }
 .feature-head.slots { grid-template-columns: 100px 1fr 28px; }
-.feature-head.classFeatures { grid-template-columns: 1fr 28px; }
+.feature-head.classFeatures { grid-template-columns: 1fr 28px 28px; }
 .feature-head > input:not(:first-child), .feature-head.classFeatures > input { font-weight: 600; }
 .feature-item textarea { min-height: 34px; }
 label.choice { display: flex; gap: 10px; align-items: flex-start; padding: 8px; border: 1px solid var(--line); border-radius: 8px; margin: 6px 0; cursor: pointer; }
@@ -336,6 +339,9 @@ label.choice input { margin-top: 3px; accent-color: var(--accent); }
 .play-spell-level:first-child { border-top: 0; }
 .spell-names { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .spell-btn { font-weight: 500; }
+.spell-chip { display: inline-flex; align-items: center; gap: 1px; }
+.spell-chip .star-btn { font-size: 14px; padding: 0 1px; }
+.spell-chip.fav .spell-btn { background: color-mix(in srgb, #d4a017 16%, transparent); border-color: #d4a017; font-weight: 600; }
 .play-res { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; border-top: 1px solid var(--line); }
 .play-res:first-child { border-top: 0; }
 /* Starred resources: highlighted and listed first */
@@ -375,7 +381,7 @@ label.choice input { margin-top: 3px; accent-color: var(--accent); }
 .lay-row { display: flex; flex-direction: column; gap: 10px; }
 .lay-row-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .lay-hidden { flex-basis: 100%; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 6px; border-top: 1px solid var(--line); }
-.feature-row .counter { flex-wrap: nowrap; white-space: nowrap; }
+.play-feat .counter { flex-wrap: nowrap; white-space: nowrap; }
 
 /* ---------- Formula value cell and help ---------- */
 .val-cell { display: flex; align-items: center; gap: 4px; min-width: 0; }

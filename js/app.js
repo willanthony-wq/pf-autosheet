@@ -506,8 +506,16 @@
     return `<div class="inline small bonus-tools"><button class="btn small ghost" data-action="add-bonus" data-list="${esc(listPath)}" data-type="${esc(defType)}">+ Bonus</button>` +
       (suggestKind ? `<button class="btn small ghost" data-action="suggest-bonus" data-list="${esc(key)}" data-i="${i}" data-kind="${suggestKind}" title="Fill in the usual bonuses for this ${suggestKind}">Add standard bonuses</button>` : '') + `</div>`;
   }
+  // ▶ beside a class feature: whether it's on the Play tab's Classes & Features card (automatic unless set by hand)
+  function playFlagBtn(f, i, why) {
+    const reason = why(f), auto = !reason, hand = typeof f.play === 'boolean', on = hand ? f.play : auto;
+    const title = on ? `On the Play tab (Classes & Features card)${hand ? ', set by hand' : ''}. Click to leave it off.`
+      : `Left off the Play tab${hand ? ' (set by hand)' : `: ${reason}`}. Click to show it on the Classes & Features card.`;
+    return `<button class="icon-btn play-flag${on ? ' on' : ''}" data-action="toggle-play-flag" data-i="${i}" aria-pressed="${on}" title="${esc(title)}">▶</button>`;
+  }
   function featureList(key) {
     const ch = App.ch;
+    const why = key === 'classFeatures' ? featurePlayReason() : null;
     return ch[key].map((x, i) => {
       let head, desc = '', kind = null, defType = 'Untyped (stacks)';
       if (key === 'feats') {
@@ -522,7 +530,7 @@
         head = `${sel(`traits/${i}/kind`, ['Trait', 'Drawback', 'DB'], { blank: false })}${inp(`traits/${i}/text`, { ph: 'Reactionary: +2 Initiative', list: 'srd-traits' })}${traitTag(x)}`;
         kind = 'trait'; defType = 'Trait';
       } else {
-        head = `${inp(`classFeatures/${i}/name`, { ph: 'Channel Energy', list: 'classfeat-names' })}`;
+        head = `${inp(`classFeatures/${i}/name`, { ph: 'Channel Energy', list: 'classfeat-names' })}${playFlagBtn(x, i, why)}`;
         desc = area(`classFeatures/${i}/text`, { rows: 3, ph: 'Description' });
       }
       const hasBonuses = (x.bonuses || []).length > 0;
@@ -829,10 +837,14 @@
         if (info.perDay === null && !lv.spells.length) return '';
         const n = L > 0 && typeof info.perDay === 'number' ? info.perDay : 0;
         const pips = n ? `<span class="slot-pips">${Array.from({ length: Math.min(n, 20) }, (_, k) => `<button class="pip${k < (lv.used || 0) ? ' used' : ''}" data-action="pip" data-l="${L}" data-k="${k}" aria-label="Slot ${k + 1}"></button>`).join('')}</span>` : '';
-        const names = lv.spells.filter(s => s.name).map((s, i) => `<button class="btn small spell-btn" data-action="cast" data-l="${L}" data-i="${lv.spells.indexOf(s)}" title="Cast (Shift-click: private)">${esc(s.name)}${s.prepared ? ` <span class="sub">${esc(s.prepared)}</span>` : ''}${spellSummary(s) ? ` <span class="sub">· ${esc(spellSummary(s))}</span>` : ''}</button>`).join('');
+        const named = lv.spells.filter(s => s.name);
+        const names = named.filter(s => s.fav).concat(named.filter(s => !s.fav)).map(s => { const si = lv.spells.indexOf(s); return spellChip(`spellcasting/levels/${L}/spells/${si}`, s,
+          `<button class="btn small spell-btn" data-action="cast" data-l="${L}" data-i="${si}" title="Cast (Shift-click: private)">${esc(s.name)}${s.prepared ? ` <span class="sub">${esc(s.prepared)}</span>` : ''}${spellSummary(s) ? ` <span class="sub">· ${esc(spellSummary(s))}</span>` : ''}</button>`); }).join('');
         return `<div class="play-spell-level"><div class="inline"><strong>${L === 0 ? 'Cantrips' : 'Level ' + L}</strong><span class="sub">DC ${info.dc}${info.perDay !== null ? ' · ' + esc(String(info.perDay)) + '/day' : ''}</span>${pips}</div><div class="spell-names">${names || '<span class="sub">none listed</span>'}</div></div>`;
       }).join('');
-      const slas = ch.spellcasting.sla.map((g, gi) => g.items.filter(x => x.name).map(x => `<button class="btn small spell-btn" data-action="cast-sla" data-g="${gi}" data-i="${g.items.indexOf(x)}">${esc(x.name)} <span class="sub">${esc(g.label)}${x.uses !== '' && x.uses !== undefined ? ' · ' + esc(x.uses) + ' left' : ''}${spellSummary(x) ? ' · ' + esc(spellSummary(x)) : ''}</span></button>`).join('')).join('');
+      const slaItems = ch.spellcasting.sla.flatMap((g, gi) => g.items.filter(x => x.name).map(x => ({ g, gi, x, xi: g.items.indexOf(x) })));
+      const slas = slaItems.filter(o => o.x.fav).concat(slaItems.filter(o => !o.x.fav)).map(({ g, gi, x, xi }) => spellChip(`spellcasting/sla/${gi}/items/${xi}`, x,
+        `<button class="btn small spell-btn" data-action="cast-sla" data-g="${gi}" data-i="${xi}">${esc(x.name)} <span class="sub">${esc(g.label)}${x.uses !== '' && x.uses !== undefined ? ' · ' + esc(x.uses) + ' left' : ''}${spellSummary(x) ? ' · ' + esc(spellSummary(x)) : ''}</span></button>`)).join('');
       spells = card(`Spells${d.spells.className ? ' · ' + d.spells.className : ''}`, blocks + (slas ? `<h3 style="margin:8px 0 4px">Spell-like abilities</h3><div class="spell-names">${slas}</div>` : ''),
         { tools: `<button class="btn small ghost" data-action="rest">Rest</button><button class="btn small ghost" data-action="tab" data-tab="spells">Edit</button>` });
     }
@@ -997,6 +1009,11 @@
     for (const p of parts) { if (s && (s + ' ' + p).length > 320) break; s = s ? s + ' ' + p : p; }
     return s.length > 420 ? s.slice(0, 417) + '…' : s;
   }
+  // A spell button with a star in front: starred spells are highlighted and listed first in their level
+  function spellChip(path, x, btn) {
+    const fav = !!x.fav;
+    return `<span class="spell-chip${fav ? ' fav' : ''}"><button class="star-btn${fav ? ' on' : ''}" data-action="toggle-fav" data-path="${path}" aria-pressed="${fav}" aria-label="${fav ? 'Unstar' : 'Star'} ${esc(x.name)}" title="${fav ? 'Unstar' : 'Star this to highlight it and keep it first'}">${fav ? '★' : '☆'}</button>${btn}</span>`;
+  }
   // ----- Play tab: Classes & Features card (each class feature with its rules text; one with tracked uses can be used here)
   // The resource that tracks a feature's uses: the same name once "(3/day)", "(Su)" and the like are taken off
   const baseName = n => String(n || '').toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim();
@@ -1005,26 +1022,50 @@
     if (b.length < 4) return -1;
     return App.ch.resources.findIndex(r => { const rb = baseName(r.name); return rb.length >= 4 && (rb === b || rb.startsWith(b + ' ') || b.startsWith(rb + ' ')); });
   }
+  // Class features the Play tab already shows another way are left off the card automatically: a "pick N" summary
+  // ("Arcanist exploit (×6)"), a feature whose picks are listed one by one (Greater exploits, Domains, Greatwork), and
+  // cantrips, orisons or knacks when there's a Spells card. featurePlayReason() gives why ('' = shown); the ▶ button on
+  // the Character tab sets f.play to show or hide a feature by hand.
+  function featurePlayReason() {
+    const ch = App.ch, d = App.d;
+    const sing = t => String(t || '').toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim().replace(/(ies)$/, 'y').replace(/([^s])s$/, '$1');
+    const picks = ch.classFeatures.filter(f => /^choice:/.test(f.src || ''));
+    const groups = new Set(picks.map(f => sing(f.src.split(':')[1])).concat(ch.classes.flatMap(c => (c.choices || []).map(x => sing(x.g)))).filter(Boolean));
+    const spells = !!(d.spells.data || ch.spellcasting.levels.some(l => l.spells.length));
+    return f => {
+      if (/^choice:/.test(f.src || '')) return '';
+      if (picks.length && /\(\s*[x×]\s*\d+\s*\)/i.test(f.name)) return 'it only counts your picks, which are listed one by one';
+      const m = /^class:[^:]*:(.+)$/.exec(f.src || ''), key = sing(m ? m[1] : f.name);
+      if (m && [...groups].some(g => key === g || key.endsWith(' ' + g))) return 'your picks for it are listed one by one';
+      if (spells && /^(cantrip|orison|knack|0-level spell)$/.test(key)) return 'they are on the Spells card';
+      return '';
+    };
+  }
+  function featureShownTest() {
+    const why = featurePlayReason();
+    return f => (typeof f.play === 'boolean' ? f.play : !why(f));
+  }
   function playFeaturesCard() {
     const ch = App.ch, d = App.d;
     const classes = d.classes.map((c, i) => [c, (ch.classes[i] && ch.classes[i].archetypes) || []]).filter(([c]) => c.data && c.level);
-    const feats = ch.classFeatures.map((f, i) => ({ f, i, r: featureResource(f) })).filter(x => x.f.name);
+    const shown = featureShownTest();
+    const feats = ch.classFeatures.map((f, i) => ({ f, i, r: featureResource(f) })).filter(x => x.f.name && shown(x.f));
     if (!classes.length && !feats.length) return '';
-    // Features with uses to track first, then the rest in the sheet's order
-    const sorted = feats.filter(x => x.r >= 0).concat(feats.filter(x => x.r < 0));
-    const filter = App.featureFilter || '', q = filter.trim().toLowerCase();
+    // Starred features first, each group A to Z
+    const az = (a, b) => a.f.name.localeCompare(b.f.name, undefined, { sensitivity: 'base', numeric: true });
+    const sorted = feats.filter(x => x.f.fav).sort(az).concat(feats.filter(x => !x.f.fav).sort(az));
     const rows = sorted.map(({ f, i, r }) => {
       const res = r >= 0 ? ch.resources[r] : null, short = shortRules(f.text);
       const uses = res ? (res.uses === '' || res.uses === undefined ? 0 : res.uses) : null;
       const empty = res && /^\d+$/.test(String(uses)) && +uses <= 0;
       const counter = res ? `<span class="counter"><button class="btn small" data-action="bump" data-path="resources/${r}/uses" data-d="-1" aria-label="Use one">−</button><strong>${esc(uses)}</strong>${res.max !== '' && res.max !== undefined && res.max !== null ? `<span class="muted">/ ${esc(res.max)}</span>` : ''}<button class="btn small" data-action="bump" data-path="resources/${r}/uses" data-d="1" aria-label="Add one">+</button></span>` : '';
-      return `<div class="play-res feature-row" data-name="${esc(f.name.toLowerCase())}"${q && !f.name.toLowerCase().includes(q) ? ' hidden' : ''}>
-        <span class="res-name"${short ? ` title="${esc(short)}"` : ''}>${esc(f.name)}</span>
+      const fav = !!f.fav;
+      return `<div class="play-res play-feat${fav ? ' fav' : ''}">
+        <span class="res-name"${short ? ` title="${esc(short)}"` : ''}><button class="star-btn${fav ? ' on' : ''}" data-action="toggle-fav" data-path="classFeatures/${i}" aria-pressed="${fav}" title="${fav ? 'Unstar' : 'Star this to highlight it and keep it at the top'}">${fav ? '★' : '☆'}</button>${esc(f.name)}</span>
         <span class="inline" style="flex-wrap:nowrap">${counter}<button class="btn small${res ? '' : ' ghost'}" data-action="feature-use" data-i="${i}"${empty ? ' disabled' : ''} title="${res ? 'Use it: take one use and post what it does' : 'Post what it does'} (Shift-click: private)">${res ? 'Use' : 'Show'}</button></span></div>`;
     }).join('');
     const classLine = classes.map(([c, a]) => `<strong>${esc(c.name)} ${esc(c.level)}</strong>${a.length ? ` <span class="sub">${esc(a.join(', '))}</span>` : ''}`).join(' · ');
     return card('Classes & Features', `${classLine ? `<div class="small" style="margin-bottom:6px">${classLine}</div>` : ''}
-      ${feats.length > 8 ? `<input type="text" id="play-feature-filter" placeholder="Filter features…" value="${esc(filter)}" aria-label="Filter class features" style="margin-bottom:6px">` : ''}
       ${rows || '<p class="small muted">No class features yet. Add them on the Character tab.</p>'}`,
       { tools: `<button class="btn small ghost" data-action="tab" data-tab="character">Edit</button>` });
   }
@@ -2082,12 +2123,6 @@
       $$('.skill-cell[data-skill-name]').forEach(c => { c.hidden = !!q && !c.dataset.skillName.includes(q); });
       return;
     }
-    if (e.target.id === 'play-feature-filter') {
-      App.featureFilter = e.target.value;
-      const q = App.featureFilter.trim().toLowerCase();
-      $$('.feature-row[data-name]').forEach(c => { c.hidden = !!q && !c.dataset.name.includes(q); });
-      return;
-    }
     const el = e.target;
     if (!el.dataset || !el.dataset.bind) return;
     if (el.tagName === 'SELECT' || el.type === 'checkbox') return; // handled on change
@@ -2290,6 +2325,14 @@
       'lay-move': () => layMove(el.dataset.card, +el.dataset.d),
       'lay-hide': () => layoutChange(lay => { lay.hidden = (lay.hidden || []).filter(x => x !== el.dataset.card).concat(el.dataset.card); }),
       'lay-show': () => layoutChange(lay => { lay.hidden = (lay.hidden || []).filter(x => x !== el.dataset.card); }),
+      'toggle-play-flag': () => {
+        const f = App.ch.classFeatures[+el.dataset.i];
+        if (!f) return;
+        const auto = !featurePlayReason()(f), now = typeof f.play === 'boolean' ? f.play : auto;
+        if (!now === auto) delete f.play; else f.play = !now;   // back to automatic when that matches
+        changed(true);
+        toast(!now ? `${f.name || 'Feature'}: shown on the Play tab's Classes & Features card.` : `${f.name || 'Feature'}: left off the Play tab.`);
+      },
       'feature-use': () => {
         const f = App.ch.classFeatures[+el.dataset.i];
         if (!f) return;
