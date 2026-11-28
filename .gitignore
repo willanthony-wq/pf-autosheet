@@ -5,3 +5,6 @@ cells*.json
 __pycache__/
 _test/
 *.pfsheet.json
+
+# Reference copies of the test characters (real character data; kept on this computer only)
+reference/

@@ -350,6 +350,15 @@ tr.magic-tr td { text-align: left; padding-top: 0; }
 .item-maker { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; margin-bottom: 8px; border: 1px dashed var(--line-strong); border-radius: 8px; }
 .item-maker > strong { flex-basis: 100%; }
 .item-cast > summary { cursor: pointer; margin: 2px 0 6px; }
+/* Temporary weapon boost (divine bond, arcane pool...) and spare armor */
+.boost-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; padding: 6px 8px; border: 1px dashed var(--line-strong); border-radius: 8px; }
+.boost-row.on { border-style: solid; border-color: var(--gold); background: color-mix(in srgb, var(--gold) 10%, transparent); }
+.boost-row .mini-field input { width: 120px; }
+.boost-row .mini-field input[type=number] { width: 52px; }
+.boost-chip { cursor: pointer; }
+.boost-chip.small { font-size: 11px; padding: 1px 8px; margin-top: 3px; }
+.small.bad { color: var(--bad); font-weight: 600; }
+tr.spare-tr td { background: color-mix(in srgb, var(--line) 30%, transparent); }
 .spell-chip .star-btn { font-size: 14px; padding: 0 1px; }
 .spell-chip.fav .spell-btn { background: color-mix(in srgb, #d4a017 16%, transparent); border-color: #d4a017; font-weight: 600; }
 .play-res { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; border-top: 1px solid var(--line); }

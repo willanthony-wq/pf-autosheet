@@ -85,15 +85,16 @@
     const weapons = (ch.weapons || []).reduce((t, w) => t + (w.carried === false ? 0 : n(w.weight)), 0);
     const wt = (p, kind) => (isNum(p.weight) ? n(p.weight) : (armorDefaultWeight(p, kind) || 0));
     const armor = wt(ch.armor || {}, 'armor'), shield = wt(ch.shield || {}, 'shield');
+    const spare = (ch.armorSpare || []).reduce((t, x) => t + (x.carried === false ? 0 : wt(x, x.kind === 'shield' ? 'shield' : 'armor')), 0);
     const m = ch.money || {};
     const coinCount = n(m.pp) + n(m.gp) + n(m.sp) + n(m.cp);
     const coins = c.coins === false ? 0 : coinCount / 50;
-    const total = round2(items + magic + weapons + armor + shield + coins);
+    const total = round2(items + magic + weapons + armor + shield + spare + coins);
     const load = total <= light ? 'Light' : total <= medium ? 'Medium' : total <= heavy ? 'Heavy' : 'Overloaded';
     const money = n(m.pp) * 10 + n(m.gp) + n(m.sp) / 10 + n(m.cp) / 100;
     d.gear = {
       str, light, medium, heavy, liftOverHead: heavy, liftOffGround: heavy * 2, push: heavy * 5,
-      items: round2(items), magic: round2(magic), weapons: round2(weapons), armor: round2(armor), shield: round2(shield), coins: round2(coins), total, load,
+      items: round2(items), magic: round2(magic), weapons: round2(weapons), armor: round2(armor), shield: round2(shield), spare: round2(spare), coins: round2(coins), total, load,
       armorDefault: armorDefaultWeight(ch.armor, 'armor'), shieldDefault: armorDefaultWeight(ch.shield, 'shield'),
       money: round2(money), itemValue: round2(value), wealth: round2(money + value),
     };
@@ -786,8 +787,12 @@
     if (!cat || !opt) return out;
     const A = evalExpr(opt.atk, v);
     if (A === null) return out;
-    const mwk = w.enh === 'Masterwork' || w.enh === 'Mwk';
-    const enhNum = isNum(w.enh) ? n(w.enh) : 0;
+    // A temporary boost that's switched on (divine bond, arcane pool, greater magic weapon): its enhancement adds to the
+    // weapon's (to +5 in all) and its abilities join the weapon's
+    const B = w.boost && w.boost.on ? w.boost : null;
+    const enhBase = isNum(w.enh) ? n(w.enh) : 0;
+    const enhNum = B ? Math.min(5, enhBase + Math.max(0, n(B.enh))) : enhBase;
+    const mwk = (w.enh === 'Masterwork' || w.enh === 'Mwk') && !enhNum;
     // Weapon Focus / Specialization style bonuses: match the weapon by name
     const mine = (wRows || []).filter(r => String(w.name || '').toLowerCase().includes(r.weapon.toLowerCase()));
     const wAtk = stack(mine, 'wAtk'), wDmg = stack(mine, 'wDmg');
@@ -846,7 +851,10 @@
     // Magic abilities: keen widens the threat range (from the weapon's own range when the rules data knows it, so it
     // never doubles twice), flaming and the like add dice on every hit, bursts and thundering add dice on a crit,
     // holy, bane and the like add dice against some foes, speed adds an attack at the top bonus (not with haste)
-    const MAG = window.PF_MAGIC, ab = MAG ? MAG.weaponAbilities(w) : [];
+    const MAG = window.PF_MAGIC;
+    const ab = !MAG ? [] : MAG.weaponAbilities(B ? Object.assign({}, w, { abilities: [...new Set((w.abilities || []).concat(B.abilities || []))] }) : w);
+    out.boost = B ? (String(B.name || '').trim() || 'Boost') : '';
+    out.enh = enhNum;
     const SRDW = window.PF_SRD && window.PF_SRD.loaded('weapons') ? window.PF_SRD.find('weapons', MAG ? MAG.baseWeaponName(w.name) : w.name) : null;
     out.crit = ab.some(a => a.keen) ? MAG.keenRange((SRDW && SRDW.cr) || w.crit) : (String(w.crit || '').trim() || '20');
     const noDice = !!(w.dmgOverride && String(w.dmgOverride).trim());

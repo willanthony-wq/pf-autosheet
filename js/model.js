@@ -204,6 +204,7 @@
       attackNotes: '',
       armor: { name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0, weight: '' },
       shield: { name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0, weight: '' },
+      armorSpare: [],           // armor and shields carried but not worn: like armor/shield plus kind ('armor' | 'shield') and carried
       inventory: [],            // { name, qty, weight (each), value (gp each), carried, notes }
       miscItems: [],            // magic items that aren't worn: { name, qty, uses, max, weight, value, carried, text, bonuses }
                                 // (a wand, scroll or potion also has magic: { kind, spell, sl, cl, dc } and cast: its spell setup)

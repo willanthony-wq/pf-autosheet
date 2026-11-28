@@ -800,7 +800,7 @@
       ${d.spells.data ? `<div class="inline" style="margin-top:8px"><span class="small">Caster level</span>${rollBtn('Caster level check', 'spells/cl')}<span class="small">Concentration</span>${rollBtn('Concentration', 'spells/concentration')}</div>` : ''}`);
 
     const atkRows = ch.weapons.map((w, i) => `<tr>
-        <td class="l"><strong>${esc(w.name || 'Unnamed weapon')}</strong><div class="sub">${esc((d.weapons[i] && d.weapons[i].crit) || w.crit || '20')}/${esc(w.mult || 'x2')}${d.weapons[i] && (d.weapons[i].abilities || []).length ? ' · ' + esc(d.weapons[i].abilities.join(', ').toLowerCase()) : ''}${w.range ? ' · ' + esc(w.range) + ' ft' : ''}${w.type ? ' · ' + esc(w.type) : ''}${weaponSpecial(w) ? ' · ' + esc(weaponSpecial(w)) : ''}</div></td>
+        <td class="l"><strong>${esc(w.name || 'Unnamed weapon')}</strong><div class="sub">${esc((d.weapons[i] && d.weapons[i].crit) || w.crit || '20')}/${esc(w.mult || 'x2')}${d.weapons[i] && (d.weapons[i].abilities || []).length ? ' · ' + esc(d.weapons[i].abilities.join(', ').toLowerCase()) : ''}${w.boost ? `</div><div><button class="chip boost-chip small${w.boost.on ? ' on' : ''}" data-action="boost-toggle" data-i="${i}" aria-pressed="${!!w.boost.on}" title="${w.boost.on ? 'On: the attack uses it. Click to switch it off.' : 'Click to switch it on'}">✦ ${esc(w.boost.name || 'Boost')}${w.boost.on ? ' on' : ''}</button>` : ''}${w.range ? ' · ' + esc(w.range) + ' ft' : ''}${w.type ? ' · ' + esc(w.type) : ''}${weaponSpecial(w) ? ' · ' + esc(weaponSpecial(w)) : ''}</div></td>
         <td><span class="atk-text" data-out="weapons/${i}/attackText" data-fmt="">${esc(fmt(d.weapons[i] && d.weapons[i].attackText))}</span><div class="sub" data-out="weapons/${i}/damageText" data-fmt="">${esc(fmt(d.weapons[i] && d.weapons[i].damageText))}</div></td>
         <td><span class="inline" style="flex-wrap:nowrap;justify-content:flex-end">
           <button class="btn small primary" data-action="attack" data-i="${i}" data-mode="full" title="Shift-click for a private roll">Full</button>
@@ -1782,12 +1782,35 @@
         <td>${sel(`${k}/enh`, [{ v: 0, l: '+0' }, { v: 'Mwk', l: 'Mwk' }, 1, 2, 3, 4, 5].map(x => typeof x === 'object' ? x : { v: x, l: '+' + x }), { blank: false, type: 'numOrText' })}</td>
         <td>${inp(`${k}/mSkill`, { type: 'num', aria: 'Misc skill' })}</td><td>${inp(`${k}/mDex`, { type: 'num', aria: 'Misc max dex' })}</td>
         <td>${out(p + '/ac', 'sign')}</td><td>${out(p + '/acp')}</td><td>${out(p + '/maxDex')}</td><td>${out(p + '/asf', 'pct')}</td>
-        <td>${inp(`${k}/weight`, { type: 'num', ph: (() => { const w = d.gear[k + 'Default']; return w === null ? '?' : String(w); })(), aria: 'Weight', title: 'Weight in lb. Blank uses the standard weight shown' })}</td></tr>`;
+        <td>${inp(`${k}/weight`, { type: 'num', ph: (() => { const w = d.gear[k + 'Default']; return w === null ? '?' : String(w); })(), aria: 'Weight', title: 'Weight in lb. Blank uses the standard weight shown' })}</td>
+        <td>${String(ch[k].item || ch[k].name || '').trim() ? `<button class="btn small ghost" data-action="armor-off" data-k="${k}" title="Take it off: it moves to your spare armor and shields (still carried)">Take off</button>` : ''}</td></tr>`;
+    };
+    // Armor and shields carried but not worn: Wear swaps one with what you have on
+    const spareRow = (x, j) => {
+      const table = x.kind === 'shield' ? 'shields' : 'armor', p = `armorSpare/${j}`;
+      const items = table === 'armor'
+        ? D.armor.map(a => ({ v: a.name, l: `${a.name} (+${a.ac})`, g: a.type }))
+        : D.shields.filter(s => s.name !== '(no shield)').map(s => ({ v: s.name, l: `${s.name} (+${s.ac})` }));
+      const mats = D.materials.filter(m => table === 'armor' ? !m.shield || m.type !== '-' : m.shield).map(m => ({ v: m.name, l: m.name + (m.type && m.type !== '-' ? ` (${m.type})` : '') }));
+      const defW = E.armorDefaultWeight(x, x.kind === 'shield' ? 'shield' : 'armor');
+      return `<tr class="spare-tr"><td class="l">${inp(`${p}/name`, { ph: x.kind === 'shield' ? 'Spare shield' : 'Spare armor' })}</td>
+        <td>${sel(`${p}/item`, items, { rerender: true, blank: '— none —' })}</td>
+        <td>${sel(`${p}/material`, mats, { blank: '—' })}</td>
+        <td>${sel(`${p}/enh`, [{ v: 0, l: '+0' }, { v: 'Mwk', l: 'Mwk' }, 1, 2, 3, 4, 5].map(v => typeof v === 'object' ? v : { v, l: '+' + v }), { blank: false, type: 'numOrText' })}</td>
+        <td colspan="2" class="small muted">${x.kind === 'shield' ? 'shield' : 'armor'}, not worn</td>
+        <td colspan="2"><label class="inline small" title="Uncheck for armor left at home or on a mount: it stops counting toward your load"><input type="checkbox" data-bind="${p}/carried" data-type="bool"${x.carried !== false ? ' checked' : ''}> carried</label></td>
+        <td colspan="2"><button class="btn small" data-action="armor-wear" data-j="${j}" title="Wear this ${x.kind === 'shield' ? 'shield' : 'armor'}; what you have on now moves here">Wear</button></td>
+        <td>${inp(`${p}/weight`, { type: 'num', ph: defW === null ? '?' : String(defW), aria: 'Weight' })}</td>
+        <td><button class="icon-btn" data-action="armor-spare-remove" data-j="${j}" aria-label="Remove" title="Remove">✕</button></td></tr>
+        <tr class="magic-tr"><td colspan="12">${armorMagicRow(x.kind === 'shield' ? 'shield' : 'armor', p, x)}</td></tr>`;
     };
     const armor = card('Armor & Shield', `<div class="scroll-x"><table>
-      <thead><tr><th class="l">Name</th><th>Item</th><th>Material</th><th>Enh.</th><th title="Misc skill penalty adjustment">mSkill</th><th title="Misc max Dex adjustment">mDex</th><th>AC</th><th>ACP</th><th>Max Dex</th><th>ASF</th><th title="Weight in lb.">Wt</th></tr></thead>
-      <tbody>${armorRow('armor', 'armor', 'Armor')}<tr class="magic-tr"><td colspan="11">${armorMagicRow('armor')}</td></tr>
-        ${armorRow('shield', 'shields', 'Shield')}<tr class="magic-tr"><td colspan="11">${armorMagicRow('shield')}</td></tr></tbody></table></div>
+      <thead><tr><th class="l">Name</th><th>Item</th><th>Material</th><th>Enh.</th><th title="Misc skill penalty adjustment">mSkill</th><th title="Misc max Dex adjustment">mDex</th><th>AC</th><th>ACP</th><th>Max Dex</th><th>ASF</th><th title="Weight in lb.">Wt</th><th></th></tr></thead>
+      <tbody>${armorRow('armor', 'armor', 'Armor')}<tr class="magic-tr"><td colspan="12">${armorMagicRow('armor')}</td></tr>
+        ${armorRow('shield', 'shields', 'Shield')}<tr class="magic-tr"><td colspan="12">${armorMagicRow('shield')}</td></tr>
+        ${(ch.armorSpare || []).length ? `<tr><th class="l" colspan="12">Spare armor and shields</th></tr>${ch.armorSpare.map(spareRow).join('')}` : ''}</tbody></table></div>
+      <div class="inline" style="margin-top:6px"><button class="btn small" data-action="armor-spare-add" data-kind="armor">+ Armor</button><button class="btn small" data-action="armor-spare-add" data-kind="shield">+ Shield</button>
+        <span class="small muted">Extra armor and shields you carry. <strong>Wear</strong> swaps one with what you have on; only what you wear counts for AC.</span></div>
       ${(d.magicDefenses || []).length ? `<p class="small" style="margin:6px 0 0"><strong>From armor abilities:</strong> ${esc(d.magicDefenses.join(', '))}</p>` : ''}
       <div class="fields" style="margin-top:8px">
         ${field('Encumbrance', sel('movement/encumbrance', ENC_OPTIONS, { blank: false, rerender: true }))}${field('Load now', out('armor/encumbrance'))}
@@ -1833,12 +1856,52 @@
     return `<div class="magic-row"><span class="small"><strong>Magic abilities</strong></span>${have.map(a => abilityChip(path, a)).join('')}
       <select class="ability-add" data-path="${path}" aria-label="Add a magic ability to this weapon" style="width:auto"><option value="">+ Ability…</option>${opts}</select>
       ${names.has('Bane') ? `<label class="mini-field">Bane against${inp(`weapons/${i}/baneVs`, { ph: 'undead, giants…', aria: 'Bane against' })}</label>` : ''}
-      ${magicInfo(w.enh, have, false, threat)}</div>`;
+      ${magicInfo(w.enh, have, false, threat)}</div>${boostRow(w, i)}`;
   }
-  function armorMagicRow(k) {
-    const MAG = window.PF_MAGIC, x = App.ch[k];
+  // ----- Temporary weapon boosts: divine bond, arcane pool, sacred weapon, (greater) magic weapon.
+  // budget: from class levels (start at level `start`, +1 every `every` levels) or caster level; enh and abilities spend it
+  const BOOSTS = [
+    { n: 'Divine bond', cls: /^paladin/i, start: 5, every: 3, note: 'Paladin (weapon bond): a standard action, 1 minute per paladin level, once a day plus once more every 4 levels after 5th. +1 at 5th level and +1 more every 3 levels (+6 at 20th), as enhancement (to +5) or these abilities: axiomatic, brilliant energy, defending, disruption, flaming, flaming burst, holy, keen, merciful, speed.' },
+    { n: 'Arcane pool', cls: /^magus/i, start: 1, every: 4, note: 'Magus: a swift action and 1 arcane pool point, for 1 minute. +1 at 1st level and +1 more every 4 levels (+5 at 17th), as enhancement (to +5) or from 5th level these abilities: dancing, flaming, flaming burst, frost, icy burst, keen, shock, shocking burst, speed, vorpal.' },
+    { n: 'Sacred weapon', cls: /^warpriest/i, start: 4, every: 4, note: 'Warpriest: a swift action, for a number of rounds a day equal to warpriest level. +1 at 4th level and +1 more every 4 levels (+5 at 20th), as enhancement (to +5) or abilities such as brilliant energy, defending, disruption, flaming, frost, keen, shock, and holy, unholy, axiomatic or anarchic matching your deity.' },
+    { n: 'Greater magic weapon', cl: true, note: 'Spell: +1 enhancement bonus per 4 caster levels (+5 at most) for 1 hour per level. Enhancement only.' },
+    { n: 'Magic weapon', fixed: 1, note: 'Spell: +1 enhancement bonus for 1 minute per level.' },
+  ];
+  function boostBudget(p) {
+    if (!p) return 1;
+    if (p.fixed) return p.fixed;
+    if (p.cl) return Math.max(1, Math.min(5, Math.floor((App.d.spells.cl || App.d.level || 4) / 4)));
+    const lv = App.d.classes.filter(c => c.data && p.cls.test(c.name)).reduce((t, c) => t + (c.level || 0), 0);
+    return lv >= p.start ? Math.min(6, 1 + Math.floor((lv - p.start) / p.every)) : 1;
+  }
+  function boostRow(w, i) {
+    const MAG = window.PF_MAGIC, b = w.boost;
+    if (!b) {
+      const mine = BOOSTS.filter(p => p.cls && App.d.classes.some(c => c.data && p.cls.test(c.name)));
+      const list = mine.concat(BOOSTS.filter(p => !mine.includes(p)));
+      return `<div class="boost-row"><select class="boost-add" data-i="${i}" aria-label="Add a temporary boost to this weapon" style="width:auto" title="Divine bond, arcane pool and the like: extra enhancement and abilities while it's switched on, instead of a second copy of the weapon">
+        <option value="">+ Temporary boost (divine bond, arcane pool…)</option>${list.map(p => `<option value="${esc(p.n)}" title="${esc(p.note)}">${esc(p.n)}${p.cls || p.cl ? ` (+${boostBudget(p)})` : ''}</option>`).join('')}<option value="custom">Other…</option></select></div>`;
+    }
+    const p = `weapons/${i}/boost`, have = MAG.weaponAbilities({ abilities: b.abilities || [] }), names = new Set(have.map(a => a.n).concat(MAG.weaponAbilities(w).map(a => a.n)));
+    const used = Math.max(0, +b.enh || 0) + have.reduce((t, a) => t + (a.b || 0), 0), budget = Math.max(0, +b.budget || 0);
+    const opts = [1, 2, 3, 4, 5].map(c => { const g = MAG.WEAPON.filter(a => a.b === c && !names.has(a.n)); return g.length ? `<optgroup label="+${c}">${g.map(a => `<option value="${esc(a.n)}" title="${esc(a.note)}">${esc(a.n)}</option>`).join('')}</optgroup>` : ''; }).join('');
+    const preset = BOOSTS.find(x => x.n === b.name);
+    const base = E.isNum(w.enh) ? +w.enh : 0, over5 = base + Math.max(0, +b.enh || 0) > 5;
+    return `<div class="boost-row${b.on ? ' on' : ''}">
+      <button class="chip boost-chip${b.on ? ' on' : ''}" data-action="boost-toggle" data-i="${i}" aria-pressed="${!!b.on}" title="${b.on ? 'On: the attack uses it. Click to switch it off.' : 'Click to switch it on (takes one use from a matching resource, if you track one).'}">✦ ${esc(b.name || 'Boost')} ${b.on ? 'on' : 'off'}</button>
+      <label class="mini-field">Name${inp(`${p}/name`, { ph: 'Divine bond', aria: 'Boost name' })}</label>
+      <label class="mini-field" title="How much it can add in all (enhancement plus abilities)">Total +${inp(`${p}/budget`, { type: 'num', aria: 'Total bonus it can add' })}</label>
+      <label class="mini-field" title="Added to the weapon's enhancement bonus (+5 at most in all)">Enhancement +${sel(`${p}/enh`, [0, 1, 2, 3, 4, 5].map(x => ({ v: x, l: String(x) })), { blank: false, type: 'num', rerender: true })}</label>
+      ${have.map(a => abilityChip(`${p}/abilities`, a)).join('')}
+      <select class="ability-add" data-path="${p}/abilities" aria-label="Add an ability to the boost" style="width:auto"><option value="">+ Ability…</option>${opts}</select>
+      <span class="small ${used > budget ? 'bad' : 'muted'}">uses +${used} of +${budget}</span>${over5 ? ' <span class="tag warn">enhancement over +5</span>' : ''}
+      <button class="icon-btn" data-action="boost-remove" data-i="${i}" title="Remove the boost" aria-label="Remove the boost">✕</button>
+      ${preset ? `<p class="small muted" style="flex-basis:100%;margin:0">${esc(preset.note)}</p>` : ''}</div>`;
+  }
+  function armorMagicRow(k, at, x0) {
+    const MAG = window.PF_MAGIC, x = x0 || App.ch[k], base = at || k;
     if (!MAG || !x) return '';
-    const path = `${k}/abilities`, have = MAG.armorAbilities(x), raws = new Set(have.map(a => a.raw.toLowerCase())), names = new Set(have.map(a => a.n));
+    const path = `${base}/abilities`, have = MAG.armorAbilities(x), raws = new Set(have.map(a => a.raw.toLowerCase())), names = new Set(have.map(a => a.n));
     const fits = a => (k === 'shield' || !a.shield);
     const choices = a => (a.pick === 'energy' ? MAG.ENERGY.map(e => `${a.n}: ${e}`) : [a.n]).filter(v => !raws.has(v.toLowerCase()) && !(a.pick !== 'energy' && names.has(a.n)));
     const group = (label, list) => { const o = list.flatMap(a => choices(a).map(v => `<option value="${esc(v)}" title="${esc(a.note)}">${esc(v)}</option>`)); return o.length ? `<optgroup label="${label}">${o.join('')}</optgroup>` : ''; };
@@ -2254,6 +2317,12 @@
     if (el.id === 'add-condition' && el.value) { App.ch.conditions.push(el.value); changed(true); return; }
     if (el.id === 'feat-type-filter') { App.featType = el.value || ''; render(); return; }
     if (el.classList && el.classList.contains('mythic-add') && el.value) { addMythicAbility(el.value); return; }
+    if (el.classList && el.classList.contains('boost-add') && el.value) {
+      const w = App.ch.weapons[+el.dataset.i], p = BOOSTS.find(x => x.n === el.value);
+      if (w) w.boost = { name: p ? p.n : '', budget: boostBudget(p), enh: 0, abilities: [], on: false };
+      changed(true);
+      return;
+    }
     if (el.classList && el.classList.contains('ability-add') && el.value) {
       const list = get(el.dataset.path);
       const arr = Array.isArray(list) ? list : [];
@@ -2264,12 +2333,16 @@
     }
     {
       // A weapon or armor named with its abilities ("+1 keen flaming longsword") picks them, when none are picked yet
-      const wm = /^weapons\/(\d+)\/name$/.exec(el.dataset ? el.dataset.bind || '' : ''), am = /^(armor|shield)\/name$/.exec(el.dataset ? el.dataset.bind || '' : '');
-      const it = wm ? App.ch.weapons[+wm[1]] : am ? App.ch[am[1]] : null;
+      const bind = el.dataset ? el.dataset.bind || '' : '';
+      const wm = /^weapons\/(\d+)\/name$/.exec(bind), am = /^(armor|shield)\/name$/.exec(bind), sm = /^armorSpare\/(\d+)\/name$/.exec(bind);
+      const it = wm ? App.ch.weapons[+wm[1]] : am ? App.ch[am[1]] : sm ? App.ch.armorSpare[+sm[1]] : null;
       if (it && window.PF_MAGIC && !(it.abilities || []).length) {
-        const found = window.PF_MAGIC.abilitiesInName(el.value, !!am);
+        const found = window.PF_MAGIC.abilitiesInName(el.value, !wm);
         if (found.length) { it.abilities = found; setTimeout(() => changed(true), 0); }
       }
+      // "+2 mithral breastplate": the armor's enhancement bonus, when it's still +0
+      const plus = (am || sm) && it && /(^|\s)\+([1-5])(\s|$)/.exec(el.value);
+      if (plus && (!it.enh || String(it.enh) === '0')) { it.enh = +plus[2]; setTimeout(() => changed(true), 0); }
     }
     if (el.classList && el.classList.contains('lay-split')) {
       const r = +el.dataset.r, split = LAYOUT_SPLITS[el.value] ? el.value : 'full', n = splitCols(split);
@@ -2436,6 +2509,42 @@
           changed(true);
           emit({ title: `${who()}: Surge (+${dm.surge})`, total: r.total, lines: [r.text, `Add to the d20 roll · mythic power ${dm.powerLeft - 1} / ${dm.powerMax} left`] }, priv);
         } catch (e) { toast(e.message); }
+      },
+      'boost-toggle': () => {
+        const w = App.ch.weapons[+el.dataset.i], b = w && w.boost;
+        if (!b) return;
+        b.on = !b.on;
+        let note = '';
+        if (b.on) {
+          // Takes one use from a resource with the boost's name (Hero Lab's "Divine Bond (Weapon +3, 3/day)")
+          const key = baseName(b.name);
+          const r = key.length >= 4 ? App.ch.resources.find(x => baseName(x.name).startsWith(key)) : null;
+          if (r && /^\d+$/.test(String(r.uses))) {
+            if (+r.uses > 0) { r.uses = +r.uses - 1; note = ` (${r.uses} use${+r.uses === 1 ? '' : 's'} left today)`; } else note = ' (no uses left today in Resources)';
+          }
+        }
+        changed(true);
+        toast(`${b.name || 'Boost'} ${b.on ? 'on' : 'off'}: ${w.name || 'weapon'}${note}.`);
+      },
+      'boost-remove': () => { const w = App.ch.weapons[+el.dataset.i]; if (w) delete w.boost; changed(true); },
+      'armor-spare-add': () => { App.ch.armorSpare = (App.ch.armorSpare || []).concat({ kind: el.dataset.kind === 'shield' ? 'shield' : 'armor', name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0, weight: '', abilities: [], carried: true }); changed(true); },
+      'armor-spare-remove': () => { App.ch.armorSpare.splice(+el.dataset.j, 1); changed(true); },
+      'armor-wear': () => {
+        const j = +el.dataset.j, x = App.ch.armorSpare[j];
+        if (!x) return;
+        const k = x.kind === 'shield' ? 'shield' : 'armor', cur = App.ch[k];
+        const { kind, carried, ...wear } = x;
+        App.ch[k] = Object.assign({ name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0, weight: '', abilities: [] }, wear);
+        if (String(cur.item || cur.name || '').trim()) App.ch.armorSpare[j] = Object.assign({}, cur, { kind: k, carried: true });
+        else App.ch.armorSpare.splice(j, 1);
+        changed(true);
+        toast(`Now wearing ${App.ch[k].name || App.ch[k].item || 'it'}.`);
+      },
+      'armor-off': () => {
+        const k = el.dataset.k === 'shield' ? 'shield' : 'armor', cur = App.ch[k];
+        App.ch.armorSpare = (App.ch.armorSpare || []).concat(Object.assign({}, cur, { kind: k, carried: true }));
+        App.ch[k] = { name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0, weight: '', abilities: [] };
+        changed(true);
       },
       'ability-remove': () => {
         const list = get(el.dataset.path);
