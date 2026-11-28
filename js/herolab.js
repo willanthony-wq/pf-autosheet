@@ -121,6 +121,29 @@
     const archSet = ch.classes.filter(c => (c.archetypes || []).length).map(c => `${c.name}: ${c.archetypes.join(', ')}`);
     if (archSet.length) warnings.push(`Archetype set: ${archSet.join('; ')}. The class features came from Hero Lab already; "Add for my level" on the Character tab can fill in any that are missing.`);
 
+    // Mythic Adventures: Hero Lab puts the path and tier after the classes ("arcanist 11/Archmage 2")
+    const MY = M.MYTHIC;
+    const myHit = String(at(kid(C, 'classes'), 'summary') || '').match(new RegExp(`(?:^|/)\\s*(${MY.PATHS.join('|')})\\s+(\\d+)\\s*(?:/|$)`, 'i'));
+    const myPath = myHit ? MY.PATHS.find(p => lc(p) === lc(myHit[1])) : '';
+    if (myHit) {
+      ch.mythic.path = myPath;
+      ch.mythic.tier = Math.min(10, num(myHit[2]));
+      const pw = kids(kid(C, 'trackedresources'), 'trackedresource').find(r => /^mythic power\b/i.test(at(r, 'name')));
+      if (pw) ch.mythic.powerUsed = num(at(pw, 'used'));
+      warnings.push(`Mythic: ${myPath} tier ${ch.mythic.tier}, on the Character tab. Hero Lab's ability scores already include the mythic ability increases, so the tier's +2 boosts are left blank.`);
+    }
+    // A Hero Lab special that is a mythic ability: the base abilities (source "Universal"), the path's abilities and mythic power
+    const mythicSrc = s => {
+      if (!myHit) return null;
+      const src = at(s, 'sourcetext'), n = (at(s, 'shortname') || at(s, 'name')).replace(/\s*\((Ex|Su|Sp)\)$/, '').replace(/\s*\(.*\)$/, '').trim();
+      if (!(lc(src) === 'universal' || lc(src) === lc(myPath) || /^mythic power$/i.test(n))) return null;
+      const base = MY.BASE.find(b => lc(b) === lc(n));
+      if (base) return `base:${base}`;
+      const feat = (MY.FEATURES[myPath] || []).find(f => lc(f) === lc(n));
+      if (feat) { ch.mythic.feature = feat; return `feature:${feat}`; }
+      return `path:${n}`;
+    };
+
     // Abilities: Hero Lab's base already includes racial modifiers, so the race's ability modifiers stay at 0.
     for (const a of kids(kid(C, 'attributes'), 'attribute')) {
       const k = ABIL[lc(at(a, 'name'))];
@@ -226,7 +249,8 @@
     const suggest = (kind, name, text) => (window.PF_FEATS ? window.PF_FEATS.suggest(kind, name, Object.keys(D.skillMeta), undefined, text) || [] : []);
     for (const f of kids(kid(C, 'feats'), 'feat')) {
       if (at(f, 'profgroup') === 'yes') continue;   // armor and weapon proficiencies granted by the class
-      const name = at(f, 'name').replace(/\s+[-+]\d+\/[-+]\d+$/, '');   // 'Power Attack -3/+6' -> 'Power Attack'
+      // 'Power Attack -3/+6' -> 'Power Attack'; 'Power Attack [Mythic]' -> 'Power Attack, Mythic' (the rules data's name)
+      const name = at(f, 'name').replace(/\s+[-+]\d+\/[-+]\d+$/, '').replace(/^(.*?)\s*\[Mythic\]$/i, (m, b) => /mythic/i.test(b) ? b : `${b}, Mythic`);
       const text = txt(kid(f, 'description'));
       ch.feats.push({ level: '', name, text, bonuses: suggest('feat', name, text) });
     }
@@ -246,6 +270,8 @@
       if (!name || seen.has(lc(at(s, 'name')))) continue;
       seen.add(lc(at(s, 'name')));
       if (/^Damage Reduction/i.test(at(s, 'name')) || /^\d+\/./.test(name)) continue;   // shown as DR
+      const mSrc = mythicSrc(s);
+      if (mSrc) { ch.mythic.abilities.push({ name: at(s, 'name').replace(/\s*\((Ex|Su|Sp)\)$/, ''), text: txt(kid(s, 'description')), bonuses: [], src: mSrc }); continue; }
       ch.classFeatures.push({ name: at(s, 'name').replace(/\s*\((Ex|Su|Sp)\)$/, ''), text: txt(kid(s, 'description')), bonuses: [] });
     }
     // Rage as a switchable effect
@@ -319,7 +345,8 @@
       const qty = Math.max(1, num(at(it, 'quantity')));
       return { name: at(it, 'name'), qty, weight: num(at(kid(it, 'weight'), 'value')) || '', value: Math.round(num(at(kid(it, 'cost'), 'value')) / qty * 100) / 100 || '', carried: true, notes: '' };
     }
-    ch.resources = kids(kid(C, 'trackedresources'), 'trackedresource').map(r => ({ name: at(r, 'name'), uses: num(at(r, 'left')), max: num(at(r, 'max')) }));
+    ch.resources = kids(kid(C, 'trackedresources'), 'trackedresource').filter(r => !(myHit && /^mythic power\b/i.test(at(r, 'name'))))   // the Mythic card counts it
+      .map(r => ({ name: at(r, 'name'), uses: num(at(r, 'left')), max: num(at(r, 'max')) }));
     const hero = kid(C, 'heropoints');
     if (at(hero, 'enabled') === 'yes') ch.heroPoints.current = num(at(hero, 'total'));
 
@@ -652,7 +679,12 @@
       if (diff) { adjust(`${k[0].toUpperCase() + k.slice(1)} save to match Hero Lab`, k, diff); listed.push(`${k[0].toUpperCase() + k.slice(1)} ${sign(diff)}`); }
     }
     d = E.compute(ch);
-    if (t.init !== null && t.init !== undefined && t.init !== d.initiative.total) { const diff = t.init - d.initiative.total; adjust('Initiative to match Hero Lab', 'init', diff); listed.push(`Initiative ${sign(diff)}`); }
+    if (t.init !== null && t.init !== undefined && t.init !== d.initiative.total) {
+      const diff = t.init - d.initiative.total, tier = Math.floor(+(ch.mythic && ch.mythic.tier) || 0);
+      // Hero Lab leaves Amazing Initiative's +tier out of the total; the rule adds it from 2nd tier, so keep it
+      if (tier >= 2 && diff === -tier) warnings.push(`Initiative is ${sign(d.initiative.total)} here, ${sign(t.init)} in Hero Lab: Amazing Initiative adds your mythic tier (+${tier}) to initiative, which Hero Lab's total leaves out.`);
+      else { adjust('Initiative to match Hero Lab', 'init', diff); listed.push(`Initiative ${sign(diff)}`); }
+    }
     d = E.compute(ch);
     if (t.ac && t.ac !== d.ac.total) { const diff = t.ac - d.ac.total; adjust('AC to match Hero Lab', 'ac', diff); listed.push(`AC ${sign(diff)}`); }
     // Weapons: one bonus per weapon name (copies of a weapon share it)

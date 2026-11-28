@@ -339,6 +339,11 @@
   const MYTHIC = {
     PATHS: ['Archmage', 'Champion', 'Guardian', 'Hierophant', 'Marshal', 'Trickster'],
     HP: { Archmage: 3, Champion: 5, Guardian: 5, Hierophant: 4, Marshal: 4, Trickster: 4 },
+    // Base abilities every mythic character gains, and each path's 1st-tier feature choices (names as in the rules data)
+    BASE: ['Hard to Kill', 'Mythic Power', 'Surge', 'Amazing Initiative', 'Recuperation', 'Mythic Saving Throws', 'Force of Will', 'Unstoppable', 'Immortal', 'Legendary Hero'],
+    FEATURES: { Archmage: ['Arcane Surge', 'Mage Strike', 'Wild Arcana'], Champion: ['Distant Barrage', 'Fleet Charge', 'Sudden Attack'],
+      Guardian: ['Absorb Blow', "Beast's Fury", 'Sudden Block'], Hierophant: ["Beast's Fury", 'Inspired Spell', 'Recalled Blessing'],
+      Marshal: ['Advance', 'Decisive Strike', 'Rally'], Trickster: ['Deadly Throw', 'Fleet Charge', 'Surprise Strike'] },
     powerMax: t => (t > 0 ? 3 + 2 * t : 0),
     surgeDie: t => (t >= 10 ? 'd12' : t >= 7 ? 'd10' : t >= 4 ? 'd8' : 'd6'),
     feats: t => Math.ceil(Math.max(0, t) / 2),        // mythic feats at tiers 1, 3, 5, 7, 9
