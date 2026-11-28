@@ -187,7 +187,7 @@ tr.untrained td { color: var(--muted); }
 .list-row textarea { min-height: 34px; }
 .list-row > input:first-child, .feat-row > input:nth-child(2) { font-weight: 600; }
 .trait-row { grid-template-columns: 90px 1fr 28px; }
-.res-row { grid-template-columns: 1fr 160px 28px; align-items: center; }
+.res-row { grid-template-columns: 1fr 160px 28px 28px; align-items: center; }
 .counter { display: inline-flex; align-items: center; gap: 4px; }
 .counter input { width: 46px; }
 

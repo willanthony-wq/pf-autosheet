@@ -507,12 +507,40 @@
       (suggestKind ? `<button class="btn small ghost" data-action="suggest-bonus" data-list="${esc(key)}" data-i="${i}" data-kind="${suggestKind}" title="Fill in the usual bonuses for this ${suggestKind}">Add standard bonuses</button>` : '') + `</div>`;
   }
   // ▶ beside a class feature: whether it's on the Play tab's Classes & Features card (automatic unless set by hand)
-  function playFlagBtn(f, i, why) {
-    const reason = why(f), auto = !reason, hand = typeof f.play === 'boolean', on = hand ? f.play : auto;
-    const title = on ? `On the Play tab (Classes & Features card)${hand ? ', set by hand' : ''}. Click to leave it off.`
-      : `Left off the Play tab${hand ? ' (set by hand)' : `: ${reason}`}. Click to show it on the Classes & Features card.`;
-    return `<button class="icon-btn play-flag${on ? ' on' : ''}" data-action="toggle-play-flag" data-i="${i}" aria-pressed="${on}" title="${esc(title)}">▶</button>`;
+  // (also beside each resource and charged magic item on the Gear tab, for the Play tab's Resources card)
+  function playFlagBtn(f, i, why, list = 'classFeatures', cardName = 'Classes & Features') {
+    const reason = why(f, i), auto = !reason, hand = typeof f.play === 'boolean', on = hand ? f.play : auto;
+    const title = on ? `On the Play tab (${cardName} card)${hand ? ', set by hand' : ''}. Click to leave it off.`
+      : `Left off the Play tab${hand ? ' (set by hand)' : `: ${reason}`}. Click to show it on the ${cardName} card.`;
+    return `<button class="icon-btn play-flag${on ? ' on' : ''}" data-action="toggle-play-flag" data-list="${list}" data-i="${i}" aria-pressed="${on}" title="${esc(title)}">▶</button>`;
   }
+  // Resources another Play card already shows are left off the Resources card automatically: uses tracked on the
+  // Classes & Features card, spell-like abilities whose uses the Spells card counts, mythic abilities (Mythic card), a weapon (Attacks
+  // card) or a magic item listed with its own counter. Each rule only counts while that card isn't hidden.
+  function resourcePlayReason() {
+    const ch = App.ch, d = App.d, hidden = new Set((ch.settings.playLayout && ch.settings.playLayout.hidden) || []);
+    const shownF = featureShownTest();
+    const feat = new Set();
+    if (!hidden.has('features')) ch.classFeatures.forEach(f => { if (f.name && shownF(f)) { const r = featureResource(f); if (r >= 0) feat.add(r); } });
+    const names = list => new Set(list.map(baseName).filter(Boolean));
+    const sla = hidden.has('spells') ? new Set() : names(ch.spellcasting.sla.flatMap(g => g.items.filter(x => /^\d+$/.test(String(x.uses))).map(x => x.name)));   // only when the Spells card counts its uses
+    const myth = !hidden.has('mythic') && d.mythic && d.mythic.tier ? names((ch.mythic.abilities || []).map(a => a.name)) : null;
+    const weap = hidden.has('attacks') ? new Set() : names(ch.weapons.map(w => w.name));
+    const misc = names((ch.miscItems || []).filter(x => miscOnPlay(x)).map(x => x.name));
+    return (r, i) => {
+      const b = baseName(r.name);
+      if (!b) return '';
+      if (feat.has(i)) return 'its uses are on the Classes & Features card';
+      if (sla.has(b)) return 'it is a spell-like ability whose uses the Spells card counts';
+      if (myth && (myth.has(b) || /^mythic power\b/.test(b))) return 'it is on the Mythic card';
+      if (weap.has(b)) return 'it is a weapon on the Attacks card';
+      if (misc.has(b)) return 'the magic item is listed with its own counter';
+      return '';
+    };
+  }
+  // A magic item with charges, or a wand, scroll or potion, shows on the Play tab's Resources card unless switched off with ▶
+  const miscCounts = x => !!((x.magic && window.PF_MAGIC && window.PF_MAGIC.KINDS[x.magic.kind]) || (x.max !== '' && x.max !== undefined && x.max !== null));
+  const miscOnPlay = x => miscCounts(x) && x.play !== false;
   function featureList(key) {
     const ch = App.ch;
     const why = key === 'classFeatures' ? featurePlayReason() : null;
@@ -855,14 +883,16 @@
       return { fav, html: `<div class="play-res${fav ? ' fav' : ''}"><span class="res-name"><button class="star-btn${fav ? ' on' : ''}" data-action="toggle-fav" data-path="${path}" aria-pressed="${fav}" title="${fav ? 'Unstar' : 'Star this to highlight it and keep it at the top'}">${fav ? '★' : '☆'}</button>${esc(name)}</span>
         <span class="inline" style="flex-wrap:nowrap"><span class="counter"><button class="btn small" data-action="bump" data-path="${cp}" data-d="-1" aria-label="Use one${title}">−</button><strong>${esc(x.uses === '' || x.uses === undefined ? 0 : x.uses)}</strong>${x.max !== '' && x.max !== undefined && x.max !== null ? `<span class="muted">/ ${esc(x.max)}</span>` : ''}<button class="btn small" data-action="bump" data-path="${cp}" data-d="1" aria-label="Add one${title}">+</button></span>${o.use !== undefined ? `<button class="btn small" data-action="use-item" data-i="${o.use}" title="Use it: casts the spell (Shift-click: private)">Use</button>` : ''}</span></div>` };
     };
-    const resRows = ch.resources.map((r, i) => resRow(`resources/${i}`, r.name || 'Resource', r, ''))
+    const resWhy = resourcePlayReason();
+    const resRows = ch.resources.map((r, i) => ((typeof r.play === 'boolean' ? r.play : !resWhy(r, i)) ? resRow(`resources/${i}`, r.name || 'Resource', r, '') : null))
       .concat((ch.miscItems || []).map((x, i) => {
+        if (!miscOnPlay(x)) return null;
         const mk = x.magic && window.PF_MAGIC && window.PF_MAGIC.KINDS[x.magic.kind] ? x.magic.kind : '';
         if (mk && mk !== 'wand') return resRow(`miscItems/${i}`, x.name || 'Magic item', { uses: x.qty === '' || x.qty === undefined ? 1 : x.qty, max: '', fav: x.fav }, '', { countPath: `miscItems/${i}/qty`, use: i });
         return (x.max !== '' && x.max !== undefined && x.max !== null) ? resRow(`miscItems/${i}`, x.name || 'Magic item', x, ' charge', mk ? { use: i } : {}) : null;
-      }).filter(Boolean));
+      })).filter(Boolean);
     const resList = resRows.filter(r => r.fav).concat(resRows.filter(r => !r.fav)).map(r => r.html).join('');
-    const res = card('Resources', `${resList || '<p class="small muted">No resources. Add them on the Gear tab.</p>'}
+    const res = card('Resources', `${resList || '<p class="small muted">No resources. Add them on the Gear tab (▶ there chooses which show here).</p>'}
       <div class="play-res"><span><strong>Hero points</strong></span><span class="counter"><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="-1">−</button><strong>${esc(ch.heroPoints.current)}</strong><span class="muted">/ ${esc(ch.heroPoints.max)}</span><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="1">+</button></span></div>`);
 
     // The cards are placed by the character's layout (Edit layout). (Active Bonuses is in the sidebar under Dice, on every tab.)
@@ -2039,9 +2069,10 @@
   }
   function renderFeatures() {
     const ch = App.ch;
+    const resWhy = resourcePlayReason();
     const res = card('Resources', `${ch.resources.map((r, i) => `<div class="list-row res-row">${inp(`resources/${i}/name`, { ph: 'Wand of CLW, Rage rounds…' })}
         <span class="counter"><button class="btn small" data-action="bump" data-path="resources/${i}/uses" data-d="-1" aria-label="Use one">−</button>${inp(`resources/${i}/uses`, { type: 'num', aria: 'Uses' })}<span class="muted">/</span>${inp(`resources/${i}/max`, { type: 'num', aria: 'Max' })}<button class="btn small" data-action="bump" data-path="resources/${i}/uses" data-d="1" aria-label="Add one">+</button></span>
-        ${removeBtn('resources', i)}</div>`).join('') || '<p class="small muted">Track charges, rounds per day, scrolls and coins here.</p>'}
+        ${playFlagBtn(r, i, resWhy, 'resources', 'Resources')}${removeBtn('resources', i)}</div>`).join('') || '<p class="small muted">Track charges, rounds per day, scrolls and coins here.</p>'}
       <div class="inline" style="margin-top:10px"><strong>Hero points</strong>
         <span class="counter"><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="-1">−</button>${inp('heroPoints/current', { type: 'num' })}<span class="muted">/</span>${inp('heroPoints/max', { type: 'num' })}<button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="1">+</button></span></div>`,
       { fold: 'gear:resources', summary: `${ch.resources.length} tracked · hero points ${esc(ch.heroPoints.current)} / ${esc(ch.heroPoints.max)}`,
@@ -2067,6 +2098,7 @@
           <label class="mini-field" title="Weight of one, in lb.">Wt${inp(`${p}/weight`, { type: 'num', aria: 'Weight each (lb.)' })}</label>
           <label class="mini-field" title="Value of one, in gp">gp${inp(`${p}/value`, { type: 'num', aria: 'Value each (gp)' })}</label>
           <label class="mini-field" title="Uncheck for things stored elsewhere: they stop counting toward your load">Carried<input type="checkbox" data-bind="${p}/carried" data-type="bool"${x.carried !== false ? ' checked' : ''} aria-label="Carried"></label>
+          ${miscCounts(x) ? playFlagBtn(x, i, () => '', 'miscItems', 'Resources') : ''}
           ${canSetup ? `<button class="btn small ghost" data-action="setup-item" data-i="${i}" title="Set it up from the spell: price, save DC, and a Use button on the Play tab">Set up as ${esc(canSetup.kind)}</button>` : ''}
           ${removeBtn('miscItems', i, 'item')}</div>
         ${mg ? `<p class="small" style="margin:4px 0"><span class="tag ok">${esc(mg.label)}</span> ${esc(x.magic.spell)} · spell level ${esc(x.magic.sl)} · CL ${esc(x.magic.cl)}${x.cast && x.cast.save ? ` · save DC ${esc(x.magic.dc)}` : ''} · <strong>Use</strong> on the Play tab ${x.magic.kind === 'wand' ? 'takes a charge' : 'uses one up'}</p>
@@ -2567,12 +2599,14 @@
       'lay-hide': () => layoutChange(lay => { lay.hidden = (lay.hidden || []).filter(x => x !== el.dataset.card).concat(el.dataset.card); }),
       'lay-show': () => layoutChange(lay => { lay.hidden = (lay.hidden || []).filter(x => x !== el.dataset.card); }),
       'toggle-play-flag': () => {
-        const f = App.ch.classFeatures[+el.dataset.i];
+        const list = el.dataset.list || 'classFeatures', i = +el.dataset.i, f = (App.ch[list] || [])[i];
         if (!f) return;
-        const auto = !featurePlayReason()(f), now = typeof f.play === 'boolean' ? f.play : auto;
+        const auto = list === 'resources' ? !resourcePlayReason()(f, i) : list === 'miscItems' ? miscCounts(f) : !featurePlayReason()(f);
+        const now = typeof f.play === 'boolean' ? f.play : auto;
         if (!now === auto) delete f.play; else f.play = !now;   // back to automatic when that matches
         changed(true);
-        toast(!now ? `${f.name || 'Feature'}: shown on the Play tab's Classes & Features card.` : `${f.name || 'Feature'}: left off the Play tab.`);
+        const card = list === 'classFeatures' ? 'Classes & Features' : 'Resources';
+        toast(!now ? `${f.name || 'It'}: shown on the Play tab's ${card} card.` : `${f.name || 'It'}: left off the Play tab.`);
       },
       'feature-use': () => {
         const f = App.ch.classFeatures[+el.dataset.i];
