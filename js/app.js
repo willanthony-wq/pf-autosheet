@@ -2722,10 +2722,32 @@
       'test-discord': () => { saveDiscordSettings(false); rollCheck('Test roll', 0, false, true); },
       'clear-log': () => { App.log = []; lsSet(LS.log, []); renderLog(); },
     };
-    if (handlers[a]) { if (el.tagName === 'BUTTON' || el.tagName === 'A') e.preventDefault(); handlers[a](); }
+    if (handlers[a]) {
+      if (el.tagName === 'BUTTON' || el.tagName === 'A') e.preventDefault();
+      // "+ something" buttons: put the cursor in the new row's first field
+      const adding = /(^|-)add(-|$)/.test(a), before = adding ? boundFields() : null;
+      handlers[a]();
+      if (adding) focusNewField(before, a === 'add-bonus');
+    }
   });
 
   function changed(rerender) { recompute(); scheduleSave(); if (rerender) render(); else updateOutputs(); }
+
+  // After a "+" button adds a row: focus the first field that wasn't there before (its name, else a text box,
+  // or for a bonus row what it applies to), and bring it into view. Retries once for buttons that redraw a moment later.
+  const FIELD_SEL = 'input[data-bind], textarea[data-bind], select[data-bind]';
+  function boundFields() { return new Set([...document.querySelectorAll(`#main ${FIELD_SEL}`)].map(f => f.dataset.bind)); }
+  function focusNewField(before, pageOrder, retry = true) {
+    setTimeout(() => {
+      const fresh = [...document.querySelectorAll(`#main ${FIELD_SEL}`)].filter(f => !before.has(f.dataset.bind) && f.type !== 'checkbox' && f.type !== 'hidden' && !f.disabled && f.offsetParent);
+      const ends = re => fresh.find(f => re.test(f.dataset.bind));
+      const pick = (pageOrder ? ends(/\/target$/) : ends(/\/name$/) || fresh.find(f => f.tagName === 'TEXTAREA' || f.type === 'text' || f.type === 'search')) || fresh[0];
+      if (!pick) { if (retry) focusNewField(before, pageOrder, false); return; }
+      pick.focus({ preventScroll: true });
+      const r = pick.getBoundingClientRect();
+      if (r.top < 70 || r.bottom > window.innerHeight - 20) pick.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, retry ? 30 : 400);
+  }
 
   // Play tab layout: dragging cards while Edit layout is on
   let dragCard = null;
