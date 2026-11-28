@@ -182,6 +182,7 @@
       const table = isShield ? D.shields : D.armor, hit = findArmor(table, name);
       const slot = isShield ? ch.shield : ch.armor;
       slot.name = name; slot.enh = enhOf(name) === 'Mwk' ? 'Mwk' : num(enhOf(name));
+      slot.abilities = window.PF_MAGIC ? window.PF_MAGIC.abilitiesInName(name, true) : [];
       slot.weight = num(at(kid(a, 'weight'), 'value')) || '';
       if (hit) slot.item = hit.name; else warnings.push(`${isShield ? 'Shield' : 'Armor'} "${name}" isn't in the sheet's table. Choose it on the Combat tab.`);
       const mat = D.materials.find(m => m.name && name.toLowerCase().includes(m.name.toLowerCase()));

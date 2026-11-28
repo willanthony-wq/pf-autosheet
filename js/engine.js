@@ -283,6 +283,12 @@
     for (const f of ch.classFeatures || []) pushBonuses(rows, f.bonuses || [], 'feature', b => b.label || f.name || 'Class feature', 'Untyped (stacks)', V);
     for (const s of ch.slots || []) pushBonuses(rows, s.bonuses || [], 'worn', b => b.label || s.item || s.slot || 'Worn item', 'Enhancement', V);
     for (const x of ch.miscItems || []) pushBonuses(rows, x.bonuses || [], 'misc', b => b.label || x.name || 'Magic item', 'Enhancement', V);
+    // Armor and shield abilities with bonuses (shadow: Stealth, slick: Escape Artist)
+    if (window.PF_MAGIC) for (const k of ['armor', 'shield']) {
+      const x = ch[k];
+      if (!x || !String(x.item || x.name || '').trim()) continue;
+      for (const a of window.PF_MAGIC.armorAbilities(x)) if (a.bonuses) pushBonuses(rows, a.bonuses, 'worn', () => `${a.n} (${k})`, 'Competence', V);
+    }
     // Mythic: abilities' bonuses, the path's bonus hit points per tier, Amazing Initiative (+tier from 2nd tier)
     // and +2 to an ability score at tiers 2, 4, 6, 8 and 10
     const my = ch.mythic || {}, tier = mythicTier(ch);
@@ -758,6 +764,9 @@
       unchainedMonk: d.classes.some(c => c.data && c.name === 'Monk (Unchained)'),
     };
     d.attackVars = v;
+    // Defenses from armor and shield abilities (fortification, energy resistance, SR, DR)
+    const MAG = window.PF_MAGIC;
+    d.magicDefenses = MAG ? ['armor', 'shield'].flatMap(k => (ch[k] && String(ch[k].item || ch[k].name || '').trim()) ? MAG.armorAbilities(ch[k]).filter(a => a.def).map(a => a.def.replace('{pick}', a.pick || 'energy')) : []) : [];
     const wRows = d.rows.filter(r => r.weapon);
     d.weapons = ch.weapons.map(w => attackFor(w, v, T, ch.customAttackOptions || [], wRows));
   }
@@ -834,6 +843,18 @@
     } else {
       atk = [W];
     }
+    // Magic abilities: keen widens the threat range (from the weapon's own range when the rules data knows it, so it
+    // never doubles twice), flaming and the like add dice on every hit, bursts and thundering add dice on a crit,
+    // holy, bane and the like add dice against some foes, speed adds an attack at the top bonus (not with haste)
+    const MAG = window.PF_MAGIC, ab = MAG ? MAG.weaponAbilities(w) : [];
+    const SRDW = window.PF_SRD && window.PF_SRD.loaded('weapons') ? window.PF_SRD.find('weapons', MAG ? MAG.baseWeaponName(w.name) : w.name) : null;
+    out.crit = ab.some(a => a.keen) ? MAG.keenRange((SRDW && SRDW.cr) || w.crit) : (String(w.crit || '').trim() || '20');
+    const noDice = !!(w.dmgOverride && String(w.dmgOverride).trim());
+    out.extra = noDice ? [] : ab.filter(a => a.dmg).map(a => ({ dice: a.dmg.dice, type: a.dmg.type, from: a.n }));
+    out.critExtra = noDice ? [] : ab.filter(a => a.crit).map(a => ({ by: a.crit.by, type: a.crit.type, from: a.n }));
+    out.vs = noDice ? [] : ab.filter(a => a.vs).map(a => ({ dice: a.vs.dice + (a.vs.bonus ? '+' + a.vs.bonus : ''), type: a.vs.type, foe: a.n === 'Bane' && String(w.baneVs || '').trim() ? String(w.baneVs).trim() : a.vs.foe, atk: a.vs.atk || 0, from: a.n }));
+    out.abilities = ab.map(a => a.n + (a.n === 'Bane' && String(w.baneVs || '').trim() ? ` (${String(w.baneVs).trim()})` : ''));
+    if (ab.some(a => a.speed) && !(T.xMelee > 0) && (name === 'Melee Attack' || name === 'Ranged Attack' || name.startsWith('Off-Hand')) && atk.length) atk.splice(1, 0, W);
     out.attacks = atk;
     out.attackText = atk.map(sign).join(' / ');
     // A custom formula copied from a spreadsheet with a blank damage part still gets the usual damage
@@ -843,7 +864,8 @@
     const dmg = evalExpr(isCustom && blankDmg ? defaultDamageExpr(cat.name) : opt.dmg, v);
     if (dmg !== null) {
       out.damageBonus = dmg + enhNum + n(w.mDmg) + wDmg;
-      out.damageText = (w.dice ? w.dice + ' ' : '') + (out.damageBonus >= 0 ? '+ ' : '- ') + Math.abs(out.damageBonus);
+      out.damageText = (w.dice ? w.dice + ' ' : '') + (out.damageBonus >= 0 ? '+ ' : '- ') + Math.abs(out.damageBonus)
+        + out.extra.map(x => ` + ${x.dice}${x.type ? ' ' + x.type : ''}`).join('');
     }
     if (w.dmgOverride && String(w.dmgOverride).trim()) { out.damageText = String(w.dmgOverride).trim(); out.damageOverride = out.damageText; }
     out.valid = true;

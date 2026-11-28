@@ -784,7 +784,7 @@
             <button class="btn small" data-action="hp" data-mode="damage">Damage</button><button class="btn small" data-action="hp" data-mode="heal">Heal</button>
             <button class="btn small" data-action="hp" data-mode="temp">Temp</button><button class="btn small" data-action="hp" data-mode="nonlethal">Nonlethal</button></div>
           ${ch.settings.woundThresholds ? `<div class="small">${out('woundState', '', '')}</div>` : ''}
-          ${ch.hp.dr || ch.hp.resist ? `<div class="small muted">${esc([ch.hp.dr, ch.hp.resist].filter(Boolean).join(' · '))}</div>` : ''}
+          ${ch.hp.dr || ch.hp.resist || (d.magicDefenses || []).length ? `<div class="small muted">${esc([ch.hp.dr, ch.hp.resist].concat(d.magicDefenses || []).filter(Boolean).join(' · '))}</div>` : ''}
         </div></div>
       <div class="tiles play-tiles">
         ${tile('AC', out('ac/total', '', ''), 'ac')}${tile('Touch', out('ac/touch', '', ''), 'touch')}${tile('Flat-footed', out('ac/flat', '', ''), 'flat')}${tile('CMD', out('cmd', '', ''), 'cmd')}
@@ -800,7 +800,7 @@
       ${d.spells.data ? `<div class="inline" style="margin-top:8px"><span class="small">Caster level</span>${rollBtn('Caster level check', 'spells/cl')}<span class="small">Concentration</span>${rollBtn('Concentration', 'spells/concentration')}</div>` : ''}`);
 
     const atkRows = ch.weapons.map((w, i) => `<tr>
-        <td class="l"><strong>${esc(w.name || 'Unnamed weapon')}</strong><div class="sub">${esc(w.crit || '20')}/${esc(w.mult || 'x2')}${w.range ? ' · ' + esc(w.range) + ' ft' : ''}${w.type ? ' · ' + esc(w.type) : ''}${weaponSpecial(w) ? ' · ' + esc(weaponSpecial(w)) : ''}</div></td>
+        <td class="l"><strong>${esc(w.name || 'Unnamed weapon')}</strong><div class="sub">${esc((d.weapons[i] && d.weapons[i].crit) || w.crit || '20')}/${esc(w.mult || 'x2')}${d.weapons[i] && (d.weapons[i].abilities || []).length ? ' · ' + esc(d.weapons[i].abilities.join(', ').toLowerCase()) : ''}${w.range ? ' · ' + esc(w.range) + ' ft' : ''}${w.type ? ' · ' + esc(w.type) : ''}${weaponSpecial(w) ? ' · ' + esc(weaponSpecial(w)) : ''}</div></td>
         <td><span class="atk-text" data-out="weapons/${i}/attackText" data-fmt="">${esc(fmt(d.weapons[i] && d.weapons[i].attackText))}</span><div class="sub" data-out="weapons/${i}/damageText" data-fmt="">${esc(fmt(d.weapons[i] && d.weapons[i].damageText))}</div></td>
         <td><span class="inline" style="flex-wrap:nowrap;justify-content:flex-end">
           <button class="btn small primary" data-action="attack" data-i="${i}" data-mode="full" title="Shift-click for a private roll">Full</button>
@@ -850,13 +850,17 @@
     }
 
     // Resources and magic item charges, each with a star: starred ones are highlighted and listed first
-    const resRow = (path, name, x, title) => {
-      const fav = !!x.fav;
+    const resRow = (path, name, x, title, o = {}) => {
+      const fav = !!x.fav, cp = o.countPath || `${path}/uses`;
       return { fav, html: `<div class="play-res${fav ? ' fav' : ''}"><span class="res-name"><button class="star-btn${fav ? ' on' : ''}" data-action="toggle-fav" data-path="${path}" aria-pressed="${fav}" title="${fav ? 'Unstar' : 'Star this to highlight it and keep it at the top'}">${fav ? '★' : '☆'}</button>${esc(name)}</span>
-        <span class="counter"><button class="btn small" data-action="bump" data-path="${path}/uses" data-d="-1" aria-label="Use one${title}">−</button><strong>${esc(x.uses === '' || x.uses === undefined ? 0 : x.uses)}</strong>${x.max !== '' && x.max !== undefined && x.max !== null ? `<span class="muted">/ ${esc(x.max)}</span>` : ''}<button class="btn small" data-action="bump" data-path="${path}/uses" data-d="1" aria-label="Add one${title}">+</button></span></div>` };
+        <span class="inline" style="flex-wrap:nowrap"><span class="counter"><button class="btn small" data-action="bump" data-path="${cp}" data-d="-1" aria-label="Use one${title}">−</button><strong>${esc(x.uses === '' || x.uses === undefined ? 0 : x.uses)}</strong>${x.max !== '' && x.max !== undefined && x.max !== null ? `<span class="muted">/ ${esc(x.max)}</span>` : ''}<button class="btn small" data-action="bump" data-path="${cp}" data-d="1" aria-label="Add one${title}">+</button></span>${o.use !== undefined ? `<button class="btn small" data-action="use-item" data-i="${o.use}" title="Use it: casts the spell (Shift-click: private)">Use</button>` : ''}</span></div>` };
     };
     const resRows = ch.resources.map((r, i) => resRow(`resources/${i}`, r.name || 'Resource', r, ''))
-      .concat((ch.miscItems || []).map((x, i) => (x.max !== '' && x.max !== undefined && x.max !== null) ? resRow(`miscItems/${i}`, x.name || 'Magic item', x, ' charge') : null).filter(Boolean));
+      .concat((ch.miscItems || []).map((x, i) => {
+        const mk = x.magic && window.PF_MAGIC && window.PF_MAGIC.KINDS[x.magic.kind] ? x.magic.kind : '';
+        if (mk && mk !== 'wand') return resRow(`miscItems/${i}`, x.name || 'Magic item', { uses: x.qty === '' || x.qty === undefined ? 1 : x.qty, max: '', fav: x.fav }, '', { countPath: `miscItems/${i}/qty`, use: i });
+        return (x.max !== '' && x.max !== undefined && x.max !== null) ? resRow(`miscItems/${i}`, x.name || 'Magic item', x, ' charge', mk ? { use: i } : {}) : null;
+      }).filter(Boolean));
     const resList = resRows.filter(r => r.fav).concat(resRows.filter(r => !r.fav)).map(r => r.html).join('');
     const res = card('Resources', `${resList || '<p class="small muted">No resources. Add them on the Gear tab.</p>'}
       <div class="play-res"><span><strong>Hero points</strong></span><span class="counter"><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="-1">−</button><strong>${esc(ch.heroPoints.current)}</strong><span class="muted">/ ${esc(ch.heroPoints.max)}</span><button class="btn small" data-action="bump" data-path="heroPoints/current" data-d="1">+</button></span></div>`);
@@ -1744,6 +1748,7 @@
           ${field('Weight', inp(`weapons/${i}/weight`, { type: 'num', ph: 'lb', title: 'Counts toward your load while carried' }))}
           <label class="field">Carried<input type="checkbox" data-bind="weapons/${i}/carried" data-type="bool"${w.carried !== false ? ' checked' : ''} title="Uncheck for weapons left behind (they stop counting toward your load)"></label>
         </div>
+        ${weaponMagicRow(w, i, d.weapons[i])}
         <div class="result">
           <span class="atk" data-out="weapons/${i}/attackText" data-fmt="">${esc(fmt(d.weapons[i] && d.weapons[i].attackText))}</span>
           <span class="muted">dmg</span> <span data-out="weapons/${i}/damageText" data-fmt="">${esc(fmt(d.weapons[i] && d.weapons[i].damageText))}</span>
@@ -1781,7 +1786,9 @@
     };
     const armor = card('Armor & Shield', `<div class="scroll-x"><table>
       <thead><tr><th class="l">Name</th><th>Item</th><th>Material</th><th>Enh.</th><th title="Misc skill penalty adjustment">mSkill</th><th title="Misc max Dex adjustment">mDex</th><th>AC</th><th>ACP</th><th>Max Dex</th><th>ASF</th><th title="Weight in lb.">Wt</th></tr></thead>
-      <tbody>${armorRow('armor', 'armor', 'Armor')}${armorRow('shield', 'shields', 'Shield')}</tbody></table></div>
+      <tbody>${armorRow('armor', 'armor', 'Armor')}<tr class="magic-tr"><td colspan="11">${armorMagicRow('armor')}</td></tr>
+        ${armorRow('shield', 'shields', 'Shield')}<tr class="magic-tr"><td colspan="11">${armorMagicRow('shield')}</td></tr></tbody></table></div>
+      ${(d.magicDefenses || []).length ? `<p class="small" style="margin:6px 0 0"><strong>From armor abilities:</strong> ${esc(d.magicDefenses.join(', '))}</p>` : ''}
       <div class="fields" style="margin-top:8px">
         ${field('Encumbrance', sel('movement/encumbrance', ENC_OPTIONS, { blank: false, rerender: true }))}${field('Load now', out('armor/encumbrance'))}
         ${field('Ignore armor for speed', sel('movement/ignoreArmor', ['Slow and Steady (ignore Encumbrance/Heavy/Medium)', 'Armor Training II (ignore Heavy/Medium)', 'Armor Training I (ignore Medium)'], { blank: 'No' }))}
@@ -1801,6 +1808,44 @@
       </div>`);
 
     return `<div class="grid two">${weaponsCard}${toggles}${conds}${armor}${move}</div>`;
+  }
+
+  // ----- Magic abilities on weapons, armor and shields (Combat tab)
+  function abilityChip(path, a) {
+    const label = a.raw || a.n;
+    return `<span class="chip on magic-chip" title="${esc(a.note || '')}">${esc(label)}${a.b ? ` <span class="sub">+${a.b}</span>` : a.gp ? ` <span class="sub">${a.gp.toLocaleString()} gp</span>` : ''}<button class="chip-x" data-action="ability-remove" data-path="${path}" data-name="${esc(a.raw)}" aria-label="Remove ${esc(label)}">✕</button></span>`;
+  }
+  function magicInfo(enh, have, armor, extra) {
+    const MAG = window.PF_MAGIC, pr = MAG.magicPrice(enh, have, armor);
+    const bits = [];
+    if (pr.bonus) bits.push(`+${pr.bonus} total`);
+    if (pr.gp) bits.push(`${pr.gp.toLocaleString()} gp of magic${armor ? ' (+150 masterwork)' : ' (+300 masterwork)'}`);
+    if (extra) bits.push(extra);
+    const warn = pr.needsEnh ? ' <span class="tag warn">needs at least a +1 enhancement bonus</span>' : pr.tooHigh ? ' <span class="tag warn">more than +10 in all</span>' : '';
+    return (bits.length ? `<span class="small muted">${esc(bits.join(' · '))}</span>` : '') + warn;
+  }
+  function weaponMagicRow(w, i, dw) {
+    const MAG = window.PF_MAGIC;
+    if (!MAG) return '';
+    const path = `weapons/${i}/abilities`, have = MAG.weaponAbilities(w), names = new Set(have.map(a => a.n));
+    const opts = [1, 2, 3, 4, 5].map(b => { const g = MAG.WEAPON.filter(a => a.b === b && !names.has(a.n)); return g.length ? `<optgroup label="+${b} bonus">${g.map(a => `<option value="${esc(a.n)}" title="${esc(a.note)}">${esc(a.n)}${a.only ? ` (${a.only})` : ''}</option>`).join('')}</optgroup>` : ''; }).join('');
+    const threat = dw && dw.crit && dw.crit !== (String(w.crit || '').trim() || '20') ? `threat range ${dw.crit}` : '';
+    return `<div class="magic-row"><span class="small"><strong>Magic abilities</strong></span>${have.map(a => abilityChip(path, a)).join('')}
+      <select class="ability-add" data-path="${path}" aria-label="Add a magic ability to this weapon" style="width:auto"><option value="">+ Ability…</option>${opts}</select>
+      ${names.has('Bane') ? `<label class="mini-field">Bane against${inp(`weapons/${i}/baneVs`, { ph: 'undead, giants…', aria: 'Bane against' })}</label>` : ''}
+      ${magicInfo(w.enh, have, false, threat)}</div>`;
+  }
+  function armorMagicRow(k) {
+    const MAG = window.PF_MAGIC, x = App.ch[k];
+    if (!MAG || !x) return '';
+    const path = `${k}/abilities`, have = MAG.armorAbilities(x), raws = new Set(have.map(a => a.raw.toLowerCase())), names = new Set(have.map(a => a.n));
+    const fits = a => (k === 'shield' || !a.shield);
+    const choices = a => (a.pick === 'energy' ? MAG.ENERGY.map(e => `${a.n}: ${e}`) : [a.n]).filter(v => !raws.has(v.toLowerCase()) && !(a.pick !== 'energy' && names.has(a.n)));
+    const group = (label, list) => { const o = list.flatMap(a => choices(a).map(v => `<option value="${esc(v)}" title="${esc(a.note)}">${esc(v)}</option>`)); return o.length ? `<optgroup label="${label}">${o.join('')}</optgroup>` : ''; };
+    const opts = [1, 2, 3, 4, 5].map(b => group(`+${b} bonus`, MAG.ARMOR.filter(a => a.b === b && fits(a)))).join('') + group('Priced in gp', MAG.ARMOR.filter(a => !a.b && fits(a)));
+    return `<div class="magic-row"><span class="small"><strong>${k === 'shield' ? 'Shield' : 'Armor'} abilities</strong></span>${have.map(a => abilityChip(path, a)).join('')}
+      <select class="ability-add" data-path="${path}" aria-label="Add a magic ability to the ${k}" style="width:auto"><option value="">+ Ability…</option>${opts}</select>
+      ${magicInfo(x.enh, have, true)}</div>`;
   }
 
   // ----- Spells
@@ -1950,6 +1995,8 @@
     const rows = (ch.miscItems || []).map((x, i) => {
       const p = `miscItems/${i}`, has = (x.bonuses || []).length > 0;
       const named = String(x.name || '').trim() || String(x.text || '').trim();
+      const mg = x.magic && window.PF_MAGIC.KINDS[x.magic.kind];
+      const canSetup = !mg && window.PF_MAGIC.parseItemName(x.name);
       return `<div class="feature-item"><div class="feature-head misc-head">
           ${inp(`${p}/name`, { ph: 'Wand of cure light wounds', list: 'srd-misc', aria: 'Item' })}
           <label class="mini-field" title="How many">Qty${inp(`${p}/qty`, { type: 'num', ph: '1', aria: 'Quantity' })}</label>
@@ -1957,14 +2004,67 @@
           <label class="mini-field" title="Weight of one, in lb.">Wt${inp(`${p}/weight`, { type: 'num', aria: 'Weight each (lb.)' })}</label>
           <label class="mini-field" title="Value of one, in gp">gp${inp(`${p}/value`, { type: 'num', aria: 'Value each (gp)' })}</label>
           <label class="mini-field" title="Uncheck for things stored elsewhere: they stop counting toward your load">Carried<input type="checkbox" data-bind="${p}/carried" data-type="bool"${x.carried !== false ? ' checked' : ''} aria-label="Carried"></label>
+          ${canSetup ? `<button class="btn small ghost" data-action="setup-item" data-i="${i}" title="Set it up from the spell: price, save DC, and a Use button on the Play tab">Set up as ${esc(canSetup.kind)}</button>` : ''}
           ${removeBtn('miscItems', i, 'item')}</div>
+        ${mg ? `<p class="small" style="margin:4px 0"><span class="tag ok">${esc(mg.label)}</span> ${esc(x.magic.spell)} · spell level ${esc(x.magic.sl)} · CL ${esc(x.magic.cl)}${x.cast && x.cast.save ? ` · save DC ${esc(x.magic.dc)}` : ''} · <strong>Use</strong> on the Play tab ${x.magic.kind === 'wand' ? 'takes a charge' : 'uses one up'}</p>
+          <details class="item-cast"><summary class="small">Spell setup (dice, save, buff)</summary>${spellConfigAt(`${p}/cast`, x.cast || {}, false)}</details>` : ''}
         ${named ? area(`${p}/text`, { rows: 3, ph: 'Description' }) : ''}
         ${bonusEditor(`${p}/bonuses`, x.bonuses)}
         ${addBonusButtons(`${p}/bonuses`, 'Enhancement', has ? null : 'item', i, 'miscItems')}</div>`;
     }).join('');
-    return card('Misc Magic Items', `<p class="small muted" style="margin-top:0">Magic items you carry but don't wear: wands, staves, rods, ioun stones, a bag of holding, potions and scrolls. Picking a known item fills in its description, weight and price. Their weight and value count with your gear. <strong>Collect from inventory</strong> moves magic items listed in your inventory here.</p>${rows || '<p class="small muted">None yet.</p>'}`,
+    const maker = `<div class="item-maker"><strong class="small">Make a wand, scroll or potion</strong>
+      <select id="mk-kind" aria-label="Kind" style="width:auto"><option value="wand">Wand (50 charges)</option><option value="scroll">Scroll</option><option value="potion">Potion or oil</option></select>
+      <input type="text" id="mk-spell" list="srd-spells" placeholder="Spell, e.g. cure light wounds" aria-label="Spell" style="flex:1 1 200px">
+      <input type="number" id="mk-sl" min="0" max="9" placeholder="Level" aria-label="Spell level (blank: the lowest it has)" title="Spell level. Blank: the lowest level the spell has on any class list" class="n-wide">
+      <input type="number" id="mk-cl" min="1" max="20" placeholder="CL" aria-label="Caster level (blank: the lowest possible)" title="Caster level. Blank: the lowest that can make it (1, 3, 5, 7… for spell levels 1, 2, 3, 4…)" class="n-wide">
+      <button class="btn small primary" data-action="make-item">Make it</button></div>`;
+    return card('Misc Magic Items', `<p class="small muted" style="margin-top:0">Magic items you carry but don't wear: wands, staves, rods, ioun stones, a bag of holding, potions and scrolls. Picking a known item fills in its description, weight and price. Their weight and value count with your gear. <strong>Collect from inventory</strong> moves magic items listed in your inventory here.</p>${maker}${rows || '<p class="small muted">None yet.</p>'}`,
       { fold: 'gear:misc', summary: (() => { const n = (ch.miscItems || []).length; return `${n} item${n === 1 ? '' : 's'}`; })(),
         tools: `<button class="btn small ghost" data-action="collect-misc" title="Move magic items that aren't worn from the inventory to this card">Collect from inventory</button><button class="btn small" data-action="add" data-list="miscItems">+ Item</button>` });
+  }
+  // Make (or set up) a wand, scroll or potion of a spell: price, save DC, rules text and the spell's dice, so Use casts it
+  async function makeMagicItem(kind, spell, slIn, clIn, into) {
+    const MAG = window.PF_MAGIC, K = MAG.KINDS[kind];
+    if (!K) return;
+    if (SRD) await SRD.load('spells');
+    const it = SRD ? SRD.find('spells', spell) : null;
+    const levels = it ? Object.values(SRD.spellLevels(it)) : [];
+    if (!it && slIn === '') { toast(`"${spell}" isn't in the rules data. Type its spell level too.`); return; }
+    const sl = slIn !== '' ? Math.max(0, Math.min(9, +slIn || 0)) : (levels.length ? Math.min(...levels) : 1);
+    if (sl > K.maxLevel) { toast(`${K.label}s hold spells of level ${K.maxLevel} or lower; ${it ? it.n : spell} is level ${sl}.`); return; }
+    const cl = clIn !== '' ? Math.max(1, Math.min(20, +clIn || 1)) : MAG.MIN_CL[sl];
+    const nm = it ? it.n : spell, dc = MAG.itemDC(sl);
+    const cast = Object.assign({ id: M.uid() }, (into && into.cast) || {}, { name: nm });
+    if (it) fillSpell(cast, it, (k, v) => { if (v === undefined || v === null || v === '' || !blankish(cast[k])) return 0; cast[k] = v; return 1; }, 'miscItems/0/cast');
+    const x = into || { name: '', qty: 1, uses: '', max: '', weight: '', value: '', carried: true, text: '', bonuses: [] };
+    const saves = it && it.sv && !/^none/i.test(it.sv);
+    Object.assign(x, {
+      name: into && String(into.name || '').trim() ? into.name : MAG.itemName(kind, nm, cl),
+      value: MAG.itemPrice(kind, sl, cl),
+      text: [`${K.note} Spell level ${sl}, caster level ${cl}${saves ? `, save DC ${dc}` : ''}.`, it ? it.d : ''].filter(Boolean).join('\n'),
+      magic: { kind, spell: nm, sl, cl, dc }, cast,
+    });
+    if (kind === 'wand' && blankish(x.max)) { x.max = 50; if (blankish(x.uses)) x.uses = 50; }
+    if (kind !== 'wand' && blankish(x.qty)) x.qty = 1;
+    if (!into) App.ch.miscItems.push(x);
+    changed(true);
+    toast(`${x.name}: ${x.value.toLocaleString()} gp${into ? ' (set up)' : ' added to Misc Magic Items'}.`);
+  }
+  // Use a wand (one charge), scroll or potion (one used up): casts its spell at the item's caster level and save DC
+  function useMagicItem(i, priv) {
+    const x = App.ch.miscItems[i], MAG = window.PF_MAGIC;
+    if (!x || !x.magic || !MAG.KINDS[x.magic.kind]) return;
+    const k = x.magic.kind;
+    if (k === 'wand') { const u = +x.uses || 0; if (u <= 0) { toast(`${x.name}: no charges left.`); return; } x.uses = u - 1; }
+    else { const q = x.qty === '' || x.qty === undefined ? 1 : +x.qty || 0; if (q <= 0) { toast(`${x.name}: none left.`); return; } x.qty = q - 1; }
+    if (!x.cast) x.cast = { name: x.magic.spell };
+    if (!x.cast.id) x.cast.id = M.uid();
+    if (!x.cast.name) x.cast.name = x.magic.spell;
+    const dc = x.cast.save ? x.magic.dc : null;
+    const left = k === 'wand' ? `${x.uses} charge${x.uses === 1 ? '' : 's'} left` : `${x.qty} left`;
+    const r = resolveCast(x.cast, x.magic.cl, dc, `${MAG.KINDS[k].label} · CL ${x.magic.cl}${dc !== null ? ' · DC ' + dc : ''} · ${left}`);
+    changed(true);
+    emit({ title: `${who()} uses ${x.name}`, total: r.total, kind: r.total === null ? 'info' : undefined, lines: r.lines, crit: r.crit, fumble: r.fumble }, priv);
   }
   // A magic item that isn't worn: the SRD lists it as slotless, or its name says so (wands, staves, potions...)
   // ("Scroll case", "Flask of oil" and a plain "Quarterstaff" stay in the inventory)
@@ -2154,6 +2254,23 @@
     if (el.id === 'add-condition' && el.value) { App.ch.conditions.push(el.value); changed(true); return; }
     if (el.id === 'feat-type-filter') { App.featType = el.value || ''; render(); return; }
     if (el.classList && el.classList.contains('mythic-add') && el.value) { addMythicAbility(el.value); return; }
+    if (el.classList && el.classList.contains('ability-add') && el.value) {
+      const list = get(el.dataset.path);
+      const arr = Array.isArray(list) ? list : [];
+      if (!arr.some(x => x.toLowerCase() === el.value.toLowerCase())) arr.push(el.value);
+      pathSet(App.ch, el.dataset.path, arr);
+      changed(true);
+      return;
+    }
+    {
+      // A weapon or armor named with its abilities ("+1 keen flaming longsword") picks them, when none are picked yet
+      const wm = /^weapons\/(\d+)\/name$/.exec(el.dataset ? el.dataset.bind || '' : ''), am = /^(armor|shield)\/name$/.exec(el.dataset ? el.dataset.bind || '' : '');
+      const it = wm ? App.ch.weapons[+wm[1]] : am ? App.ch[am[1]] : null;
+      if (it && window.PF_MAGIC && !(it.abilities || []).length) {
+        const found = window.PF_MAGIC.abilitiesInName(el.value, !!am);
+        if (found.length) { it.abilities = found; setTimeout(() => changed(true), 0); }
+      }
+    }
     if (el.classList && el.classList.contains('lay-split')) {
       const r = +el.dataset.r, split = LAYOUT_SPLITS[el.value] ? el.value : 'full', n = splitCols(split);
       layoutChange(lay => {
@@ -2320,6 +2437,21 @@
           emit({ title: `${who()}: Surge (+${dm.surge})`, total: r.total, lines: [r.text, `Add to the d20 roll · mythic power ${dm.powerLeft - 1} / ${dm.powerMax} left`] }, priv);
         } catch (e) { toast(e.message); }
       },
+      'ability-remove': () => {
+        const list = get(el.dataset.path);
+        if (Array.isArray(list)) pathSet(App.ch, el.dataset.path, list.filter(x => x !== el.dataset.name));
+        changed(true);
+      },
+      'make-item': () => {
+        const v = id => (document.getElementById(id) || {}).value || '';
+        if (!v('mk-spell').trim()) { toast('Type the spell first.'); return; }
+        makeMagicItem(v('mk-kind') || 'wand', v('mk-spell').trim(), v('mk-sl').trim(), v('mk-cl').trim(), null);
+      },
+      'setup-item': () => {
+        const x = App.ch.miscItems[+el.dataset.i], p = x && window.PF_MAGIC.parseItemName(x.name);
+        if (p) makeMagicItem(p.kind, p.spell, '', p.cl ? String(p.cl) : '', x);
+      },
+      'use-item': () => useMagicItem(+el.dataset.i, priv),
       'lay-edit': () => { App.layoutEdit = !App.layoutEdit; render(); },
       'lay-reset': () => { App.ch.settings.playLayout = null; changed(true); toast('Play tab layout reset.'); },
       'lay-move': () => layMove(el.dataset.card, +el.dataset.d),
@@ -2617,14 +2749,22 @@
   function rollAttack(i, mode, priv) {
     const w = App.ch.weapons[i], d = App.d.weapons[i];
     if (!d || !d.valid) { toast('Pick an attack type and formula for this weapon first.'); return; }
-    const low = DICE.critLow(w.crit), mult = DICE.critMult(w.mult);
+    const low = DICE.critLow(d.crit || w.crit), mult = DICE.critMult(w.mult);
     const name = w.name || 'Attack';
     const hasDmg = d.damageBonus !== null || !!d.damageOverride;
-    const rollDmg = (m) => d.damageOverride ? overrideDamage(d.damageOverride, m) : DICE.damage(w.dice, d.damageBonus, m);
+    const base = (m) => d.damageOverride ? overrideDamage(d.damageOverride, m) : DICE.damage(w.dice, d.damageBonus, m);
+    // Magic: flaming and the like add their dice to every hit (not multiplied); bursts add theirs on a crit
+    const extraRoll = list => list.map(x => { const r = DICE.rollExpr(x.dice); return { t: r.total, text: `${r.total} ${x.type || x.from}` }; });
+    const rollDmg = (m) => {
+      const b = base(m), ex = extraRoll(d.extra || []);
+      if (m > 1) (d.critExtra || []).forEach(x => { const dice = x.by[Math.min(4, m)] || x.by[2]; const r = DICE.rollExpr(dice); ex.push({ t: r.total, text: `${r.total} ${x.type} (${x.from})` }); });
+      return { total: b.total + ex.reduce((t, x) => t + x.t, 0), text: [b.text].concat(ex.map(x => x.text)).join(' + ') };
+    };
+    const vsText = () => (d.vs || []).map(x => { const r = DICE.rollExpr(x.dice); return ` · vs ${x.foe}: +${r.total}${x.type ? ' ' + x.type : ''}`; }).join('');
     if (mode === 'damage') {
       if (!hasDmg) { toast('This attack has no damage formula.'); return; }
       const dm = rollDmg(1);
-      emit({ title: `${who()}: ${name} damage`, total: dm.total, lines: [dm.text + (w.type ? ` (${w.type})` : '')] }, priv);
+      emit({ title: `${who()}: ${name} damage`, total: dm.total, lines: [dm.text + (w.type ? ` (${w.type})` : '') + vsText()] }, priv);
       return;
     }
     const bonuses = mode === 'single' ? d.attacks.slice(0, 1) : d.attacks;
@@ -2649,10 +2789,12 @@
           const crit = rollDmg(mult);
           line += ` · if confirmed: **${crit.total}** (x${mult}: ${crit.text})`;
         }
+        line += vsText();
       }
       lines.push(line);
     });
     if (w.type) lines.push(`Damage type: ${w.type}`);
+    (d.vs || []).filter(x => x.atk).forEach(x => lines.push(`${x.from}: +${x.atk} to hit vs ${x.foe} (not included above)`));
     emit({ title: `${who()}: ${name}${mode === 'full' && bonuses.length > 1 ? ' (full attack)' : ''}`, total: null, lines, crit: anyCrit, fumble: anyFumble && !anyCrit }, priv);
   }
   function overrideDamage(expr, times) {
@@ -2966,7 +3108,7 @@
   function srdDatalists(tab) {
     if (!SRD) return;
     const want = {
-      features: [['srd-worn', ['items'], x => x.slot && x.slot !== 'none'], ['srd-gear', ['gear', 'weapons', 'armor', 'items']], ['srd-misc', ['items'], x => !x.slot || /^none/i.test(x.slot)]],
+      features: [['srd-worn', ['items'], x => x.slot && x.slot !== 'none'], ['srd-gear', ['gear', 'weapons', 'armor', 'items']], ['srd-misc', ['items'], x => !x.slot || /^none/i.test(x.slot)], ['srd-spells', ['spells']]],
       feats: [['srd-feats', ['feats']]].concat(App.featType ? [[featListId(), ['feats'], x => String(x.t || '').split(/,\s*/).includes(App.featType)]] : []),
       character: [['srd-traits', ['traits']]],
       overview: [['srd-traits', ['traits']]],
@@ -3009,7 +3151,8 @@
     // Companion gear: description, slot and usual bonuses
     { re: /^companions\/\d+\/gear\/\d+\/item$/, kinds: ['items'], fill: (o, it, f) => f('text', it.d) + f('slot', wornSlotOf(it.n)) + standardBonuses(o, 'item', o.item) },
     { re: /^inventory\/\d+\/name$/, kinds: ['gear', 'weapons', 'armor', 'items'], fill: (o, it, f) => f('weight', it.w || 0) + f('value', SRD.priceOf(it, o.name)) },
-    { re: /^weapons\/\d+\/name$/, kinds: ['weapons'], fill: fillWeapon },
+    // "+1 keen flaming longsword": the longsword, without the enhancement and magic abilities
+    { re: /^weapons\/\d+\/name$/, kinds: ['weapons'], lookup: name => SRD.find('weapons', name) || (window.PF_MAGIC ? SRD.find('weapons', window.PF_MAGIC.baseWeaponName(name)) : null), fill: fillWeapon },
     { re: /^(spellcasting\/levels\/\d+\/spells|spellcasting\/sla\/\d+\/items|companions\/\d+\/spells)\/\d+\/name$/, kinds: ['spells'], fill: fillSpell },
     // Companion species: animal companion statistics (Core Rulebook, APG, Bestiaries) or a Bestiary stat block
     { re: /^companions\/\d+\/species$/, kinds: ['companions', 'monsters'], lookup: creatureLookup, fill: fillSpecies },
@@ -3590,7 +3733,7 @@
   // ---------- Boot ----------
   // Every script defines one of these. One can go missing when the browser mixes cached old files with new
   // ones right after an update; a hard reload fixes it.
-  const PARTS = { PF_DATA: 'data.js', PF_3PP: 'classes-3pp.js', PF_ATTACK_GROUP: 'attacks-extra.js', PF_MODEL: 'model.js', PF_RACES: 'races.js', PF_COMPANION: 'companion.js',
+  const PARTS = { PF_DATA: 'data.js', PF_3PP: 'classes-3pp.js', PF_ATTACK_GROUP: 'attacks-extra.js', PF_MAGIC: 'magic.js', PF_MODEL: 'model.js', PF_RACES: 'races.js', PF_COMPANION: 'companion.js',
     PF_FEATS: 'feats.js', PF_ENGINE: 'engine.js', PF_HEROLAB: 'herolab.js', PF_IMPORT: 'import.js', PF_DICE: 'dice.js', PF_DISCORD: 'discord.js', PF_SRD: 'srd.js' };
   function missingParts() { return Object.keys(PARTS).filter(k => !window[k]).map(k => PARTS[k]); }
   function boot() {

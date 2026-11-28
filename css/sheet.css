@@ -340,6 +340,16 @@ label.choice input { margin-top: 3px; accent-color: var(--accent); }
 .spell-names { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 .spell-btn { font-weight: 500; }
 .spell-chip { display: inline-flex; align-items: center; gap: 1px; }
+/* Magic abilities on weapons and armor (Combat tab), and the wand/scroll/potion maker (Gear tab) */
+.magic-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.magic-chip { gap: 4px; cursor: default; }
+.magic-chip .sub { color: inherit; opacity: .8; }
+.chip-x { border: 0; background: none; cursor: pointer; color: inherit; padding: 0 0 0 2px; font-size: 11px; line-height: 1; opacity: .7; }
+.chip-x:hover { opacity: 1; }
+tr.magic-tr td { text-align: left; padding-top: 0; }
+.item-maker { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; margin-bottom: 8px; border: 1px dashed var(--line-strong); border-radius: 8px; }
+.item-maker > strong { flex-basis: 100%; }
+.item-cast > summary { cursor: pointer; margin: 2px 0 6px; }
 .spell-chip .star-btn { font-size: 14px; padding: 0 1px; }
 .spell-chip.fav .spell-btn { background: color-mix(in srgb, #d4a017 16%, transparent); border-color: #d4a017; font-weight: 600; }
 .play-res { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; border-top: 1px solid var(--line); }

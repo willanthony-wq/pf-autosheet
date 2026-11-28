@@ -206,6 +206,7 @@
       shield: { name: '', item: '', material: '', enh: 0, mSkill: 0, mDex: 0, weight: '' },
       inventory: [],            // { name, qty, weight (each), value (gp each), carried, notes }
       miscItems: [],            // magic items that aren't worn: { name, qty, uses, max, weight, value, carried, text, bonuses }
+                                // (a wand, scroll or potion also has magic: { kind, spell, sl, cl, dc } and cast: its spell setup)
       money: { pp: 0, gp: 0, sp: 0, cp: 0 },
       carry: { strBonus: 0, mult: '', quadruped: false, coins: true },   // Muleback Cords: strBonus 8; Ant Haul: mult 3
       armorNotes: '',
@@ -251,6 +252,10 @@
     while (ch.classes.length < 3) ch.classes.push({ name: '', level: 0 });
     // Schema 1 always kept six weapon slots (like the spreadsheet). Drop the empty ones once.
     if ((ch.schema || 1) < 2) { ch.weapons = ch.weapons.filter(w => !isBlankWeapon(w)); ch.schema = 2; }
+    // Magic abilities named in a weapon's or armor's name ("+1 keen flaming longsword") are picked once
+    const MAG = window.PF_MAGIC;
+    for (const w of ch.weapons) if (!Array.isArray(w.abilities)) w.abilities = MAG ? MAG.abilitiesInName(w.name) : [];
+    for (const k of ['armor', 'shield']) if (ch[k] && !Array.isArray(ch[k].abilities)) ch[k].abilities = MAG ? MAG.abilitiesInName(ch[k].name, true) : [];
     togglesToEffects(ch);
     ch.effects.forEach(e => { if (!e.id) e.id = uid(); if (!e.v) e.v = {}; });
     migrateLegacyTypes(ch);

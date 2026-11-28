@@ -240,5 +240,5 @@
     return mythicP;
   }
 
-  window.PF_SRD = { mythic, mythicData: () => mythicJson, setDisabled, enabled, spellLevel, hasSpellList, classKey, list, CUSTOM, USE_SRD, KINDS, load, ensure, narrow, archetypesFor, archetype, choicesFor, choice, find, findAny, priceOf, enhOf, datalist, classFeatures, classFeatureText, key, loaded: k => !!cache[k] };
+  window.PF_SRD = { spellLevels, mythic, mythicData: () => mythicJson, setDisabled, enabled, spellLevel, hasSpellList, classKey, list, CUSTOM, USE_SRD, KINDS, load, ensure, narrow, archetypesFor, archetype, choicesFor, choice, find, findAny, priceOf, enhOf, datalist, classFeatures, classFeatureText, key, loaded: k => !!cache[k] };
 })();
