@@ -9,7 +9,7 @@ const input = fs.readFileSync(inFile, 'utf8').split('\n').filter(Boolean).map(l 
 if (!Array.isArray(out)) { console.log('ERROR output must be a JSON array'); process.exit(1); }
 if (out.length !== input.length) errors.push(`expected ${input.length} entries, got ${out.length}`);
 const TARGETS = new Set('str dex con int wis cha skill skills saves fort ref will ac nat cmd hp init atk mAtk rAtk dmg mDmg rDmg cmb cl speed note'.split(' '));
-const TYPES = new Set(['Alchemical', 'Armor', 'Circumstance (stacks)', 'Competence', 'Deflection', 'Dodge (stacks)', 'Enhancement', 'Insight', 'Luck', 'Morale', 'Precision Damage', 'Racial', 'Resistance', 'Sacred / Profane', 'Size', 'Trait', 'Untyped (stacks)']);
+const TYPES = new Set(['Alchemical', 'Armor', 'Circumstance (stacks)', 'Competence', 'Deflection', 'Dodge (stacks)', 'Enhancement', 'Insight', 'Luck', 'Morale', 'Precision Damage', 'Racial', 'Resistance', 'Sacred / Profane', 'Size', 'Trait', 'Untyped (stacks)', 'Inherent', 'Natural Armor', 'Shield']);
 const SKILLS = new Set(['Acrobatics', 'Appraise', 'Bluff', 'Climb', 'Diplomacy', 'Disable Device', 'Disguise', 'Escape Artist', 'Fly', 'Handle Animal', 'Heal', 'Intimidate', 'Kn. Arcana', 'Kn. Dungeoneering', 'Kn. Engineering', 'Kn. Geography', 'Kn. History', 'Kn. Local', 'Kn. Nature', 'Kn. Nobility', 'Kn. Planes', 'Kn. Religion', 'Linguistics', 'Perception', 'Ride', 'Sense Motive', 'Sleight of Hand', 'Spellcraft', 'Stealth', 'Survival', 'Swim', 'Use Magic Device']);
 const BASE = new Set(['cls', 'level', 'bab', 'cl', 'tier', 'str', 'dex', 'con', 'int', 'wis', 'cha', 'max', 'min', 'floor', 'ceil', 'abs']);
 function formula(f, where) {

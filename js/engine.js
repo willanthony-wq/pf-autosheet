@@ -471,9 +471,11 @@
       const ab = ch.abilities[a];
       // Enhancement from effects doesn't stack with the Enhance column; only the excess counts.
       const fx = posNeg(rows, a, ENH);
-      const others = stack(rows, a, t => t !== ENH);
+      // An Inherent bonus doesn't stack with the Inherent column: only the excess counts
+      const inhFx = posNeg(rows, a, 'Inherent');
+      const others = stack(rows, a, t => t !== ENH && t !== 'Inherent');
       const enh = n(ab.enh);
-      const temp = Math.max(0, fx.pos - enh) + fx.neg + others;
+      const temp = Math.max(0, fx.pos - enh) + fx.neg + Math.max(0, inhFx.pos - n(ab.inh)) + inhFx.neg + others;
       const age = AGE.mods[a][ageIdx];
       const r = ch.race || {};
       const race = n(r.abilityMods && r.abilityMods[a]) + (r.flex && r.flexAbility === a ? 2 : 0);
@@ -570,7 +572,9 @@
     const enhFx = posNeg(rows, 'ac', ENH);
     const worn = d.armor.armor.base + Math.max(d.armor.armor.enh, enhFx.pos);
     const armor = Math.max(worn, armorFx.pos) + armorFx.neg + enhFx.neg;
-    const shield = d.armor.shield.ac;
+    // A Shield-type bonus (shield of faith is deflection; this is the shield spell, shield ally...) replaces the shield's if higher
+    const shieldFx = posNeg(rows, 'ac', 'Shield');
+    const shield = Math.max(d.armor.shield.ac, shieldFx.pos) + shieldFx.neg;
     let dex = d.armor.maxDex === null ? m.dex : Math.min(m.dex, d.armor.maxDex);
     if (d.loseDex) dex = Math.min(0, dex);
     const size = d.size.atk;
@@ -578,7 +582,7 @@
     const deflect = stack(rows, 'ac', t => t === DEFL);
     const dodgeRaw = stack(rows, 'ac', t => t === 'Dodge (stacks)');
     const dodge = d.loseDex ? Math.min(0, dodgeRaw) : dodgeRaw;
-    const temp = stack(rows, 'ac', t => t !== 'Armor' && t !== ENH && t !== DEFL && t !== 'Dodge (stacks)');
+    const temp = stack(rows, 'ac', t => t !== 'Armor' && t !== 'Shield' && t !== ENH && t !== DEFL && t !== 'Dodge (stacks)');
     const misc = n(ch.ac.misc);
     d.ac = {
       parts: { armor, shield, dex, size, natural, deflect, dodge, misc, temp },

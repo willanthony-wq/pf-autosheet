@@ -196,7 +196,7 @@
   // and for feats, traits and class features that have no hand-made entry above.
   const TYPE_WORDS = { alchemical: 'Alchemical', circumstance: 'Circumstance (stacks)', competence: 'Competence', deflection: 'Deflection', dodge: 'Dodge (stacks)',
     enhancement: 'Enhancement', insight: 'Insight', luck: 'Luck', morale: 'Morale', racial: 'Racial', resistance: 'Resistance', sacred: 'Sacred / Profane',
-    profane: 'Sacred / Profane', trait: 'Trait', untyped: U, shield: U, armor: 'Armor', size: 'Size' };
+    profane: 'Sacred / Profane', trait: 'Trait', untyped: U, shield: 'Shield', inherent: 'Inherent', armor: 'Armor', size: 'Size' };
   const TARGET_RES = [
     [/^melee attack (?:rolls )?and (?:weapon )?damage/, ['mAtk', 'mDmg']], [/^ranged attack (?:rolls )?and (?:weapon )?damage/, ['rAtk', 'rDmg']],
     [/^attack (?:rolls )?and (?:weapon )?damage/, ['atk', 'dmg']], [/^melee attack/, ['mAtk']], [/^ranged attack/, ['rAtk']], [/^attack rolls?/, ['atk']],

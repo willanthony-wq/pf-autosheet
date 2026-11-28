@@ -639,7 +639,7 @@
     for (const w of want) {
       const have = my.abilities.find(x => x.src === w.src);
       if (have) { if (have.name === have.srcName && have.name !== w.name) { have.name = w.name; have.srcName = w.name; added++; } continue; }
-      my.abilities.push({ name: w.name, text: w.text, bonuses: [], src: w.src, srcName: w.name, srcHash: textHash(w.text) });
+      my.abilities.push({ name: w.name, text: w.text, bonuses: mythicRuleBonuses(w.name), src: w.src, srcName: w.name, srcHash: textHash(w.text) });
       added++;
     }
     my.abilities = my.abilities.filter(x => {
@@ -659,7 +659,7 @@
     const list = grp === 'Universal' ? data.universal : path ? path.abilities : [];
     const a = list.find(x => x.n === name);
     if (!a) return;
-    App.ch.mythic.abilities.push({ name: a.n, text: a.d, bonuses: [], src: `path:${a.n}` });
+    App.ch.mythic.abilities.push({ name: a.n, text: a.d, bonuses: mythicRuleBonuses(a.n), src: `path:${a.n}` });
     changed(true);
   }
   // ----- Feat types and prerequisites, trait categories (from the SRD data)
@@ -1078,6 +1078,12 @@
   }
   // ----- Rules for a feature (js/rules.js): uses counter, what Use rolls, uses of another ability it spends, switch-on bonuses
   const lcs = s => String(s || '').toLowerCase().trim();
+  const featList = list => (list === 'mythic' ? App.ch.mythic.abilities : App.ch[list] || []);
+  // The rules' bonuses for a mythic ability you add: always-on ones on, switch-on ones off
+  function mythicRuleBonuses(name) {
+    const e = window.PF_RULES && window.PF_RULES.loaded() ? window.PF_RULES.find({ name, kind: 'mythic' }) : null;
+    return e ? (e.r.bonuses || []).filter(b => b.target !== 'note').map(b => Object.assign({ label: '', skill: '', weapon: '', text: '' }, b, { value: typeof b.value === 'string' ? b.value.replace(/\bcls\b/g, 'tier') : b.value, active: !b.situational })) : [];
+  }
   function charClassSlugs() { return App.d.classes.filter(c => c.name && c.level).map(c => E.classSlug(c.name)); }
   function ruleFor(f, list) {
     const R = window.PF_RULES;
@@ -1086,6 +1092,7 @@
     const q = { name, classes: charClassSlugs(), archetypes: App.ch.classes.flatMap(c => c.archetypes || []) };
     const parts = String(f.src || '').split(':');
     if (list === 'feats') q.kind = 'feat';
+    else if (list === 'mythic') q.kind = 'mythic';
     else if (list === 'racialFeatures') { q.kind = 'race'; q.owner = App.ch.info.race; }
     else if (parts[0] === 'class') { q.kind = 'class'; q.owner = parts[1]; q.cls = E.classSlug(parts[1]); }
     else if (parts[0] === 'arch') { q.kind = 'archetype'; q.owner = parts[1]; }
@@ -1290,8 +1297,19 @@
     const rows = my.abilities.map((x, i) => ({ x, i })).filter(({ x }) => x.name && !/^base:(Mythic Power|Surge)$/.test(x.src || '') && !/^(mythic power|surge)\b/i.test(x.name));
     const list = rows.map(({ x, i }) => {
       const cost = mythicCost(x), short = shortRules(x.text);
-      return `<div class="play-res"><span class="res-name"${short ? ` title="${esc(short)}"` : ''}>${esc(x.name)}${cost ? ` <span class="sub">${cost} power</span>` : ''}</span>
-        <button class="btn small${cost ? '' : ' ghost'}" data-action="mythic-use" data-i="${i}"${cost > left ? ' disabled' : ''} title="${cost ? `Spend ${cost} mythic power and post what it does` : 'Post what it does'} (Shift-click: private)">${cost ? 'Use' : 'Show'}</button></div>`;
+      // From the rules: a uses counter (divine source...), dice or a DC for Use, and switch-on bonuses (one switch per option)
+      const rr = ruleFor(x, 'mythic');
+      const max = rr && rr.r.uses ? ruleMax(rr) : null, ul = max !== null ? Math.max(0, max - ruleUsed(rr)) : null;
+      const counter = max !== null ? `<span class="counter"><button class="btn small" data-action="fu-bump" data-uid="${esc(rr.uid)}" data-max="${max}" data-d="1" aria-label="Use one">−</button><strong>${ul}</strong><span class="muted">/ ${max}</span><button class="btn small" data-action="fu-bump" data-uid="${esc(rr.uid)}" data-max="${max}" data-d="-1" aria-label="Get one back">+</button></span>` : '';
+      const groups = new Map();
+      (x.bonuses || []).forEach((b, j) => { if (b && b.situational && b.target !== 'note') { const k = String(b.text || '').trim(); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(j); } });
+      const ruleGroups = !groups.size && rr ? [...new Set((rr.r.bonuses || []).filter(b => b.situational && b.target !== 'note').map(b => String(b.text || '').trim()))] : [];
+      const lab = (k, many, on) => (many ? (k.length > 26 ? k.slice(0, 24) + '…' : k || 'on') : (on ? 'on' : 'off'));
+      const sw = groups.size ? [...groups].map(([k, js]) => { const on = js.some(j => x.bonuses[j].active !== false); return `<button class="chip sit${on ? ' on' : ''}" data-action="toggle-situational" data-paths="${esc(js.map(j => `mythic/abilities/${i}/bonuses/${j}`).join('|'))}" aria-pressed="${on}" title="${esc(k || 'Switch its bonus on while it applies')}">${esc(lab(k, groups.size > 1, on))}</button>`; }).join('')
+        : ruleGroups.map((k, gi) => `<button class="chip sit" data-action="rule-switch" data-list="mythic" data-i="${i}" data-group="${gi}" title="${esc(k || 'Switch its bonus on while it applies')}">${esc(lab(k, ruleGroups.length > 1, false))}</button>`).join('');
+      const useIt = cost || max !== null || (rr && (rr.r.roll || rr.r.dc !== undefined));
+      return `<div class="play-res play-feat"><span class="res-name"${short ? ` title="${esc(short)}"` : ''}>${esc(x.name)}${cost ? ` <span class="sub">${cost} power</span>` : ''}</span>
+        <span class="inline sw-row">${sw}${counter}<button class="btn small${useIt ? '' : ' ghost'}" data-action="mythic-use" data-i="${i}"${cost > left || ul === 0 ? ' disabled' : ''} title="${cost ? `Spend ${cost} mythic power and post what it does` : 'Post what it does'} (Shift-click: private)">${useIt ? 'Use' : 'Show'}</button></span></div>`;
     }).join('');
     return card(`Mythic · ${my.path || 'Mythic'} ${dm.tier}`, `<div class="inline"><span class="small">Mythic power <strong>${left}</strong> / ${n}</span>${pips}</div>
       <div class="inline" style="margin:6px 0 4px"><button class="btn small primary" data-action="mythic-surge"${left < 1 ? ' disabled' : ''} title="Spend 1 mythic power and roll your surge die, to add to a d20 roll you just made (Shift-click: private)">Surge +${esc(dm.surge)}</button>
@@ -2835,7 +2853,7 @@
       },
       'rule-switch': () => {
         // Adds all of the rules' switch-on bonuses to the feature (off), then switches on the option clicked
-        const list = el.dataset.list, f = (App.ch[list] || [])[+el.dataset.i], rr = f && ruleFor(f, list);
+        const list = el.dataset.list, f = featList(list)[+el.dataset.i], rr = f && ruleFor(f, list);
         if (!rr) return;
         const sit = (rr.r.bonuses || []).filter(b => b.situational && b.target !== 'note');
         const keys = [...new Set(sit.map(b => String(b.text || '').trim()))], want = keys[+el.dataset.group || 0];
@@ -2856,9 +2874,19 @@
         if (!x || !dm) return;
         const cost = mythicCost(x);
         if (cost > dm.powerLeft) { toast(`${x.name} needs ${cost} mythic power; you have ${dm.powerLeft}.`); return; }
-        if (cost) { App.ch.mythic.powerUsed = (+App.ch.mythic.powerUsed || 0) + cost; changed(true); }
-        emit({ title: `${who()} uses ${x.name}`, total: null, kind: 'info',
-          lines: [shortRules(x.text), cost ? `Spent ${cost} mythic power · ${dm.powerLeft - cost} / ${dm.powerMax} left` : ''].filter(Boolean) }, priv);
+        // The rules' own daily uses, dice and DC
+        const rr = ruleFor(x, 'mythic');
+        let usesLine = '';
+        if (rr && rr.r.uses) { const max = ruleMax(rr), ul = max === null ? null : Math.max(0, max - ruleUsed(rr)); if (ul !== null) { if (ul <= 0) { toast(`${x.name}: none left today.`); return; } ruleSpend(rr, 1); usesLine = `${ul - 1} / ${max} left today`; } }
+        if (cost) App.ch.mythic.powerUsed = (+App.ch.mythic.powerUsed || 0) + cost;
+        if (cost || usesLine) changed(true);
+        let total = null; const lines = [];
+        const ro = rr && rr.r.roll;
+        if (ro) { const n = ruleEval(ro.count, rr.cls), b = ro.bonus !== undefined ? ruleEval(ro.bonus, rr.cls) : 0; if (n > 0) { try { const r = DICE.rollExpr(`${Math.floor(n)}d${ro.die}${b ? (b > 0 ? '+' : '') + Math.floor(b) : ''}`); total = r.total; lines.push(`**${r.total}** (${r.text})${ro.label ? ' ' + ro.label : ''}`); } catch (e2) { /* not dice */ } } }
+        const dcx = rr && (ro && ro.dc !== undefined ? ro.dc : rr.r.dc);
+        if (dcx !== undefined && dcx !== null) { const v = ruleEval(dcx, rr.cls); if (v !== null) lines.push(`DC ${Math.floor(v)}`); }
+        emit({ title: `${who()} uses ${x.name}`, total, kind: total === null ? 'info' : undefined,
+          lines: lines.concat([shortRules(x.text), cost ? `Spent ${cost} mythic power · ${dm.powerLeft - cost} / ${dm.powerMax} left` : '', usesLine]).filter(Boolean) }, priv);
       },
       'mythic-sync': () => syncMythic(false),
       'bump': () => { const p = el.dataset.path; const v = (parseFloat(get(p)) || 0) + (+el.dataset.d); pathSet(App.ch, p, Math.max(0, v)); changed(true); },

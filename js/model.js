@@ -40,8 +40,11 @@
     { key: 'skills', label: 'All', group: 'Skills', title: 'Bonus to all skill checks' },
   ];
 
+  // Natural Armor: bonuses to natural armor don't stack with each other (an enhancement to natural armor does);
+  // Shield: the higher of the shield you carry and a shield bonus counts; Inherent: the higher of the ability's inherent
+  // column and an inherent bonus counts
   const BONUS_TYPES = ['Alchemical', 'Armor', 'Circumstance (stacks)', 'Competence', 'Deflection', 'Dodge (stacks)', 'Enhancement',
-    'Insight', 'Luck', 'Morale', 'Precision Damage', 'Racial', 'Resistance', 'Sacred / Profane', 'Size', 'Trait', 'Untyped (stacks)'];
+    'Inherent', 'Insight', 'Luck', 'Morale', 'Natural Armor', 'Precision Damage', 'Racial', 'Resistance', 'Sacred / Profane', 'Shield', 'Size', 'Trait', 'Untyped (stacks)'];
 
   // What a bonus on a race, trait, feat or class feature can apply to.
   const BONUS_TARGETS = [
