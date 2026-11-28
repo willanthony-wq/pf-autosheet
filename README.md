@@ -168,7 +168,7 @@ Not ported:
 | `js/discord.js` | Webhook posting |
 | `js/srd.js` | Loads the rules data and looks up names for autofill |
 | `js/app.js` | Interface, saving, rolling |
-| `data/srd/*.json` | Rules data for autofill, generated from the Pathfinder Reference Document (`monsters.json` and `companions.json` are creatures for the Companion tab; `mythic.json` has the mythic paths and abilities) |
+| `data/srd/*.json` | Rules data for autofill, with every description in full (features, archetype abilities, class choices, feats, traits and magic items show their whole rules text; texts saved earlier with a shortened "…" ending are completed automatically when they start with the same words, and text you edited is left alone), generated from the Pathfinder Reference Document (`monsters.json` and `companions.json` are creatures for the Companion tab; `mythic.json` has the mythic paths and abilities) |
 | `data/3pp/*.json` | Third-party rules data loaded with the SRD: Machinesmith features, greatworks, tricks, archetypes and prototypes |
 | `OGL.txt` | Open Game License for the rules data |
 | `tools/extract.py` | Regenerates `js/data.js` from an Autosheet `.xlsx` |

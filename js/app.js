@@ -222,6 +222,7 @@
     const fn = { play: renderPlay, character: renderOverview, overview: renderOverview, race: renderRace, skills: renderSkills, combat: renderCombat, companion: renderCompanion, spells: renderSpells, effects: renderEffects,
       features: renderFeatures, feats: renderFeats, notes: renderNotes, settings: renderSettings }[App.tab] || renderOverview;
     const wnames = App.ch.weapons.map(w => w.name).concat(...(App.ch.companions || []).map(c => (c.attacks || []).map(a => a.name))).filter(Boolean);
+    upgradeCutTexts();
     const focusBind = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.bind : null;
     main.innerHTML = fn() + `<datalist id="srd-off"><option value="${esc(window.PF_SRD ? window.PF_SRD.USE_SRD : '')}" label="Switch SRD suggestions and autofill back on"></datalist><datalist id="weapon-names">${[...new Set(wnames)].map(w => `<option value="${esc(w)}">`).join('')}</datalist>`;
     updateOutputs();
@@ -1148,6 +1149,42 @@
       const keys = [baseName(f.name), m ? m[1].toLowerCase() : ''].filter(k => k.length >= 4);
       if (effs.some(eb => keys.some(k => eb === k || k.startsWith(eb + ' ') || eb.startsWith(k + ' ')))) f.bonuses = f.bonuses.filter(b => !b.situational);
     }
+  }
+  // ----- Full rules text: descriptions saved before the rules data kept them whole end in "…". The full text replaces one
+  // only when it starts with exactly the same words, so text you edited is never touched.
+  function fullerText(old, full) {
+    const o = String(old || ''), f = String(full || '');
+    if (!o.endsWith('…') || f.length <= o.length) return null;
+    return f.startsWith(o.slice(0, -1).trimEnd()) ? f : null;
+  }
+  function fullerInto(x, full) {
+    const f = fullerText(x.text, full);
+    if (!f) return false;
+    const was = x.srcHash !== undefined && x.srcHash === textHash(x.text);
+    x.text = f;
+    if (was) x.srcHash = textHash(f);
+    return true;
+  }
+  // Feats, traits and magic items: look the name up in the rules data that's loaded and try each of its texts
+  function upgradeCutTexts() {
+    const ch = App.ch;
+    if (!SRD || !ch) return;
+    let n = 0;
+    const tryFrom = (x, kind, name, field = 'text', prefix = '') => {
+      if (!String(x[field] || '').endsWith('…') || !SRD.loaded(kind)) return;
+      const it = SRD.find(kind, name);
+      if (!it) return;
+      for (const v of Object.values(it)) {
+        if (typeof v !== 'string') continue;
+        const f = fullerText(String(x[field]).slice(prefix.length), v);
+        if (f) { x[field] = prefix + f; n++; return; }
+      }
+    };
+    ch.feats.forEach(f => tryFrom(f, 'feats', f.name));
+    ch.traits.forEach(t => { const m = /^([^:]+):\s*/.exec(t.text || ''); if (m) tryFrom(t, 'traits', m[1], 'text', m[0]); });
+    (ch.slots || []).forEach(s => tryFrom(s, 'items', s.item));
+    (ch.miscItems || []).forEach(x => tryFrom(x, 'items', x.name));
+    if (n) scheduleSave();
   }
   // Hero Lab's placeholder for an unchosen option: "Vindicator's Sacred Shield +7 (- Custom / magic armor -)"
   const featureLabel = n => String(n || '').replace(/\s*\(-[^)]*-\)/g, '').trim();
@@ -3786,6 +3823,7 @@
         wanted.add(src);
         const have = list.find(x => x.src === src) || list.find(x => !x.src && featureKey(x.name) === k) || (opts.adopt ? list.find(x => !x.src && sameFeature(featureKey(x.name), k)) : null);
         if (have) {
+          fullerInto(have, feat.text);
           if (have.src === src && have.name.toLowerCase() !== feat.name.toLowerCase() && /\d/.test(feat.name)) { have.name = cap(feat.name); res.updated++; }
           if (!have.src) {
             have.src = src;
@@ -3799,7 +3837,8 @@
       }
       const add = (name, text, src) => {
         wanted.add(src);
-        if (list.some(x => x.src === src)) return;
+        const had = list.find(x => x.src === src);
+        if (had) { fullerInto(had, text); return; }
         // A feature you typed yourself with the same name (e.g. from a spreadsheet): tag it instead of adding a copy
         const mine = list.find(x => !x.src && featureKey(x.name) === featureKey(name));
         if (mine) { mine.src = src; if (!String(mine.text || '').trim()) mine.text = text; return; }

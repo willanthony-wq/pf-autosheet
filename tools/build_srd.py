@@ -26,7 +26,7 @@ os.makedirs(OUT, exist_ok=True)
 
 
 def text(h, limit=None):
-    """HTML -> plain text."""
+    """HTML -> plain text. `limit` is no longer used: descriptions are kept whole (the sheet shows the full rules text)."""
     if not h:
         return ''
     t = re.sub(r'<br\s*/?>|</p>|</li>|</tr>', '\n', h)
@@ -34,8 +34,6 @@ def text(h, limit=None):
     t = html.unescape(t).replace('\xa0', ' ')
     t = re.sub(r'[ \t]+', ' ', t)
     t = re.sub(r'\n\s*\n+', '\n', t).strip()
-    if limit and len(t) > limit:
-        t = t[:limit].rsplit(' ', 1)[0] + '…'
     return t
 
 
