@@ -207,7 +207,9 @@
     const r = rest.replace(/^knowledge \((\w+)\)/, 'kn. $1');
     return allSkillNames().sort((a, b) => b.length - a.length).find(s => r.startsWith(s.toLowerCase()) && !/^\w/.test(r.slice(s.length))) || '';
   }
-  function detect(text, defType, label) {
+  // picks: skills chosen in the name ("Vagabond Child (urban, Sleight of Hand)"), for "a +1 trait bonus on that skill"
+  function detect(text, defType, label, picks) {
+    picks = picks || [];
     const out = [];
     const src = String(text || '');
     // One clause at a time, so the reminder text is the sentence the number came from
@@ -224,11 +226,17 @@
         rest = rest.replace(/knowledge \((\w+)\)/g, 'kn. $1');
         let targets = null, skills = [], after = '';
         for (const [r, t] of TARGET_RES) { const hit = rest.match(r); if (hit) { targets = t; after = rest.slice(hit[0].length); break; } }
+        // "on that skill" / "the chosen skill": the skill picked in the name
+        const that = !targets && picks.length && rest.match(/^(?:that|this|the chosen|the selected) skill(?:\s+checks?)?/);
+        if (that) { targets = ['skill']; skills = [picks[0]]; after = rest.slice(that[0].length); }
         if (!targets) {
           // One skill or a list: "Perception and Stealth checks", "Bluff, Diplomacy, or Sense Motive"
           const head = rest.split(/\s+(?:skill\s+)?checks?\b/)[0];
           skills = head.split(/,\s*(?:and\s+|or\s+)?|\s+(?:and|or)\s+/).map(x => skillAt(x.trim())).filter(Boolean);
           if (!skills.length) { const one = skillAt(rest); if (one) skills = [one]; }
+          // "Diplomacy, Knowledge (local), or Sense Motive (choose one)": only the one picked in the name
+          const chosen = skills.length > 1 ? skills.filter(x => picks.includes(x)) : [];
+          if (chosen.length) skills = chosen;
           if (skills.length) {
             targets = ['skill'];
             const last = skills[skills.length - 1].toLowerCase(), at = rest.indexOf(last);
@@ -237,7 +245,10 @@
         }
         if (!targets) continue;
         // No condition after the target ("+2 dodge bonus to Armor Class.") means it always applies
-        const always = !/\b(against|when|whenever|while|within|made|during|if|vs|versus|in|to|for|that|until|near|from|with|by|as|on|at|of)\b/.test(after);
+        // (only the words right after it count: in "... on Intimidate checks, and Intimidate is always a class skill for you"
+        // the second half isn't a condition)
+        const cond = after.split(/[,;]|\band\b/)[0];
+        const always = !/\b(against|when|whenever|while|within|made|during|if|vs|versus|in|to|for|that|until|near|from|with|by|as|on|at|of)\b/.test(cond);
         const why = clause.trim().replace(/\s+/g, ' ');
         const make = (t, extra) => Object.assign(sit(t, val, type || defType || U, why), always ? { situational: false, active: true } : {}, extra || {}, label ? { label } : {});
         if (targets[0] === 'skill') skills.forEach(sk => out.push(make('skill', { skill: sk })));
@@ -258,7 +269,8 @@
     const fill = b => Object.assign({ label: '', skill: '', weapon: '', text: '', active: true }, b);
     if (!fn) {
       if (!text || kind === 'item' || kind === 'evolution') return null;
-      const found = detect(text, kind === 'trait' ? 'Trait' : U);
+      const picks = String((String(name || '').match(/\(([^)]*)\)\s*$/) || [])[1] || '').split(/,\s*/).map(x => skillAt(x.trim().toLowerCase())).filter(Boolean);
+      const found = detect(text, kind === 'trait' ? 'Trait' : U, undefined, picks);
       return found.length ? found.map(fill) : null;
     }
     return fn(name, cls).map(fill);
