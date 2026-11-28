@@ -1079,28 +1079,49 @@
     const why = featurePlayReason();
     return f => (typeof f.play === 'boolean' ? f.play : !why(f));
   }
+  // A racial feature's name for the Play tab: spreadsheet imports often name every feature after the race ("Human")
+  // or leave it blank, with the feature in the text, so those use the start of the text
+  function raceFeatureLabel(x) {
+    const nm = String(x.name || '').trim(), race = String(App.ch.info.race || '').trim().toLowerCase();
+    if (nm && nm.toLowerCase() !== race) return nm;
+    const t = String(x.text || '').trim().split(/[;\n]|\.\s/)[0].trim();
+    return t.length > 60 ? t.slice(0, 57) + '…' : t;
+  }
+  // Racial features already counted in your numbers (ability scores, size, speed, skill ranks, bonus feat, languages)
+  // are left off the Play tab automatically; ▶ on the Race tab shows or hides any of them by hand
+  function racePlayReason() {
+    return x => {
+      const s = (raceFeatureLabel(x) + ' ' + String(x.text || '').split(/[;\n]/)[0]).toLowerCase();
+      if (!raceFeatureLabel(x)) return 'it has no name or text';
+      if (/ability score|^\+2 to (any|one)|\bmedium( size)?\b|\bsmall( size)?\b|base speed|normal speed|slow speed|^skilled\b|skill rank|^bonus feat\b|^languages?\b|bonus languages/.test(s)) return 'it is already counted in your numbers (abilities, size, speed, skill ranks, feats or languages)';
+      return '';
+    };
+  }
+  function raceShownTest() { const why = racePlayReason(); return x => (typeof x.play === 'boolean' ? x.play : !why(x)); }
   function playFeaturesCard() {
     const ch = App.ch, d = App.d;
     const classes = d.classes.map((c, i) => [c, (ch.classes[i] && ch.classes[i].archetypes) || []]).filter(([c]) => c.data && c.level);
-    const shown = featureShownTest();
-    const feats = ch.classFeatures.map((f, i) => ({ f, i, r: featureResource(f) })).filter(x => x.f.name && shown(x.f));
+    const shown = featureShownTest(), raceShown = raceShownTest();
+    // Class features and racial features in one list (racial ones are tagged "race")
+    const feats = ch.classFeatures.map((f, i) => ({ f, i, list: 'classFeatures', label: f.name, r: featureResource(f) })).filter(x => x.f.name && shown(x.f))
+      .concat((ch.racialFeatures || []).map((f, i) => ({ f, i, list: 'racialFeatures', label: raceFeatureLabel(f), race: true })).filter(x => x.label && raceShown(x.f)).map(x => Object.assign(x, { r: featureResource({ name: x.label }) })));
     if (!classes.length && !feats.length) return '';
     // Starred features first, each group A to Z
-    const az = (a, b) => a.f.name.localeCompare(b.f.name, undefined, { sensitivity: 'base', numeric: true });
+    const az = (a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base', numeric: true });
     const sorted = feats.filter(x => x.f.fav).sort(az).concat(feats.filter(x => !x.f.fav).sort(az));
-    const rows = sorted.map(({ f, i, r }) => {
+    const rows = sorted.map(({ f, i, r, list, label, race }) => {
       const res = r >= 0 ? ch.resources[r] : null, short = shortRules(f.text);
       const uses = res ? (res.uses === '' || res.uses === undefined ? 0 : res.uses) : null;
       const empty = res && /^\d+$/.test(String(uses)) && +uses <= 0;
       const counter = res ? `<span class="counter"><button class="btn small" data-action="bump" data-path="resources/${r}/uses" data-d="-1" aria-label="Use one">−</button><strong>${esc(uses)}</strong>${res.max !== '' && res.max !== undefined && res.max !== null ? `<span class="muted">/ ${esc(res.max)}</span>` : ''}<button class="btn small" data-action="bump" data-path="resources/${r}/uses" data-d="1" aria-label="Add one">+</button></span>` : '';
       const fav = !!f.fav;
       return `<div class="play-res play-feat${fav ? ' fav' : ''}">
-        <span class="res-name"${short ? ` title="${esc(short)}"` : ''}><button class="star-btn${fav ? ' on' : ''}" data-action="toggle-fav" data-path="classFeatures/${i}" aria-pressed="${fav}" title="${fav ? 'Unstar' : 'Star this to highlight it and keep it at the top'}">${fav ? '★' : '☆'}</button>${esc(f.name)}</span>
-        <span class="inline" style="flex-wrap:nowrap">${counter}<button class="btn small${res ? '' : ' ghost'}" data-action="feature-use" data-i="${i}"${empty ? ' disabled' : ''} title="${res ? 'Use it: take one use and post what it does' : 'Post what it does'} (Shift-click: private)">${res ? 'Use' : 'Show'}</button></span></div>`;
+        <span class="res-name"${short ? ` title="${esc(short)}"` : ''}><button class="star-btn${fav ? ' on' : ''}" data-action="toggle-fav" data-path="${list}/${i}" aria-pressed="${fav}" title="${fav ? 'Unstar' : 'Star this to highlight it and keep it at the top'}">${fav ? '★' : '☆'}</button>${esc(label)}${race ? ' <span class="sub">race</span>' : ''}</span>
+        <span class="inline" style="flex-wrap:nowrap">${counter}<button class="btn small${res ? '' : ' ghost'}" data-action="feature-use" data-list="${list}" data-i="${i}"${empty ? ' disabled' : ''} title="${res ? 'Use it: take one use and post what it does' : 'Post what it does'} (Shift-click: private)">${res ? 'Use' : 'Show'}</button></span></div>`;
     }).join('');
-    const classLine = classes.map(([c, a]) => `<strong>${esc(c.name)} ${esc(c.level)}</strong>${a.length ? ` <span class="sub">${esc(a.join(', '))}</span>` : ''}`).join(' · ');
+    const classLine = (ch.info.race ? [`<strong>${esc(ch.info.race)}</strong>`] : []).concat(classes.map(([c, a]) => `<strong>${esc(c.name)} ${esc(c.level)}</strong>${a.length ? ` <span class="sub">${esc(a.join(', '))}</span>` : ''}`)).join(' · ');
     return card('Classes & Features', `${classLine ? `<div class="small" style="margin-bottom:6px">${classLine}</div>` : ''}
-      ${rows || '<p class="small muted">No class features yet. Add them on the Character tab.</p>'}`,
+      ${rows || '<p class="small muted">No class or racial features yet. Add them on the Character and Race tabs.</p>'}`,
       { tools: `<button class="btn small ghost" data-action="tab" data-tab="character">Edit</button>` });
   }
   function playMythicCard() {
@@ -1668,7 +1689,8 @@
       `<p class="small muted">These count as racial bonuses: two racial bonuses to the same thing don't stack, but they stack with every other type. "Situational" entries are reminders shown on the Play tab and don't change any numbers.</p>`,
       { tools: `<button class="btn small" data-action="add-bonus" data-list="race/bonuses" data-type="Racial">+ Bonus</button>`, cls: 'span-2' });
 
-    const list = ch.racialFeatures.map((x, i) => `<div class="list-row feature-row">${inp(`racialFeatures/${i}/name`, { ph: 'Feature' })}${area(`racialFeatures/${i}/text`, { rows: 3, ph: 'Description' })}${removeBtn('racialFeatures', i)}</div>`).join('') || '<p class="small muted">None yet.</p>';
+    const raceWhy = racePlayReason();
+    const list = ch.racialFeatures.map((x, i) => `<div class="list-row feature-row has-play">${inp(`racialFeatures/${i}/name`, { ph: 'Feature' })}${area(`racialFeatures/${i}/text`, { rows: 3, ph: 'Description' })}${playFlagBtn(x, i, raceWhy, 'racialFeatures', 'Classes & Features')}${removeBtn('racialFeatures', i)}</div>`).join('') || '<p class="small muted">None yet.</p>';
     const feats = card('Racial Features', list, { tools: `<button class="btn small" data-action="add" data-list="racialFeatures">+ Feature</button>`, cls: 'span-2' });
     return `<div class="grid two">${main}${bonuses}${feats}</div>`;
   }
@@ -2601,16 +2623,18 @@
       'toggle-play-flag': () => {
         const list = el.dataset.list || 'classFeatures', i = +el.dataset.i, f = (App.ch[list] || [])[i];
         if (!f) return;
-        const auto = list === 'resources' ? !resourcePlayReason()(f, i) : list === 'miscItems' ? miscCounts(f) : !featurePlayReason()(f);
+        const auto = list === 'resources' ? !resourcePlayReason()(f, i) : list === 'miscItems' ? miscCounts(f) : list === 'racialFeatures' ? !racePlayReason()(f) : !featurePlayReason()(f);
         const now = typeof f.play === 'boolean' ? f.play : auto;
         if (!now === auto) delete f.play; else f.play = !now;   // back to automatic when that matches
         changed(true);
-        const card = list === 'classFeatures' ? 'Classes & Features' : 'Resources';
-        toast(!now ? `${f.name || 'It'}: shown on the Play tab's ${card} card.` : `${f.name || 'It'}: left off the Play tab.`);
+        const card = list === 'classFeatures' || list === 'racialFeatures' ? 'Classes & Features' : 'Resources';
+        const nm = list === 'racialFeatures' ? raceFeatureLabel(f) : f.name;
+        toast(!now ? `${nm || 'It'}: shown on the Play tab's ${card} card.` : `${nm || 'It'}: left off the Play tab.`);
       },
       'feature-use': () => {
-        const f = App.ch.classFeatures[+el.dataset.i];
-        if (!f) return;
+        const isRace = el.dataset.list === 'racialFeatures', f0 = (isRace ? App.ch.racialFeatures : App.ch.classFeatures)[+el.dataset.i];
+        if (!f0) return;
+        const f = isRace ? { name: raceFeatureLabel(f0), text: f0.text } : f0;
         const r = featureResource(f), res = r >= 0 ? App.ch.resources[r] : null;
         let left = '';
         if (res && /^\d+$/.test(String(res.uses === '' || res.uses === undefined ? 0 : res.uses))) {
